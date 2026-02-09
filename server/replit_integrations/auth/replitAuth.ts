@@ -8,11 +8,35 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { authStorage } from "./storage";
 
+function getAuth0Domain(): string {
+  const domain = process.env.AUTH0_DOMAIN;
+  if (!domain) throw new Error("AUTH0_DOMAIN environment variable is required. Please set it in your Secrets.");
+  return domain;
+}
+
+function getAuth0ClientId(): string {
+  const id = process.env.AUTH0_CLIENT_ID;
+  if (!id) throw new Error("AUTH0_CLIENT_ID environment variable is required. Please set it in your Secrets.");
+  return id;
+}
+
+function getAuth0ClientSecret(): string {
+  const secret = process.env.AUTH0_CLIENT_SECRET;
+  if (!secret) throw new Error("AUTH0_CLIENT_SECRET environment variable is required. Please set it in your Secrets.");
+  return secret;
+}
+
+function isAuth0Configured(): boolean {
+  return !!(process.env.AUTH0_DOMAIN && process.env.AUTH0_CLIENT_ID && process.env.AUTH0_CLIENT_SECRET);
+}
+
 const getOidcConfig = memoize(
   async () => {
+    const issuerUrl = `https://${getAuth0Domain()}`;
     return await client.discovery(
-      new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
-      process.env.REPL_ID!
+      new URL(issuerUrl),
+      getAuth0ClientId(),
+      getAuth0ClientSecret(),
     );
   },
   { maxAge: 3600 * 1000 }
@@ -54,9 +78,9 @@ async function upsertUser(claims: any) {
   await authStorage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
-    firstName: claims["first_name"],
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"],
+    firstName: claims["given_name"] || claims["first_name"] || claims["nickname"] || null,
+    lastName: claims["family_name"] || claims["last_name"] || null,
+    profileImageUrl: claims["picture"] || claims["profile_image_url"] || null,
   });
 }
 
@@ -65,6 +89,21 @@ export async function setupAuth(app: Express) {
   app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
+
+  if (!isAuth0Configured()) {
+    console.warn("Auth0 is not configured. Set AUTH0_DOMAIN, AUTH0_CLIENT_ID, and AUTH0_CLIENT_SECRET in your Secrets to enable authentication.");
+
+    app.get("/api/login", (_req, res) => {
+      res.status(503).json({ message: "Auth0 is not configured. Please set AUTH0_DOMAIN, AUTH0_CLIENT_ID, and AUTH0_CLIENT_SECRET." });
+    });
+    app.get("/api/callback", (_req, res) => {
+      res.status(503).json({ message: "Auth0 is not configured." });
+    });
+    app.get("/api/logout", (_req, res) => {
+      res.redirect("/");
+    });
+    return;
+  }
 
   const config = await getOidcConfig();
 
@@ -78,12 +117,10 @@ export async function setupAuth(app: Express) {
     verified(null, user);
   };
 
-  // Keep track of registered strategies
   const registeredStrategies = new Set<string>();
 
-  // Helper function to ensure strategy exists for a domain
   const ensureStrategy = (domain: string) => {
-    const strategyName = `replitauth:${domain}`;
+    const strategyName = `auth0:${domain}`;
     if (!registeredStrategies.has(strategyName)) {
       const strategy = new Strategy(
         {
@@ -104,15 +141,15 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/login", (req, res, next) => {
     ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
+    passport.authenticate(`auth0:${req.hostname}`, {
+      prompt: "login",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
     ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    passport.authenticate(`auth0:${req.hostname}`, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
     })(req, res, next);
@@ -120,12 +157,11 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/logout", (req, res) => {
     req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
+      const auth0Domain = getAuth0Domain();
+      const clientId = getAuth0ClientId();
+      const returnTo = `${req.protocol}://${req.hostname}`;
+      const logoutUrl = `https://${auth0Domain}/v2/logout?client_id=${encodeURIComponent(clientId)}&returnTo=${encodeURIComponent(returnTo)}`;
+      res.redirect(logoutUrl);
     });
   });
 }

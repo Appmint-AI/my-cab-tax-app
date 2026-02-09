@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
-import { CarFront, Calculator, TrendingUp, ShieldCheck } from "lucide-react";
+import { CarFront, Calculator, TrendingUp, ShieldCheck, Fingerprint } from "lucide-react";
 
 export default function Landing() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -22,7 +22,7 @@ export default function Landing() {
             </div>
             <span className="font-display font-bold text-xl tracking-tight">My Cab Tax</span>
           </div>
-          <Button onClick={login} variant="outline" className="font-medium hover:bg-muted">
+          <Button onClick={login} variant="outline" data-testid="button-login-nav">
             Log In
           </Button>
         </div>
@@ -50,7 +50,7 @@ export default function Landing() {
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 justify-center animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
-          <Button size="lg" onClick={login} className="text-lg px-8 py-6 shadow-lg shadow-primary/25 hover:shadow-xl hover:-translate-y-0.5 transition-all">
+          <Button size="lg" onClick={login} data-testid="button-login-hero">
             Start Tracking Free
           </Button>
         </div>
@@ -91,7 +91,7 @@ export default function Landing() {
       <section className="py-24 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-card p-8 rounded-2xl border border-border/50 shadow-sm hover:shadow-md transition-all">
+            <div className="bg-card p-8 rounded-md border border-border/50">
               <div className="w-12 h-12 bg-primary/20 text-primary rounded-xl flex items-center justify-center mb-6">
                 <Calculator className="w-6 h-6" />
               </div>
@@ -101,7 +101,7 @@ export default function Landing() {
               </p>
             </div>
             
-            <div className="bg-card p-8 rounded-2xl border border-border/50 shadow-sm hover:shadow-md transition-all">
+            <div className="bg-card p-8 rounded-md border border-border/50">
               <div className="w-12 h-12 bg-primary/20 text-primary rounded-xl flex items-center justify-center mb-6">
                 <TrendingUp className="w-6 h-6" />
               </div>
@@ -111,13 +111,13 @@ export default function Landing() {
               </p>
             </div>
             
-            <div className="bg-card p-8 rounded-2xl border border-border/50 shadow-sm hover:shadow-md transition-all">
+            <div className="bg-card p-8 rounded-md border border-border/50">
               <div className="w-12 h-12 bg-primary/20 text-primary rounded-xl flex items-center justify-center mb-6">
                 <ShieldCheck className="w-6 h-6" />
               </div>
-              <h3 className="font-display font-bold text-xl mb-3">Audit-Proof Records</h3>
+              <h3 className="font-display font-bold text-xl mb-3">Secure with MFA</h3>
               <p className="text-muted-foreground leading-relaxed">
-                Keep digital copies of your receipts and logs secure and accessible anytime.
+                Protected by Auth0 with multi-factor authentication and biometric login. Your financial data stays safe.
               </p>
             </div>
           </div>
