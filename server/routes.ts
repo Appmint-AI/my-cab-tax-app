@@ -27,11 +27,8 @@ export async function registerRoutes(
   app.post(api.expenses.create.path, isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
-      const input = api.expenses.create.input.parse({
-        ...req.body,
-        userId // Ensure userId is injected from session
-      });
-      const expense = await storage.createExpense(input);
+      const input = api.expenses.create.input.parse(req.body);
+      const expense = await storage.createExpense({ ...input, userId });
       res.status(201).json(expense);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -93,11 +90,8 @@ export async function registerRoutes(
   app.post(api.incomes.create.path, isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
-      const input = api.incomes.create.input.parse({
-        ...req.body,
-        userId
-      });
-      const income = await storage.createIncome(input);
+      const input = api.incomes.create.input.parse(req.body);
+      const income = await storage.createIncome({ ...input, userId });
       res.status(201).json(income);
     } catch (err) {
       if (err instanceof z.ZodError) {

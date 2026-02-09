@@ -3,32 +3,29 @@ import {
   type Expense, type InsertExpense, 
   type Income, type InsertIncome,
   type UpdateExpenseRequest, type UpdateIncomeRequest,
-  type TaxSummary
+  type TaxSummary,
+  IRS_MILEAGE_RATE, SE_TAX_RATE, QUARTERLY_DEADLINES
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sum, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
-  // Expenses
   getExpenses(userId: string): Promise<Expense[]>;
   getExpense(id: number): Promise<Expense | undefined>;
-  createExpense(expense: InsertExpense): Promise<Expense>;
+  createExpense(expense: InsertExpense & { userId: string }): Promise<Expense>;
   updateExpense(userId: string, id: number, expense: UpdateExpenseRequest): Promise<Expense | undefined>;
   deleteExpense(userId: string, id: number): Promise<void>;
 
-  // Incomes
   getIncomes(userId: string): Promise<Income[]>;
   getIncome(id: number): Promise<Income | undefined>;
-  createIncome(income: InsertIncome): Promise<Income>;
+  createIncome(income: InsertIncome & { userId: string }): Promise<Income>;
   updateIncome(userId: string, id: number, income: UpdateIncomeRequest): Promise<Income | undefined>;
   deleteIncome(userId: string, id: number): Promise<void>;
 
-  // Tax Summary
   getTaxSummary(userId: string): Promise<TaxSummary>;
 }
 
 export class DatabaseStorage implements IStorage {
-  // Expenses
   async getExpenses(userId: string): Promise<Expense[]> {
     return await db.select().from(expenses).where(eq(expenses.userId, userId));
   }
@@ -38,7 +35,7 @@ export class DatabaseStorage implements IStorage {
     return expense;
   }
 
-  async createExpense(insertExpense: InsertExpense): Promise<Expense> {
+  async createExpense(insertExpense: InsertExpense & { userId: string }): Promise<Expense> {
     const [expense] = await db.insert(expenses).values(insertExpense).returning();
     return expense;
   }
@@ -56,7 +53,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(expenses).where(and(eq(expenses.id, id), eq(expenses.userId, userId)));
   }
 
-  // Incomes
   async getIncomes(userId: string): Promise<Income[]> {
     return await db.select().from(incomes).where(eq(incomes.userId, userId));
   }
@@ -66,7 +62,7 @@ export class DatabaseStorage implements IStorage {
     return income;
   }
 
-  async createIncome(insertIncome: InsertIncome): Promise<Income> {
+  async createIncome(insertIncome: InsertIncome & { userId: string }): Promise<Income> {
     const [income] = await db.insert(incomes).values(insertIncome).returning();
     return income;
   }
@@ -84,18 +80,20 @@ export class DatabaseStorage implements IStorage {
     await db.delete(incomes).where(and(eq(incomes.id, id), eq(incomes.userId, userId)));
   }
 
-  // Tax Summary Calculation
   async getTaxSummary(userId: string): Promise<TaxSummary> {
     const expensesList = await this.getExpenses(userId);
     const incomesList = await this.getIncomes(userId);
 
-    const totalIncome = incomesList.reduce((sum, inc) => sum + Number(inc.amount), 0);
-    const totalExpenses = expensesList.reduce((sum, exp) => sum + Number(exp.amount), 0);
-    const netIncome = totalIncome - totalExpenses;
-    
-    // Very basic tax estimation (e.g. 15.3% self-employment tax + roughly 10% income tax bracket for low/mid income)
-    // This is just an ESTIMATE.
-    const estimatedTax = Math.max(0, netIncome * 0.25); 
+    const grossIncome = incomesList.reduce((sum, inc) => sum + Number(inc.amount), 0);
+    const totalPlatformFees = incomesList.reduce((sum, inc) => sum + Number(inc.platformFees || 0), 0);
+    const totalMiles = incomesList.reduce((sum, inc) => sum + Number(inc.miles || 0), 0);
+    const mileageDeduction = totalMiles * IRS_MILEAGE_RATE;
+    const totalOtherExpenses = expensesList.reduce((sum, exp) => sum + Number(exp.amount), 0);
+
+    const totalDeductions = totalPlatformFees + mileageDeduction + totalOtherExpenses;
+    const netProfit = grossIncome - totalDeductions;
+    const selfEmploymentTax = Math.max(0, netProfit * SE_TAX_RATE);
+    const estimatedQuarterlyPayment = selfEmploymentTax / 4;
 
     const expensesByCategory: Record<string, number> = {};
     expensesList.forEach(exp => {
@@ -108,12 +106,19 @@ export class DatabaseStorage implements IStorage {
     });
 
     return {
-      totalIncome,
-      totalExpenses,
-      netIncome,
-      estimatedTax,
+      grossIncome,
+      totalPlatformFees,
+      totalMiles,
+      mileageDeduction,
+      totalOtherExpenses,
+      totalDeductions,
+      netProfit,
+      selfEmploymentTax,
+      estimatedQuarterlyPayment,
       expensesByCategory,
-      incomeBySource
+      incomeBySource,
+      quarterlyDeadlines: QUARTERLY_DEADLINES,
+      mileageRate: IRS_MILEAGE_RATE,
     };
   }
 }

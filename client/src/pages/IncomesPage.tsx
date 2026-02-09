@@ -38,8 +38,8 @@ export default function IncomesPage() {
     <Layout>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold">Income Logs</h1>
-          <p className="text-muted-foreground">Track your earnings from different sources.</p>
+          <h1 className="text-3xl font-display font-bold" data-testid="text-incomes-title">Income Logs</h1>
+          <p className="text-muted-foreground">Track your earnings, miles driven, and platform fees.</p>
         </div>
         <IncomeForm />
       </div>
@@ -49,6 +49,7 @@ export default function IncomesPage() {
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
+              data-testid="input-search-incomes"
               placeholder="Search incomes..." 
               className="pl-9 bg-background" 
               value={search}
@@ -72,31 +73,39 @@ export default function IncomesPage() {
                   <TableHead>Date</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Miles</TableHead>
+                  <TableHead className="text-right">Fees</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredIncomes.map((income) => (
-                  <TableRow key={income.id} className="group hover:bg-muted/30">
+                  <TableRow key={income.id} className="group hover:bg-muted/30" data-testid={`row-income-${income.id}`}>
                     <TableCell className="font-medium">
                       {format(new Date(income.date), "MMM d, yyyy")}
                     </TableCell>
                     <TableCell>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">
                         {income.source}
                       </span>
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate text-muted-foreground">
                       {income.description || "-"}
                     </TableCell>
-                    <TableCell className="text-right font-bold font-mono text-green-600">
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {Number(income.miles || 0) > 0 ? Number(income.miles).toFixed(1) : "-"}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-red-500">
+                      {Number(income.platformFees || 0) > 0 ? `-$${Number(income.platformFees).toFixed(2)}` : "-"}
+                    </TableCell>
+                    <TableCell className="text-right font-bold font-mono text-green-600 dark:text-green-400">
                       +${Number(income.amount).toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" data-testid={`button-income-menu-${income.id}`}>
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -117,7 +126,6 @@ export default function IncomesPage() {
                         </DropdownMenuContent>
                       </DropdownMenu>
 
-                      {/* Editing Form Dialog */}
                       {editingId === income.id && (
                         <IncomeForm 
                           initialData={income} 

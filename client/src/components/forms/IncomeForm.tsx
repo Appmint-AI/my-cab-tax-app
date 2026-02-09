@@ -30,14 +30,15 @@ import { useState, useEffect } from "react";
 import { Plus, Loader2 } from "lucide-react";
 import { z } from "zod";
 
-// Extend schema for form to handle date as string first
 const formSchema = insertIncomeSchema.extend({
   amount: z.coerce.number().positive("Amount must be positive"),
   date: z.string().min(1, "Date is required"),
+  miles: z.coerce.number().min(0).optional().default(0),
+  platformFees: z.coerce.number().min(0).optional().default(0),
 });
 
 interface IncomeFormProps {
-  initialData?: InsertIncome & { id: number };
+  initialData?: InsertIncome & { id: number; miles?: string | number | null; platformFees?: string | number | null };
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   trigger?: React.ReactNode;
@@ -55,10 +56,12 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      amount: initialData?.amount ?? "" as any,
+      amount: initialData?.amount ?? ("" as any),
       source: initialData?.source ?? "Uber",
       date: initialData?.date ? new Date(initialData.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       description: initialData?.description ?? "",
+      miles: initialData?.miles ? Number(initialData.miles) : 0,
+      platformFees: initialData?.platformFees ? Number(initialData.platformFees) : 0,
     },
   });
 
@@ -69,6 +72,8 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
         source: initialData.source,
         date: new Date(initialData.date).toISOString().split('T')[0],
         description: initialData.description ?? "",
+        miles: initialData.miles ? Number(initialData.miles) : 0,
+        platformFees: initialData.platformFees ? Number(initialData.platformFees) : 0,
       });
     }
   }, [initialData, form]);
@@ -96,7 +101,7 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       {!trigger && !initialData && (
         <DialogTrigger asChild>
-          <Button size="lg" className="shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all">
+          <Button data-testid="button-add-income">
             <Plus className="mr-2 h-5 w-5" />
             Add Income
           </Button>
@@ -115,9 +120,10 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Amount ($)</FormLabel>
+                  <FormLabel>Gross Earnings ($)</FormLabel>
                   <FormControl>
                     <Input 
+                      data-testid="input-income-amount"
                       type="number" 
                       step="0.01" 
                       placeholder="0.00" 
@@ -130,6 +136,48 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
               )}
             />
 
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="miles"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Miles Driven</FormLabel>
+                    <FormControl>
+                      <Input 
+                        data-testid="input-income-miles"
+                        type="number" 
+                        step="0.1" 
+                        placeholder="0" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="platformFees"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Platform Fees ($)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        data-testid="input-income-fees"
+                        type="number" 
+                        step="0.01" 
+                        placeholder="0.00" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <FormField
               control={form.control}
               name="source"
@@ -138,7 +186,7 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
                   <FormLabel>Source</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger data-testid="select-income-source">
                         <SelectValue placeholder="Select a source" />
                       </SelectTrigger>
                     </FormControl>
@@ -162,7 +210,7 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
                 <FormItem>
                   <FormLabel>Date</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    <Input data-testid="input-income-date" type="date" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -176,14 +224,14 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
                 <FormItem>
                   <FormLabel>Description (Optional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Trip details, etc." {...field} />
+                    <Input data-testid="input-income-description" placeholder="Trip details, etc." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <Button type="submit" className="w-full" disabled={isPending}>
+            <Button data-testid="button-submit-income" type="submit" className="w-full" disabled={isPending}>
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {initialData ? "Save Changes" : "Create Record"}
             </Button>

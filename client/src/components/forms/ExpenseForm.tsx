@@ -97,7 +97,7 @@ export function ExpenseForm({ initialData, open: controlledOpen, onOpenChange: s
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       {!trigger && !initialData && (
         <DialogTrigger asChild>
-          <Button size="lg" variant="outline" className="border-primary/20 hover:bg-primary/5 hover:text-primary transition-all">
+          <Button variant="outline" data-testid="button-add-expense">
             <Plus className="mr-2 h-5 w-5" />
             Add Expense
           </Button>
