@@ -43,5 +43,13 @@ A tax tracking app for rideshare and cab drivers in the US. Tracks income, expen
 - Self-employment tax rate: 15.3%
 - Quarterly deadlines: Apr 15, Jun 15, Sep 15, Jan 15
 
+## Deployment (Google Cloud Run)
+- **Dockerfile**: Multi-stage build (Node 20-slim). Stage 1 builds client+server, Stage 2 runs only `dist/index.cjs`
+- **cloudbuild.yaml**: Builds Docker image, pushes to GCR, deploys to Cloud Run (us-central1)
+- **Port**: Cloud Run sets PORT=8080; server reads `process.env.PORT`
+- **Environment vars needed on Cloud Run**: DATABASE_URL, SESSION_SECRET, AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET
+- **Build allowlist**: `openid-client` and `memoizee` added to `script/build.ts` so all server deps are bundled into `dist/index.cjs` (no `node_modules` needed at runtime)
+
 ## User Preferences
 - Auth0 with MFA/biometric security preferred over Replit Auth
+- Google Cloud Run for production deployment (scalability)
