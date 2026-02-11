@@ -4,6 +4,7 @@ import { useTaxSummary } from "@/hooks/use-tax";
 import { useAuth } from "@/hooks/use-auth";
 import { IncomeForm } from "@/components/forms/IncomeForm";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
+import { Form1099K } from "@/components/forms/Form1099K";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { useMileageLogs } from "@/hooks/use-mileage-logs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,11 +25,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2 } from "lucide-react";
+import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { Link } from "wouter";
 import JSZip from "jszip";
+import { jsPDF } from "jspdf";
 import { IRS_MILEAGE_RATE } from "@shared/schema";
 import type { TaxSummary, MileageLog } from "@shared/schema";
 import type { User } from "@shared/models/auth";
@@ -79,12 +81,13 @@ export default function Dashboard() {
       prefix: "$"
     },
     {
-      title: "SE Tax (15.3%)",
+      title: "Reserved for Taxes",
       value: summary.selfEmploymentTax,
       icon: FileText,
       color: "text-blue-600 dark:text-blue-400",
       bg: "bg-blue-100 dark:bg-blue-900/30",
-      prefix: "$"
+      prefix: "$",
+      subtitle: "SE Tax (15.3% of 92.35%)"
     }
   ];
 
@@ -97,6 +100,7 @@ export default function Dashboard() {
         </div>
         <div className="flex gap-3 w-full md:w-auto flex-wrap">
           <IncomeForm />
+          <Form1099K />
           <ExpenseForm />
         </div>
       </div>
@@ -124,6 +128,9 @@ export default function Dashboard() {
                 <div className="text-2xl font-bold font-display tracking-tight" data-testid={`text-stat-${stat.title.toLowerCase().replace(/\s+/g, '-')}`}>
                   {stat.prefix}{Math.abs(Number(stat.value)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
+                {stat.subtitle && (
+                  <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -195,6 +202,20 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-6 border-blue-200/60 dark:border-blue-800/40 bg-blue-50/30 dark:bg-blue-950/20 shadow-sm" data-testid="card-1099k-tip">
+        <CardContent className="flex items-start gap-3 py-3 px-4">
+          <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+              IRS Update: 1099-K Reporting Threshold
+            </p>
+            <p className="text-xs text-blue-800/70 dark:text-blue-300/70 mt-0.5 leading-relaxed">
+              You will likely receive a 1099-K if you earned over $600 this year. Make sure to report the GROSS amount from Box 1a here, even if it&apos;s more than what you received in your bank account. Use "Add 1099-K" to enter your 1099-K details.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="mt-8 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
         <DashboardCharts summary={summary} />
@@ -296,59 +317,118 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
       const dateStr = format(now, "yyyy-MM-dd");
       const zip = new JSZip();
 
-      const summaryLines = [
-        "MY CAB TAX USA - Schedule C Tax Summary",
-        "*** SELF-PREPARED / NOT AUDITED ***",
-        `Generated: ${format(now, "MMMM d, yyyy 'at' h:mm a")}`,
-        "=".repeat(50),
-        "",
-        "INCOME",
-        `  Gross Income:            $${summary.grossIncome.toFixed(2)}`,
-        `  Platform Fees:           -$${summary.totalPlatformFees.toFixed(2)}`,
-        "",
-        "DEDUCTIONS",
-        `  Mileage (${summary.totalMiles.toLocaleString()} mi x $${summary.mileageRate}/mi): -$${summary.mileageDeduction.toFixed(2)}`,
-        `  Other Expenses:          -$${summary.totalOtherExpenses.toFixed(2)}`,
-        `  Total Deductions:        -$${summary.totalDeductions.toFixed(2)}`,
-        "",
-        "SUMMARY",
-        `  Net Profit:              $${summary.netProfit.toFixed(2)}`,
-        `  Self-Employment Tax (15.3%): $${summary.selfEmploymentTax.toFixed(2)}`,
-        `  Est. Quarterly Payment:  $${summary.estimatedQuarterlyPayment.toFixed(2)}`,
-        "",
-        "QUARTERLY DEADLINES",
-        ...summary.quarterlyDeadlines.map((d, i) => `  Q${i + 1}: ${format(parseISO(d), "MMMM d, yyyy")}`),
-        "",
-        ...Object.keys(summary.expensesByCategory).length > 0 ? [
-          "EXPENSES BY CATEGORY (IRS Schedule C)",
-          ...Object.entries(summary.expensesByCategory).map(([cat, val]) => `  ${cat}: $${Number(val).toFixed(2)}`),
-          "",
-        ] : [],
-        ...Object.keys(summary.incomeBySource).length > 0 ? [
-          "INCOME BY SOURCE",
-          ...Object.entries(summary.incomeBySource).map(([src, val]) => `  ${src}: $${Number(val).toFixed(2)}`),
-          "",
-        ] : [],
-        "=".repeat(50),
-        "CERTIFICATION",
-        "I certify under penalty of perjury that the information",
-        "provided is true and correct to the best of my knowledge.",
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let y = 20;
+      const lm = 20;
+      const col2 = 130;
+
+      const addLine = (text: string, fontSize = 10, bold = false) => {
+        doc.setFontSize(fontSize);
+        doc.setFont("helvetica", bold ? "bold" : "normal");
+        doc.text(text, lm, y);
+        y += fontSize * 0.5 + 2;
+      };
+      const addRow = (label: string, value: string) => {
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(label, lm + 4, y);
+        doc.text(value, col2, y, { align: "left" });
+        y += 6;
+      };
+      const addSep = () => {
+        doc.setDrawColor(180);
+        doc.line(lm, y, pageWidth - lm, y);
+        y += 4;
+      };
+
+      doc.setFontSize(8);
+      doc.setTextColor(200, 0, 0);
+      doc.text("*** SELF-PREPARED / NOT AUDITED ***", pageWidth / 2, 12, { align: "center" });
+      doc.setTextColor(0);
+
+      addLine("MY CAB TAX USA", 16, true);
+      addLine("Schedule C - Profit or Loss from Business (Summary)", 11, false);
+      addLine(`Generated: ${format(now, "MMMM d, yyyy 'at' h:mm a")}`, 8);
+      y += 2;
+      addSep();
+
+      addLine("PART I - INCOME", 11, true);
+      addRow("Line 1  Gross Receipts:", `$${summary.grossIncome.toFixed(2)}`);
+      addRow("Line 10  Commissions & Fees:", `-$${summary.totalPlatformFees.toFixed(2)}`);
+
+      if (Object.keys(summary.incomeBySource).length > 0) {
+        y += 2;
+        addLine("Income by Source:", 9, true);
+        Object.entries(summary.incomeBySource).forEach(([src, val]) => {
+          addRow(`  ${src}`, `$${Number(val).toFixed(2)}`);
+        });
+      }
+      y += 2;
+      addSep();
+
+      addLine("PART II - EXPENSES", 11, true);
+      addRow(`Mileage (${summary.totalMiles.toLocaleString()} mi x $${summary.mileageRate}/mi):`, `-$${summary.mileageDeduction.toFixed(2)}`);
+      addRow("Other Deductible Expenses:", `-$${summary.totalOtherExpenses.toFixed(2)}`);
+      doc.setFont("helvetica", "bold");
+      addRow("Total Deductions:", `-$${summary.totalDeductions.toFixed(2)}`);
+
+      if (Object.keys(summary.expensesByCategory).length > 0) {
+        y += 2;
+        addLine("Expenses by IRS Category:", 9, true);
+        Object.entries(summary.expensesByCategory).forEach(([cat, val]) => {
+          addRow(`  ${cat}`, `$${Number(val).toFixed(2)}`);
+        });
+      }
+      y += 2;
+      addSep();
+
+      addLine("PART III - NET PROFIT & SELF-EMPLOYMENT TAX", 11, true);
+      doc.setFont("helvetica", "bold");
+      addRow("Line 31  Net Profit (Loss):", `$${summary.netProfit.toFixed(2)}`);
+      doc.setFont("helvetica", "normal");
+      y += 2;
+      addRow("SE Taxable Base (92.35%):", `$${summary.seTaxableBase.toFixed(2)}`);
+      addRow("Self-Employment Tax (15.3%):", `$${summary.selfEmploymentTax.toFixed(2)}`);
+      addRow("SE Deduction (50% of SE Tax):", `$${summary.seDeduction.toFixed(2)}`);
+      y += 2;
+      doc.setFont("helvetica", "bold");
+      addRow("RESERVED FOR TAXES:", `$${summary.selfEmploymentTax.toFixed(2)}`);
+      addRow("Est. Quarterly Payment:", `$${summary.estimatedQuarterlyPayment.toFixed(2)}`);
+      doc.setFont("helvetica", "normal");
+      y += 2;
+      addSep();
+
+      addLine("QUARTERLY ESTIMATED TAX DEADLINES (2026)", 10, true);
+      summary.quarterlyDeadlines.forEach((d, i) => {
+        addRow(`Q${i + 1}: ${format(parseISO(d), "MMMM d, yyyy")}`, `$${summary.estimatedQuarterlyPayment.toFixed(2)}`);
+      });
+      y += 4;
+      addSep();
+
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      const disclaimer = [
+        "CERTIFICATION: I certify under penalty of perjury that the information provided is true and correct to the best of my knowledge.",
         "I acknowledge that My Cab Tax USA is a tool and not a tax professional.",
         "",
-        "DISCLAIMER: This is a bookkeeping summary only. It is NOT",
-        "a tax return. Consult a qualified CPA or Tax Attorney before",
-        "submitting any returns to the IRS.",
+        "DISCLAIMER: This is a bookkeeping summary only. It is NOT a tax return.",
+        "Consult a qualified CPA or Tax Attorney before submitting any returns to the IRS.",
         "",
-        "*** SELF-PREPARED / NOT AUDITED ***",
-        "This document was generated by My Cab Tax USA, a bookkeeping",
-        "tool. It has not been reviewed, verified, or audited by the",
-        "IRS or any licensed tax professional.",
-        "",
-        "This communication pertains strictly to My Cab Tax USA",
-        "services and data (USA). Jurisdiction: State of Delaware.",
-        "=".repeat(50),
+        "This document was generated by My Cab Tax USA, a bookkeeping tool.",
+        "It has not been reviewed, verified, or audited by the IRS or any licensed tax professional.",
+        "Jurisdiction: State of Delaware.",
       ];
-      zip.file(`Schedule_C_Summary_${dateStr}.txt`, summaryLines.join("\n"));
+      disclaimer.forEach(line => {
+        doc.text(line, lm, y);
+        y += 4;
+      });
+
+      doc.setFontSize(8);
+      doc.setTextColor(200, 0, 0);
+      doc.text("*** SELF-PREPARED / NOT AUDITED ***", pageWidth / 2, y + 4, { align: "center" });
+
+      zip.file("Summary.pdf", doc.output("arraybuffer"));
 
       const categoryCsvRows = [
         ["Category", "Amount"],
@@ -369,30 +449,32 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
       categoryCsvRows.push(["Est. Quarterly Payment", summary.estimatedQuarterlyPayment.toFixed(2)]);
       zip.file(`Expenses_By_Category_${dateStr}.csv`, categoryCsvRows.map(r => (r as string[]).join(",")).join("\n"));
 
+      const csvEscape = (val: string) => {
+        if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+          return `"${val.replace(/"/g, '""')}"`;
+        }
+        return val;
+      };
+      const mileageCsvRows = [
+        ["Date", "Business Purpose", "Total Miles", "Start Odometer", "End Odometer", "Deduction"],
+        ...mileageLogs
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .map(log => [
+            log.date,
+            csvEscape(log.businessPurpose),
+            Number(log.totalMiles).toFixed(1),
+            log.startOdometer ? Number(log.startOdometer).toString() : "",
+            log.endOdometer ? Number(log.endOdometer).toString() : "",
+            (Number(log.totalMiles) * IRS_MILEAGE_RATE).toFixed(2),
+          ]),
+      ];
       if (mileageLogs.length > 0) {
-        const csvEscape = (val: string) => {
-          if (val.includes(",") || val.includes('"') || val.includes("\n")) {
-            return `"${val.replace(/"/g, '""')}"`;
-          }
-          return val;
-        };
-        const mileageCsvRows = [
-          ["Date", "Business Purpose", "Total Miles", "Start Odometer", "End Odometer", "Deduction"],
-          ...mileageLogs
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-            .map(log => [
-              log.date,
-              csvEscape(log.businessPurpose),
-              Number(log.totalMiles).toFixed(1),
-              log.startOdometer ? Number(log.startOdometer).toString() : "",
-              log.endOdometer ? Number(log.endOdometer).toString() : "",
-              (Number(log.totalMiles) * IRS_MILEAGE_RATE).toFixed(2),
-            ]),
-        ];
         const totalLogMiles = mileageLogs.reduce((s, l) => s + Number(l.totalMiles), 0);
         mileageCsvRows.push(["TOTAL", "", totalLogMiles.toFixed(1), "", "", (totalLogMiles * IRS_MILEAGE_RATE).toFixed(2)]);
-        zip.file(`Mileage_Log_${dateStr}.csv`, mileageCsvRows.map(r => r.join(",")).join("\n"));
       }
+      zip.file("MileageLog.csv", mileageCsvRows.map(r => r.join(",")).join("\n"));
+
+      zip.folder("Receipts");
 
       const blob = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(blob);
@@ -417,7 +499,7 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Download className="h-5 w-5" />
-            Export Tax Summary
+            Export for IRS
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -447,7 +529,7 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
                 data-testid="button-export-summary"
               >
                 <Download className="h-4 w-4 mr-2" />
-                Export Summary
+                Export for IRS
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
