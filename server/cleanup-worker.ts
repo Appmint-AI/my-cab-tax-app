@@ -20,6 +20,14 @@ async function sendInactivityEmail(
     const { client, fromEmail } = await getResendClient();
     const name = firstName || "Driver";
 
+    const usaFooter = `
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;" />
+      <p style="color:#999;font-size:11px;line-height:1.4;">
+        This communication pertains strictly to My Cab Tax USA services and data. For UK-related inquiries, please contact the UK support branch.<br/>
+        My Cab Tax USA &bull; Legal Notices: legal@mycabtax.com &bull; Jurisdiction: State of Delaware, USA
+      </p>
+    `;
+
     const subjects: Record<string, string> = {
       reminder: "We miss you! Your tax data will be deleted soon",
       urgent: "URGENT: Your tax records are scheduled for deletion in 10 days",
@@ -33,6 +41,7 @@ async function sendInactivityEmail(
         <p>Log in now to keep your data safe, or upgrade to Pro for 7-year IRS-compliant storage.</p>
         <p><a href="https://mycabtaxusa.com">Log In Now</a></p>
         <p style="color: #666; font-size: 12px;">My Cab Tax USA - This is an automated reminder. You are receiving this because you have a free account with us.</p>
+        ${usaFooter}
       `,
       urgent: `
         <h2>Hi ${name},</h2>
@@ -43,6 +52,7 @@ async function sendInactivityEmail(
         <p>Want to never worry about this again? <strong>Upgrade to Pro</strong> for guaranteed 7-year storage in our Tax Vault with unlimited receipt photos and certified PDF Audit Packs.</p>
         <p><a href="https://mycabtaxusa.com/upgrade">Upgrade to Pro</a></p>
         <p style="color: #666; font-size: 12px;">My Cab Tax USA - This is an automated reminder. You are receiving this because you have a free account with us.</p>
+        ${usaFooter}
       `,
       purged: `
         <h2>Hi ${name},</h2>
@@ -51,6 +61,7 @@ async function sendInactivityEmail(
         <p>Next time, consider upgrading to <strong>Pro</strong> for 7-year guaranteed storage so you never lose your records again.</p>
         <p><a href="https://mycabtaxusa.com">Start Fresh</a> | <a href="https://mycabtaxusa.com/upgrade">Upgrade to Pro</a></p>
         <p style="color: #666; font-size: 12px;">My Cab Tax USA - This is an automated notification. You are receiving this because you have a free account with us.</p>
+        ${usaFooter}
       `,
     };
 

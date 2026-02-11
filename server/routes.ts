@@ -196,7 +196,7 @@ export async function registerRoutes(
     req.session.destroy(() => {
       res.json({
         success: true,
-        message: "Your account has been deactivated. Your data will be permanently deleted after 30 days. If you change your mind, contact legal@mycabtaxusa.com before then.",
+        message: "Your account has been deactivated. Your data will be permanently deleted after 30 days. If you change your mind, contact legal@mycabtax.com before then.",
       });
     });
   });
@@ -238,9 +238,19 @@ export async function registerRoutes(
       const { getResendClient } = await import("./resend");
       const { client, fromEmail } = await getResendClient();
 
+      const usaJurisdictionFooter = `
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;" />
+        <p style="color:#999;font-size:11px;line-height:1.4;">
+          This communication pertains strictly to My Cab Tax USA services and data. For UK-related inquiries, please contact the UK support branch.<br/>
+          My Cab Tax USA &bull; Legal Notices: legal@mycabtax.com &bull; Jurisdiction: State of Delaware, USA
+        </p>
+      `;
+
+      const submittedAt = new Date().toISOString();
+
       await client.emails.send({
         from: fromEmail,
-        to: "legal@mycabtaxusa.com",
+        to: "legal@mycabtax.com",
         replyTo: user?.email || undefined,
         subject: `[Legal Support] ${typeLabels[inquiryType]} - User ${userId}`,
         tags: [
@@ -258,12 +268,34 @@ export async function registerRoutes(
             <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">User Email</td><td style="padding:6px 12px;">${user?.email || "N/A"}</td></tr>
             <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">User Name</td><td style="padding:6px 12px;">${user?.firstName || ""} ${user?.lastName || ""}</td></tr>
             <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Subscription</td><td style="padding:6px 12px;">${user?.subscriptionStatus || "free"}</td></tr>
-            <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Submitted At</td><td style="padding:6px 12px;">${new Date().toISOString()}</td></tr>
+            <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Submitted At</td><td style="padding:6px 12px;">${submittedAt}</td></tr>
           </table>
           <h3>Message</h3>
           <div style="background:#f9fafb;padding:16px;border-radius:8px;white-space:pre-wrap;">${message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+          ${usaJurisdictionFooter}
         `,
       });
+
+      if (user?.email) {
+        await client.emails.send({
+          from: fromEmail,
+          to: user.email,
+          subject: `My Cab Tax USA - Your ${typeLabels[inquiryType]} Has Been Received`,
+          html: `
+            <h2>Thank you for contacting the My Cab Tax USA Legal Department.</h2>
+            <p>Your inquiry has been logged and assigned to our compliance team.</p>
+            <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+              <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Inquiry Type</td><td style="padding:6px 12px;">${typeLabels[inquiryType]}</td></tr>
+              <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Submitted At</td><td style="padding:6px 12px;">${submittedAt}</td></tr>
+              <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Reference ID</td><td style="padding:6px 12px;font-family:monospace;">${userId.slice(0, 8)}-${Date.now().toString(36)}</td></tr>
+            </table>
+            <p>If this is a request for <strong>data deletion under CCPA</strong>, it will be processed within 30 days in accordance with applicable privacy laws.</p>
+            <p>For all other inquiries, our legal team will respond within <strong>5 business days</strong>.</p>
+            <p style="color:#666;font-size:12px;">Please do not reply to this email. For follow-up, submit a new inquiry at <a href="https://mycabtaxusa.com/support">mycabtaxusa.com/support</a>.</p>
+            ${usaJurisdictionFooter}
+          `,
+        });
+      }
 
       res.json({ success: true, message: "Your inquiry has been submitted. Our legal team will respond within 5 business days." });
     } catch (error) {

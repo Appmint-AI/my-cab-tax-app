@@ -4,17 +4,22 @@
 A tax tracking app for rideshare and cab drivers in the US. Tracks income, expenses, miles driven, and platform fees. Calculates Schedule C profit using real 2026 IRS rates.
 
 ## Recent Changes
+- Updated all legal notice email references from legal@mycabtaxusa.com to legal@mycabtax.com
+- Added "Self-Prepared / Not Audited" watermarks at top and bottom of exported tax summary files
+- Added USA-only jurisdiction footer to all email templates (cleanup worker + support auto-responder)
+- Added export confirmation AlertDialog requiring user acknowledgment before download
 - Added IRS Circular 230 Disclosure to Legal page footer (regulatory compliance)
 - Added "Your State Privacy Rights (CCPA/VCDPA)" section to Privacy Policy with Right to be Forgotten language
 - Added Mileage Tracking Shield disclaimer on Dashboard (IRS Publication 463 reference)
 - Added legal_consent_logs audit trail table: records IP, user-agent, timestamp, terms version, jurisdiction (Delaware), arbitration_agreed on every terms acceptance
 - Replaced "filing" language with "export"/"submit" to avoid implying e-file capability
 - Expanded Terms of Service Section 1.7: Delaware jurisdiction, AAA binding arbitration, class action waiver, small claims option
-- Added Contact for Legal Notices section (legal@mycabtaxusa.com) to Terms of Service
+- Added Contact for Legal Notices section (legal@mycabtax.com) to Terms of Service
 - Updated Data Privacy section in Settings with VCDPA reference and "Right to be Forgotten" language
 - Added Upgrade to Pro marketing page (/upgrade) with IRS audit pitch, Free vs Pro comparison, Tax Vault benefits
 - Added Legal & Privacy Support form (/support) with inquiry type dropdown (GDPR/CCPA, deletion, arbitration, security)
-  - Sends structured email to legal@mycabtaxusa.com via Resend with Auth0 user ID metadata (tags + headers)
+  - Sends structured email to legal@mycabtax.com via Resend with Auth0 user ID metadata (tags + headers)
+  - Auto-responder sends confirmation email to user with reference ID, CCPA 30-day timeline, and USA jurisdiction footer
 - Converted Delete Account to soft-delete: sets isDeactivated=true + accountDeletedAt, 30-day grace period
   - Login blocked for soft-deleted users via auth middleware (already existed)
   - Cleanup worker hard-purges soft-deleted accounts after 30 days (removes user, expenses, incomes)

@@ -89,9 +89,10 @@ export default function SupportPage() {
           <Card className="p-8 text-center" data-testid="card-submission-success">
             <CheckCircle className="h-12 w-12 text-primary mx-auto mb-4" />
             <h2 className="font-display font-bold text-xl mb-2">Inquiry Submitted</h2>
-            <p className="text-muted-foreground mb-4">
-              Your inquiry has been sent to our legal team at legal@mycabtaxusa.com. 
-              We will respond within 5 business days. Your Auth0 user ID has been automatically attached for reference.
+            <p className="text-muted-foreground mb-4" data-testid="text-submission-message">
+              Your inquiry has been sent to our legal team at legal@mycabtax.com. 
+              A confirmation email with your reference ID has been sent to your account email address.
+              We will respond within 5 business days. If this is a CCPA data deletion request, it will be processed within 30 days.
             </p>
             <div className="flex gap-3 justify-center flex-wrap">
               <Button onClick={() => { setSubmitted(false); setInquiryType(""); setMessage(""); }} variant="outline" data-testid="button-new-inquiry">
