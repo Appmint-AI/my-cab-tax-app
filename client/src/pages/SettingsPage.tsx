@@ -8,17 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,9 +31,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
-  const [dangerStep, setDangerStep] = useState(0);
-  const [dangerAcknowledged, setDangerAcknowledged] = useState(false);
+  const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
   const [dangerConfirmText, setDangerConfirmText] = useState("");
 
   const deleteMutation = useMutation({
@@ -71,7 +60,6 @@ export default function SettingsPage() {
     mutationFn: () =>
       apiRequest("POST", "/api/delete-account", {
         confirmation: dangerConfirmText,
-        acknowledged: true,
       }),
     onSuccess: () => {
       window.location.href = "/";
@@ -85,15 +73,7 @@ export default function SettingsPage() {
     },
   });
 
-  function resetDangerZone() {
-    setDangerStep(0);
-    setDangerAcknowledged(false);
-    setDangerConfirmText("");
-  }
-
-  const confirmationValid =
-    dangerConfirmText === user?.email ||
-    dangerConfirmText.toUpperCase() === "DELETE";
+  const confirmationValid = dangerConfirmText === "Permanently Delete";
 
   return (
     <Layout>
@@ -202,7 +182,7 @@ export default function SettingsPage() {
                 <AlertDialogCancel data-testid="button-cancel-deletion">Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => deleteMutation.mutate()}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  className="bg-destructive text-destructive-foreground"
                   disabled={deleteMutation.isPending}
                   data-testid="button-confirm-deletion"
                 >
@@ -231,46 +211,42 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-foreground/80 leading-relaxed">
-            Permanently delete your account and all associated data. This is a destructive action that cannot be reversed after the 30-day cooling-off period.
+            Permanently delete your account and all associated data. This action is irreversible and cannot be undone.
           </p>
 
-          <Button
-            variant="destructive"
-            onClick={() => { resetDangerZone(); setDangerStep(1); }}
-            data-testid="button-delete-account"
+          <AlertDialog
+            open={dangerDialogOpen}
+            onOpenChange={(open) => {
+              setDangerDialogOpen(open);
+              if (!open) setDangerConfirmText("");
+            }}
           >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete My Account and Data
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Dialog
-        open={dangerStep > 0}
-        onOpenChange={(open) => { if (!open) resetDangerZone(); }}
-      >
-        <DialogContent
-          className="sm:max-w-md"
-          onPointerDownOutside={(e) => e.preventDefault()}
-        >
-          {dangerStep === 1 && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-destructive">
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="destructive"
+                data-testid="button-delete-account"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete My Account and Data
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2 text-destructive">
                   <AlertTriangle className="h-5 w-5" />
-                  Are You Sure?
-                </DialogTitle>
-                <DialogDescription asChild>
-                  <div className="space-y-3 pt-2">
-                    <p className="text-sm">
-                      This will <strong className="text-foreground">permanently delete</strong> the following data from your account:
+                  Delete Account Permanently?
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-3">
+                    <p>
+                      This will <strong className="text-foreground">permanently delete</strong> your account and all associated data, including:
                     </p>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
                       <li>All mileage logs</li>
                       <li>All expense receipts and records</li>
                       <li>All income and platform fee records</li>
                       <li>All tax calculations and summaries</li>
-                      <li>Your terms acceptance and consent history</li>
+                      <li>Your profile and consent history</li>
                     </ul>
                     <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/5 border border-destructive/20">
                       <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
@@ -278,113 +254,39 @@ export default function SettingsPage() {
                         <strong>IRS Reminder:</strong> The IRS requires you to keep tax records for at least 3 years. Make sure you have exported or saved your records before proceeding.
                       </p>
                     </div>
+                    <div className="space-y-2 pt-1">
+                      <Label htmlFor="danger-confirm-input" className="text-sm text-foreground">
+                        Type <strong className="text-destructive">Permanently Delete</strong> to confirm
+                      </Label>
+                      <Input
+                        id="danger-confirm-input"
+                        value={dangerConfirmText}
+                        onChange={(e) => setDangerConfirmText(e.target.value)}
+                        placeholder="Permanently Delete"
+                        autoComplete="off"
+                        data-testid="input-danger-confirm"
+                      />
+                    </div>
                   </div>
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="gap-2 sm:gap-0">
-                <Button variant="outline" onClick={resetDangerZone} data-testid="button-danger-cancel-1">
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel data-testid="button-danger-cancel">
                   Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => setDangerStep(2)}
-                  data-testid="button-danger-continue-1"
-                >
-                  I Understand, Continue
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-
-          {dangerStep === 2 && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-destructive">
-                  <AlertTriangle className="h-5 w-5" />
-                  Acknowledge Deletion Terms
-                </DialogTitle>
-                <DialogDescription>
-                  Please read and acknowledge the following before proceeding.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-2">
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    id="danger-acknowledge"
-                    checked={dangerAcknowledged}
-                    onCheckedChange={(checked) => setDangerAcknowledged(checked === true)}
-                    data-testid="checkbox-danger-acknowledge"
-                  />
-                  <Label htmlFor="danger-acknowledge" className="text-sm leading-snug cursor-pointer">
-                    I understand that My Cab Tax USA does not keep backups of my data once deleted, and I am responsible for maintaining my own records for IRS purposes.
-                  </Label>
-                </div>
-              </div>
-              <DialogFooter className="gap-2 sm:gap-0">
-                <Button variant="outline" onClick={() => setDangerStep(1)} data-testid="button-danger-back-2">
-                  Back
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => setDangerStep(3)}
-                  disabled={!dangerAcknowledged}
-                  data-testid="button-danger-continue-2"
-                >
-                  Continue
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-
-          {dangerStep === 3 && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-destructive">
-                  <XCircle className="h-5 w-5" />
-                  Final Confirmation
-                </DialogTitle>
-                <DialogDescription>
-                  Type your email address or the word <strong className="text-foreground">DELETE</strong> to confirm.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label htmlFor="danger-confirm-input" className="text-sm">
-                    Type <strong>{user?.email}</strong> or <strong>DELETE</strong>
-                  </Label>
-                  <Input
-                    id="danger-confirm-input"
-                    value={dangerConfirmText}
-                    onChange={(e) => setDangerConfirmText(e.target.value)}
-                    placeholder="Type here to confirm..."
-                    autoComplete="off"
-                    data-testid="input-danger-confirm"
-                  />
-                </div>
-                <div className="flex items-start gap-2 p-3 rounded-md bg-muted/50 border border-border">
-                  <Shield className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Your account will be deactivated immediately and you will be logged out. Your data will be retained for a 30-day cooling-off period, after which it will be permanently purged. If you change your mind during this period, contact support to restore your account.
-                  </p>
-                </div>
-              </div>
-              <DialogFooter className="gap-2 sm:gap-0">
-                <Button variant="outline" onClick={() => setDangerStep(2)} data-testid="button-danger-back-3">
-                  Back
-                </Button>
-                <Button
-                  variant="destructive"
+                </AlertDialogCancel>
+                <AlertDialogAction
                   onClick={() => accountDeleteMutation.mutate()}
                   disabled={!confirmationValid || accountDeleteMutation.isPending}
-                  data-testid="button-danger-final-delete"
+                  className="bg-destructive text-destructive-foreground"
+                  data-testid="button-danger-confirm-delete"
                 >
-                  {accountDeleteMutation.isPending ? "Deleting Account..." : "Permanently Delete My Account"}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+                  {accountDeleteMutation.isPending ? "Deleting Account..." : "Confirm Delete"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </CardContent>
+      </Card>
     </Layout>
   );
 }

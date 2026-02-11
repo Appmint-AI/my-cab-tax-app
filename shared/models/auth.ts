@@ -28,6 +28,8 @@ export const users = pgTable("users", {
   accountDeleteConfirmation: varchar("account_delete_confirmation"),
   scheduledPurgeAt: timestamp("scheduled_purge_at"),
   isDeactivated: boolean("is_deactivated").default(false),
+  subscriptionStatus: varchar("subscription_status").default("free"),
+  dataRetentionUntil: timestamp("data_retention_until"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

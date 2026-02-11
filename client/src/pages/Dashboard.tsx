@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useTaxSummary } from "@/hooks/use-tax";
+import { useAuth } from "@/hooks/use-auth";
 import { IncomeForm } from "@/components/forms/IncomeForm";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
 import { DashboardCharts } from "@/components/DashboardCharts";
@@ -10,13 +11,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle } from "lucide-react";
+import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, parseISO } from "date-fns";
+import { Link } from "wouter";
 import type { TaxSummary } from "@shared/schema";
 
 export default function Dashboard() {
   const { data: summary, isLoading } = useTaxSummary();
+  const { user } = useAuth();
+
+  const isFreeUser = !user?.subscriptionStatus || user.subscriptionStatus === "free";
 
   if (isLoading || !summary) {
     return (
@@ -78,6 +83,27 @@ export default function Dashboard() {
           <ExpenseForm />
         </div>
       </div>
+
+      {isFreeUser && (
+        <Card className="border-yellow-500/40 bg-yellow-50/50 dark:bg-yellow-900/10" data-testid="banner-free-tier">
+          <CardContent className="flex items-start gap-3 py-3 px-4">
+            <Shield className="h-5 w-5 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+                Free Tier: Your tax data is only stored for 90 days.
+              </p>
+              <p className="text-xs text-yellow-700/80 dark:text-yellow-400/70 mt-0.5">
+                Upgrade to Pro to lock in 7-year IRS-compliant storage with the Tax Vault, unlimited receipt photo uploads, and certified audit-ready PDF exports.
+              </p>
+            </div>
+            <Link href="/legal?tab=subscriptions">
+              <Button variant="outline" size="sm" className="shrink-0 border-yellow-500/50 text-yellow-700 dark:text-yellow-300" data-testid="button-upgrade-pro">
+                Learn More
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, i) => (

@@ -27,6 +27,7 @@ export interface IStorage {
   acceptTerms(userId: string, version: string): Promise<void>;
   deleteUserData(userId: string): Promise<void>;
   softDeleteAccount(userId: string, confirmation: string): Promise<void>;
+  hardDeleteAccount(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -161,6 +162,12 @@ export class DatabaseStorage implements IStorage {
         updatedAt: now,
       })
       .where(eq(users.id, userId));
+  }
+
+  async hardDeleteAccount(userId: string): Promise<void> {
+    await db.delete(expenses).where(eq(expenses.userId, userId));
+    await db.delete(incomes).where(eq(incomes.userId, userId));
+    await db.delete(users).where(eq(users.id, userId));
   }
 }
 

@@ -4,8 +4,14 @@
 A tax tracking app for rideshare and cab drivers in the US. Tracks income, expenses, miles driven, and platform fees. Calculates Schedule C profit using real 2026 IRS rates.
 
 ## Recent Changes
-- Added Danger Zone: "Delete My Account and Data" with 3-step confirmation (warning → checkbox acknowledgment → type email/DELETE)
-- Soft-delete backend: account deactivated immediately, data purged after 30-day cooling-off period
+- Refactored Danger Zone to use AlertDialog: user must type "Permanently Delete" to enable Confirm Delete button (variant=destructive)
+- Hard-delete backend: wipes user row from database, clears all expenses/incomes, destroys session on deletion
+- Added Subscription Tiers system: subscription_status (free/pro) and data_retention_until fields in users table
+- Free Tier banner on Dashboard: warns 90-day data retention, links to Pro upgrade info
+- Added Subscription Tiers tab to Legal page: defines Tax Vault service, 7-year Pro retention guarantee, 30-day grace period on lapse
+- Free Tier: text data only, 90-day inactivity retention, basic CSV export
+- Pro Tier: Tax Vault with 7-year guaranteed retention, unlimited receipt photos, certified PDF Audit Packs, Record Integrity Certificate
+- Added Danger Zone: "Delete My Account and Data" with AlertDialog confirmation
 - Deactivated users are blocked from logging in (403 response, session destroyed)
 - Added accountDeletedAt, accountDeleteConfirmation, scheduledPurgeAt, isDeactivated fields to users table
 - Enhanced Legal Consent Modal: shows Tax Disclaimer + Mandatory Arbitration summary, saves termsVersion and consent_timestamp

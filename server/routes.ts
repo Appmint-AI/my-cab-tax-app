@@ -166,11 +166,10 @@ export async function registerRoutes(
     res.json({ success: true, message: "All your tax records have been permanently deleted." });
   });
 
-  // Delete Account (Soft Delete with 30-day retention)
+  // Delete Account (Hard Delete - wipes user row and all data)
   app.post("/api/delete-account", isAuthenticated, async (req, res) => {
     const deleteSchema = z.object({
       confirmation: z.string().min(1, "Confirmation text is required"),
-      acknowledged: z.literal(true, { errorMap: () => ({ message: "You must acknowledge the deletion terms" }) }),
     });
 
     const parsed = deleteSchema.safeParse(req.body);
@@ -181,22 +180,21 @@ export async function registerRoutes(
       });
     }
 
-    const userId = (req.user as any).claims.sub;
-    const userEmail = (req.user as any).claims.email;
-
     const { confirmation } = parsed.data;
-    if (confirmation !== userEmail && confirmation.toUpperCase() !== "DELETE") {
+    if (confirmation !== "Permanently Delete") {
       return res.status(400).json({
-        message: "Confirmation text must match your email address or the word DELETE.",
+        message: "You must type 'Permanently Delete' to confirm account deletion.",
       });
     }
 
-    await storage.softDeleteAccount(userId, confirmation);
+    const userId = (req.user as any).claims.sub;
 
-    req.logout(() => {
+    await storage.hardDeleteAccount(userId);
+
+    req.session.destroy(() => {
       res.json({
         success: true,
-        message: "Your account has been deactivated and all data will be permanently purged after 30 days.",
+        message: "Your account and all associated data have been permanently deleted.",
       });
     });
   });

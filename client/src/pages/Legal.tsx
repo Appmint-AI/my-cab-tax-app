@@ -1,10 +1,14 @@
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CarFront, ArrowLeft, AlertTriangle } from "lucide-react";
+import { CarFront, ArrowLeft, AlertTriangle, Shield, Crown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Legal() {
+  const searchString = useSearch();
+  const params = new URLSearchParams(searchString);
+  const defaultTab = params.get("tab") || "terms";
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <nav className="border-b border-border/40 backdrop-blur-sm fixed w-full z-50 bg-background/80">
@@ -40,11 +44,12 @@ export default function Legal() {
           </div>
         </Card>
 
-        <Tabs defaultValue="terms" className="w-full">
-          <TabsList className="w-full grid grid-cols-3 mb-8">
-            <TabsTrigger value="terms" data-testid="tab-terms">Terms of Service</TabsTrigger>
-            <TabsTrigger value="privacy" data-testid="tab-privacy">Privacy Policy</TabsTrigger>
-            <TabsTrigger value="tax" data-testid="tab-tax">Tax Disclaimers</TabsTrigger>
+        <Tabs defaultValue={defaultTab} className="w-full">
+          <TabsList className="w-full grid grid-cols-4 mb-8">
+            <TabsTrigger value="terms" data-testid="tab-terms">Terms</TabsTrigger>
+            <TabsTrigger value="privacy" data-testid="tab-privacy">Privacy</TabsTrigger>
+            <TabsTrigger value="tax" data-testid="tab-tax">Tax</TabsTrigger>
+            <TabsTrigger value="subscriptions" data-testid="tab-subscriptions">Subscriptions</TabsTrigger>
           </TabsList>
 
           <TabsContent value="terms">
@@ -189,6 +194,113 @@ export default function Legal() {
                 <section>
                   <h3 className="font-semibold text-base mb-2">3.8 No Guarantee of Tax Savings</h3>
                   <p>Use of this Service does not guarantee any particular tax outcome, deduction amount, or tax savings. Results depend entirely on the accuracy and completeness of the data you provide.</p>
+                </section>
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="subscriptions">
+            <Card className="p-6 sm:p-8">
+              <h2 className="font-display font-bold text-2xl mb-4">4. Subscription Tiers & Tax Vault</h2>
+              <p className="text-sm text-muted-foreground mb-6">Last updated: February 2026</p>
+
+              <div className="space-y-6 text-sm leading-relaxed text-foreground/90">
+                <section>
+                  <h3 className="font-semibold text-base mb-2">4.1 Overview of Service Tiers</h3>
+                  <p>My Cab Tax USA offers two service tiers designed to meet different needs: a Free Tier for casual users, and a Pro Tier (subscription) for drivers who require long-term, audit-ready data retention and advanced features.</p>
+                </section>
+
+                <section>
+                  <h3 className="font-semibold text-base mb-2">4.2 Free Tier</h3>
+                  <div className="space-y-2">
+                    <p>The Free Tier provides core tax tracking features with the following terms:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li><strong>Data Access:</strong> Active usage only. Data is available while you are actively using the Service.</li>
+                      <li><strong>Data Retention:</strong> Tax data is automatically deleted after 90 days of account inactivity. It is your responsibility to export and back up your records before this period expires.</li>
+                      <li><strong>Export:</strong> Basic CSV export of your tax summary and records.</li>
+                      <li><strong>Receipt Storage:</strong> Receipt photo uploads are not available on the Free Tier. Only text-based data (numbers, categories, descriptions) is stored.</li>
+                      <li><strong>Legal Responsibility:</strong> You are solely responsible for maintaining your own records for IRS compliance.</li>
+                    </ul>
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="font-semibold text-base mb-2">4.3 Pro Tier (Subscription)</h3>
+                  <div className="space-y-2">
+                    <p>The Pro Tier is a paid subscription that provides enhanced data security, long-term retention, and advanced features:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li><strong>Full Audit-Ready Vault:</strong> All tax data is stored in our secure Tax Vault with guaranteed data redundancy and encrypted backups.</li>
+                      <li><strong>7-Year Guaranteed Retention:</strong> We guarantee data storage for up to 7 years, provided your Pro account remains in good standing. This exceeds the IRS minimum 3-year recordkeeping requirement.</li>
+                      <li><strong>Certified PDF Audit Packs:</strong> Export your records as certified PDF "Audit Packs" including receipt images, categorized expenses, mileage logs, and a Record Integrity Certificate.</li>
+                      <li><strong>Unlimited Receipt Photo Uploads:</strong> Upload and store unlimited receipt photos attached to your expense records for complete audit documentation.</li>
+                      <li><strong>Record Integrity Certificate:</strong> We provide a digitally signed certificate verifying the integrity and timestamp of your stored records.</li>
+                    </ul>
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="font-semibold text-base mb-2">4.4 Tax Vault Service Definition</h3>
+                  <p>The "Tax Vault" is My Cab Tax USA's secure, redundant data storage service available exclusively to Pro Tier subscribers. The Tax Vault provides:</p>
+                  <ul className="list-disc pl-5 space-y-1 mt-2">
+                    <li>Encrypted storage of all financial records, mileage logs, expense data, and receipt images</li>
+                    <li>Geographically redundant backups to protect against data loss</li>
+                    <li>Guaranteed availability and data integrity for the duration of an active Pro subscription</li>
+                    <li>Tamper-evident audit trails for all record modifications</li>
+                  </ul>
+                  <p className="mt-2">The Tax Vault is designed to help drivers maintain IRS-compliant records for the recommended 7-year retention period. However, the Tax Vault does not constitute legal or tax advice, and My Cab Tax USA makes no representations about the legal sufficiency of stored records for any particular audit or proceeding.</p>
+                </section>
+
+                <section>
+                  <h3 className="font-semibold text-base mb-2">4.5 Subscription Lapse & Grace Period</h3>
+                  <div className="space-y-2">
+                    <p>If a Pro subscription lapses (due to non-payment, cancellation, or any other reason), the following terms apply:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li><strong>30-Day Grace Period:</strong> Upon subscription lapse, you will have a 30-day grace period to download all of your data, including receipt photos, tax summaries, and any Audit Pack exports.</li>
+                      <li><strong>Post-Grace Period:</strong> After the 30-day grace period expires, your account will revert to Free Tier status. Receipt photos and any Pro-exclusive data will be permanently deleted. Text-based records (income, expenses, mileage) will be retained under Free Tier terms (90-day inactivity rule).</li>
+                      <li><strong>Re-subscription:</strong> If you re-subscribe to Pro within the 30-day grace period, your Tax Vault data will be fully restored and the 7-year retention guarantee will resume without interruption.</li>
+                    </ul>
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="font-semibold text-base mb-2">4.6 Good Standing Requirement</h3>
+                  <p>The 7-year data retention guarantee is contingent upon the Pro account remaining in "good standing," which means: the subscription is current and not past due, the account has not been suspended or terminated for violation of our Terms of Service, and the user has not submitted fraudulent or illegal data. My Cab Tax USA reserves the right to terminate accounts that violate these conditions.</p>
+                </section>
+
+                <section>
+                  <h3 className="font-semibold text-base mb-2">4.7 Pricing & Changes</h3>
+                  <p>Pro Tier pricing is published on our website and may be updated from time to time. We will provide at least 30 days' notice before any price increase takes effect. Existing subscribers will be grandfathered at their current rate until their next renewal cycle after the notice period.</p>
+                </section>
+
+                <section className="mt-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Card className="p-4 border-border/60" data-testid="card-tier-free">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Shield className="h-5 w-5 text-muted-foreground" />
+                        <h4 className="font-semibold text-base">Free Tier</h4>
+                      </div>
+                      <ul className="space-y-2 text-xs text-muted-foreground">
+                        <li>Active usage data access</li>
+                        <li>90-day inactivity retention</li>
+                        <li>Basic CSV export</li>
+                        <li>Text data only (no receipt photos)</li>
+                        <li>User is solely responsible</li>
+                      </ul>
+                    </Card>
+                    <Card className="p-4 border-primary/40 bg-primary/5" data-testid="card-tier-pro">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Crown className="h-5 w-5 text-primary" />
+                        <h4 className="font-semibold text-base text-primary">Pro Tier</h4>
+                      </div>
+                      <ul className="space-y-2 text-xs text-foreground/80">
+                        <li>Full Audit-Ready Tax Vault</li>
+                        <li>7-Year Guaranteed Retention</li>
+                        <li>Certified PDF Audit Packs</li>
+                        <li>Unlimited receipt photo uploads</li>
+                        <li>Record Integrity Certificate</li>
+                      </ul>
+                    </Card>
+                  </div>
                 </section>
               </div>
             </Card>
