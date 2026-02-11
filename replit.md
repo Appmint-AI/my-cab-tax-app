@@ -4,8 +4,12 @@
 A tax tracking app for rideshare and cab drivers in the US. Tracks income, expenses, miles driven, and platform fees. Calculates Schedule C profit using real 2026 IRS rates.
 
 ## Recent Changes
+- Added Danger Zone: "Delete My Account and Data" with 3-step confirmation (warning → checkbox acknowledgment → type email/DELETE)
+- Soft-delete backend: account deactivated immediately, data purged after 30-day cooling-off period
+- Deactivated users are blocked from logging in (403 response, session destroyed)
+- Added accountDeletedAt, accountDeleteConfirmation, scheduledPurgeAt, isDeactivated fields to users table
 - Enhanced Legal Consent Modal: shows Tax Disclaimer + Mandatory Arbitration summary, saves termsVersion and consent_timestamp
-- Added Settings page (/settings) with Profile, Legal Consent status, and Data Privacy section
+- Added Settings page (/settings) with Profile, Legal Consent status, Data Privacy, and Danger Zone sections
 - Data Privacy: "Request Data Deletion" button with confirmation dialog (CCPA compliant, permanently erases all tax records)
 - Export Tax Summary: checkbox label updated to "I certify that these records are accurate and I understand My Cab Tax USA is not a licensed tax professional."
 - Legal page now shows "Last Updated" date and version at the top

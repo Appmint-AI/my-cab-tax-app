@@ -5,8 +5,20 @@ import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,14 +31,19 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Trash2, User, FileText, AlertTriangle } from "lucide-react";
+import { Shield, Trash2, User, FileText, AlertTriangle, XCircle } from "lucide-react";
 import { format } from "date-fns";
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const [dangerStep, setDangerStep] = useState(0);
+  const [dangerAcknowledged, setDangerAcknowledged] = useState(false);
+  const [dangerConfirmText, setDangerConfirmText] = useState("");
 
   const deleteMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/request-data-deletion"),
@@ -49,6 +66,34 @@ export default function SettingsPage() {
       });
     },
   });
+
+  const accountDeleteMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", "/api/delete-account", {
+        confirmation: dangerConfirmText,
+        acknowledged: true,
+      }),
+    onSuccess: () => {
+      window.location.href = "/";
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to delete account. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  function resetDangerZone() {
+    setDangerStep(0);
+    setDangerAcknowledged(false);
+    setDangerConfirmText("");
+  }
+
+  const confirmationValid =
+    dangerConfirmText === user?.email ||
+    dangerConfirmText.toUpperCase() === "DELETE";
 
   return (
     <Layout>
@@ -174,6 +219,172 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Separator className="my-2" />
+
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <XCircle className="h-5 w-5" />
+            Danger Zone
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-foreground/80 leading-relaxed">
+            Permanently delete your account and all associated data. This is a destructive action that cannot be reversed after the 30-day cooling-off period.
+          </p>
+
+          <Button
+            variant="destructive"
+            onClick={() => { resetDangerZone(); setDangerStep(1); }}
+            data-testid="button-delete-account"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete My Account and Data
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={dangerStep > 0}
+        onOpenChange={(open) => { if (!open) resetDangerZone(); }}
+      >
+        <DialogContent
+          className="sm:max-w-md"
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
+          {dangerStep === 1 && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="h-5 w-5" />
+                  Are You Sure?
+                </DialogTitle>
+                <DialogDescription asChild>
+                  <div className="space-y-3 pt-2">
+                    <p className="text-sm">
+                      This will <strong className="text-foreground">permanently delete</strong> the following data from your account:
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      <li>All mileage logs</li>
+                      <li>All expense receipts and records</li>
+                      <li>All income and platform fee records</li>
+                      <li>All tax calculations and summaries</li>
+                      <li>Your terms acceptance and consent history</li>
+                    </ul>
+                    <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/5 border border-destructive/20">
+                      <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                      <p className="text-xs leading-relaxed">
+                        <strong>IRS Reminder:</strong> The IRS requires you to keep tax records for at least 3 years. Make sure you have exported or saved your records before proceeding.
+                      </p>
+                    </div>
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={resetDangerZone} data-testid="button-danger-cancel-1">
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => setDangerStep(2)}
+                  data-testid="button-danger-continue-1"
+                >
+                  I Understand, Continue
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {dangerStep === 2 && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="h-5 w-5" />
+                  Acknowledge Deletion Terms
+                </DialogTitle>
+                <DialogDescription>
+                  Please read and acknowledge the following before proceeding.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="danger-acknowledge"
+                    checked={dangerAcknowledged}
+                    onCheckedChange={(checked) => setDangerAcknowledged(checked === true)}
+                    data-testid="checkbox-danger-acknowledge"
+                  />
+                  <Label htmlFor="danger-acknowledge" className="text-sm leading-snug cursor-pointer">
+                    I understand that My Cab Tax USA does not keep backups of my data once deleted, and I am responsible for maintaining my own records for IRS purposes.
+                  </Label>
+                </div>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={() => setDangerStep(1)} data-testid="button-danger-back-2">
+                  Back
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => setDangerStep(3)}
+                  disabled={!dangerAcknowledged}
+                  data-testid="button-danger-continue-2"
+                >
+                  Continue
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {dangerStep === 3 && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-destructive">
+                  <XCircle className="h-5 w-5" />
+                  Final Confirmation
+                </DialogTitle>
+                <DialogDescription>
+                  Type your email address or the word <strong className="text-foreground">DELETE</strong> to confirm.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="danger-confirm-input" className="text-sm">
+                    Type <strong>{user?.email}</strong> or <strong>DELETE</strong>
+                  </Label>
+                  <Input
+                    id="danger-confirm-input"
+                    value={dangerConfirmText}
+                    onChange={(e) => setDangerConfirmText(e.target.value)}
+                    placeholder="Type here to confirm..."
+                    autoComplete="off"
+                    data-testid="input-danger-confirm"
+                  />
+                </div>
+                <div className="flex items-start gap-2 p-3 rounded-md bg-muted/50 border border-border">
+                  <Shield className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Your account will be deactivated immediately and you will be logged out. Your data will be retained for a 30-day cooling-off period, after which it will be permanently purged. If you change your mind during this period, contact support to restore your account.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={() => setDangerStep(2)} data-testid="button-danger-back-3">
+                  Back
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => accountDeleteMutation.mutate()}
+                  disabled={!confirmationValid || accountDeleteMutation.isPending}
+                  data-testid="button-danger-final-delete"
+                >
+                  {accountDeleteMutation.isPending ? "Deleting Account..." : "Permanently Delete My Account"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

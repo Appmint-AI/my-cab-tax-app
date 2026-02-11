@@ -166,6 +166,41 @@ export async function registerRoutes(
     res.json({ success: true, message: "All your tax records have been permanently deleted." });
   });
 
+  // Delete Account (Soft Delete with 30-day retention)
+  app.post("/api/delete-account", isAuthenticated, async (req, res) => {
+    const deleteSchema = z.object({
+      confirmation: z.string().min(1, "Confirmation text is required"),
+      acknowledged: z.literal(true, { errorMap: () => ({ message: "You must acknowledge the deletion terms" }) }),
+    });
+
+    const parsed = deleteSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: parsed.error.errors[0].message,
+        field: parsed.error.errors[0].path.join("."),
+      });
+    }
+
+    const userId = (req.user as any).claims.sub;
+    const userEmail = (req.user as any).claims.email;
+
+    const { confirmation } = parsed.data;
+    if (confirmation !== userEmail && confirmation.toUpperCase() !== "DELETE") {
+      return res.status(400).json({
+        message: "Confirmation text must match your email address or the word DELETE.",
+      });
+    }
+
+    await storage.softDeleteAccount(userId, confirmation);
+
+    req.logout(() => {
+      res.json({
+        success: true,
+        message: "Your account has been deactivated and all data will be permanently purged after 30 days.",
+      });
+    });
+  });
+
   return httpServer;
 }
 

@@ -26,6 +26,7 @@ export interface IStorage {
 
   acceptTerms(userId: string, version: string): Promise<void>;
   deleteUserData(userId: string): Promise<void>;
+  softDeleteAccount(userId: string, confirmation: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -142,6 +143,22 @@ export class DatabaseStorage implements IStorage {
         termsAcceptedAt: null,
         termsVersion: null,
         updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async softDeleteAccount(userId: string, confirmation: string): Promise<void> {
+    const now = new Date();
+    const purgeDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    await db
+      .update(users)
+      .set({
+        isDeactivated: true,
+        accountDeletedAt: now,
+        accountDeleteConfirmation: confirmation,
+        scheduledPurgeAt: purgeDate,
+        updatedAt: now,
       })
       .where(eq(users.id, userId));
   }

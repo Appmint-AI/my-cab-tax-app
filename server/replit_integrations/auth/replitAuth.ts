@@ -173,6 +173,20 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
+  const userId = user.claims?.sub;
+  if (userId) {
+    const dbUser = await authStorage.getUser(userId);
+    if (dbUser?.isDeactivated) {
+      req.logout(() => {
+        res.status(403).json({
+          message: "Account deactivated",
+          deactivated: true,
+        });
+      });
+      return;
+    }
+  }
+
   const now = Math.floor(Date.now() / 1000);
   if (now <= user.expires_at) {
     return next();
