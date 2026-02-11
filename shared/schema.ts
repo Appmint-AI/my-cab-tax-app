@@ -36,6 +36,25 @@ export const incomes = pgTable("incomes", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Legal consent audit log
+export const legalConsentLogs = pgTable("legal_consent_logs", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  termsVersion: text("terms_version").notNull(),
+  jurisdiction: text("jurisdiction").notNull().default("Delaware"),
+  arbitrationAgreed: boolean("arbitration_agreed").notNull().default(true),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  consentTimestamp: timestamp("consent_timestamp").notNull().defaultNow(),
+});
+
+export const legalConsentLogsRelations = relations(legalConsentLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [legalConsentLogs.userId],
+    references: [users.id],
+  }),
+}));
+
 // Relations
 export const expensesRelations = relations(expenses, ({ one }) => ({
   user: one(users, {

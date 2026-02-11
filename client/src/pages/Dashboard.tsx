@@ -130,6 +130,9 @@ export default function Dashboard() {
             <p className="text-xs text-muted-foreground mt-1">
               {summary.totalMiles.toLocaleString()} miles at ${summary.mileageRate}/mi (IRS 2026)
             </p>
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed" data-testid="text-mileage-disclaimer">
+              My Cab Tax USA relies on device GPS and user input. We do not guarantee 100% mileage accuracy. Drivers should cross-reference logs with their vehicle's odometer as required by IRS Publication 463.
+            </p>
           </CardContent>
         </Card>
 
@@ -311,7 +314,7 @@ function ExportSection({ summary }: { summary: TaxSummary }) {
       "",
       "DISCLAIMER: This is a bookkeeping summary only. It is NOT",
       "a tax return. Consult a qualified CPA or Tax Attorney before",
-      "filing any returns with the IRS.",
+      "submitting any returns to the IRS.",
       "=".repeat(50),
     ];
 
@@ -342,7 +345,7 @@ function ExportSection({ summary }: { summary: TaxSummary }) {
           <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/5 border border-destructive/20">
             <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
             <p className="text-xs text-foreground/80 leading-relaxed">
-              This export is for your personal records only. It is not a tax return. Consult a qualified CPA or Tax Attorney before filing with the IRS.
+              This export is for your personal records only. It is not a tax return. Consult a qualified CPA or Tax Attorney before submitting any returns to the IRS.
             </p>
           </div>
 

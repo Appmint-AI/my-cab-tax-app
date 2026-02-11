@@ -1,5 +1,5 @@
 import { 
-  expenses, incomes, users,
+  expenses, incomes, users, legalConsentLogs,
   type Expense, type InsertExpense, 
   type Income, type InsertIncome,
   type UpdateExpenseRequest, type UpdateIncomeRequest,
@@ -27,7 +27,7 @@ export interface IStorage {
 
   getTaxSummary(userId: string): Promise<TaxSummary>;
 
-  acceptTerms(userId: string, version: string): Promise<void>;
+  acceptTerms(userId: string, version: string, ipAddress?: string, userAgent?: string): Promise<void>;
   deleteUserData(userId: string): Promise<void>;
   softDeleteAccount(userId: string, confirmation: string): Promise<void>;
   hardDeleteAccount(userId: string): Promise<void>;
@@ -135,11 +135,22 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async acceptTerms(userId: string, version: string): Promise<void> {
+  async acceptTerms(userId: string, version: string, ipAddress?: string, userAgent?: string): Promise<void> {
+    const now = new Date();
     await db
       .update(users)
-      .set({ termsAcceptedAt: new Date(), termsVersion: version, updatedAt: new Date() })
+      .set({ termsAcceptedAt: now, termsVersion: version, updatedAt: now })
       .where(eq(users.id, userId));
+
+    await db.insert(legalConsentLogs).values({
+      userId,
+      termsVersion: version,
+      jurisdiction: "Delaware",
+      arbitrationAgreed: true,
+      ipAddress: ipAddress || null,
+      userAgent: userAgent || null,
+      consentTimestamp: now,
+    });
   }
 
   async deleteUserData(userId: string): Promise<void> {

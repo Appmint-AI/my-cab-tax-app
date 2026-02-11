@@ -146,7 +146,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-foreground/80 leading-relaxed">
-            Under the California Consumer Privacy Act (CCPA) and other applicable privacy laws, you have the right to request permanent deletion of your personal data. This action cannot be undone.
+            Under the California Consumer Privacy Act (CCPA), Virginia Consumer Data Protection Act (VCDPA), and other applicable state privacy laws, you have the right to request permanent deletion of your personal data. This satisfies your "Right to be Forgotten" under state privacy laws. This action cannot be undone.
           </p>
 
           <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

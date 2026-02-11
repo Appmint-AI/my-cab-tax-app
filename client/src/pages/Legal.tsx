@@ -38,7 +38,7 @@ export default function Legal() {
             <div>
               <h2 className="font-display font-bold text-lg mb-2 text-destructive">IMPORTANT: TAX DISCLAIMER</h2>
               <p className="text-sm leading-relaxed text-foreground/90">
-                <strong>My Cab Tax USA is a bookkeeping tool, NOT a tax advisory service.</strong> We do not provide professional tax, legal, or accounting advice. This software is designed for informational and organizational purposes only. You should consult with a qualified CPA or Tax Attorney before filing any returns with the IRS.
+                <strong>My Cab Tax USA is a bookkeeping tool, NOT a tax advisory service.</strong> We do not provide professional tax, legal, or accounting advice. This software is designed for informational and organizational purposes only. You should consult with a qualified CPA or Tax Attorney before submitting any returns to the IRS.
               </p>
             </div>
           </div>
@@ -84,18 +84,35 @@ export default function Legal() {
                 </section>
 
                 <section>
-                  <h3 className="font-semibold text-base mb-2">1.6 Mandatory Arbitration</h3>
-                  <p>Any disputes arising out of or relating to these Terms or the Service will be resolved through individual binding arbitration in the United States. You waive your right to participate in a class-action lawsuit or class-wide arbitration. This arbitration clause survives termination of your account.</p>
-                </section>
-
-                <section>
-                  <h3 className="font-semibold text-base mb-2">1.7 Termination</h3>
+                  <h3 className="font-semibold text-base mb-2">1.6 Termination</h3>
                   <p>We may suspend or terminate your account at any time for violation of these Terms. You may delete your account at any time. Upon termination, your right to use the Service ceases immediately, and we may delete your data after a reasonable retention period.</p>
                 </section>
 
                 <section>
-                  <h3 className="font-semibold text-base mb-2">1.8 Governing Law</h3>
-                  <p>These Terms are governed by the laws of the State of Delaware, United States, without regard to conflict of law principles.</p>
+                  <h3 className="font-semibold text-base mb-2">1.7 Governing Law & Dispute Resolution</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="font-medium">1.7.1 Governing Law</p>
+                      <p>These Terms and your use of My Cab Tax USA shall be governed by and construed in accordance with the laws of the State of Delaware, without regard to its conflict of law principles.</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">1.7.2 Mandatory Binding Arbitration</p>
+                      <p>You and My Cab Tax USA agree that any dispute, claim, or controversy arising out of or relating to this App shall be settled by binding individual arbitration administered by the American Arbitration Association (AAA) in accordance with its Consumer Arbitration Rules. This arbitration clause survives termination of your account.</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">1.7.3 Class Action Waiver</p>
+                      <p className="uppercase text-xs tracking-wide">YOU AGREE THAT ANY ARBITRATION OR PROCEEDING SHALL BE LIMITED TO THE DISPUTE BETWEEN US INDIVIDUALLY. TO THE FULL EXTENT PERMITTED BY LAW, NO ARBITRATION OR PROCEEDING SHALL BE JOINED WITH ANY OTHER AND THERE IS NO RIGHT OR AUTHORITY FOR ANY DISPUTE TO BE ARBITRATED ON A CLASS-ACTION BASIS OR TO UTILIZE CLASS ACTION PROCEDURES.</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">1.7.4 Small Claims Court Option</p>
+                      <p>Notwithstanding the above, either party may bring an individual action in small claims court for disputes within the scope of that court's jurisdiction.</p>
+                    </div>
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="font-semibold text-base mb-2">1.8 Contact for Legal Notices</h3>
+                  <p>All formal legal notices, complaints, and correspondence should be directed to: <strong>legal@mycabtaxusa.com</strong>. This is the designated inbox for service of process, dispute notifications, arbitration filings, and any formal legal communications under these Terms.</p>
                 </section>
               </div>
             </Card>
@@ -133,8 +150,17 @@ export default function Legal() {
                 </section>
 
                 <section>
-                  <h3 className="font-semibold text-base mb-2">2.6 Your Rights (CCPA)</h3>
-                  <p>If you are a California resident, you have the right under the California Consumer Privacy Act (CCPA) to: know what personal data is collected about you, request deletion of your personal data, opt out of the sale of your data (we do not sell data), and not be discriminated against for exercising your rights. You also have the right to access your data, correct inaccurate data, and export your data in a portable format. To exercise these rights, contact us at privacy@mycabtaxusa.com.</p>
+                  <h3 className="font-semibold text-base mb-2">2.6 Your State Privacy Rights (CCPA/VCDPA)</h3>
+                  <p>Residents of California, Virginia, Colorado, Connecticut, and other states with consumer privacy laws have the following rights:</p>
+                  <ul className="list-disc pl-5 space-y-1 mt-2">
+                    <li><strong>Right to Know:</strong> You may request what personal data we collect, use, and disclose about you.</li>
+                    <li><strong>Right to Delete ("Right to be Forgotten"):</strong> You may request permanent deletion of your personal data. Use the "Request Data Deletion" button in Settings to exercise this right. This satisfies your "Right to be Forgotten" under state privacy laws including CCPA (California), VCDPA (Virginia), and CPA (Colorado).</li>
+                    <li><strong>Right to Opt-Out:</strong> You have the right to opt out of the sale of your personal data. We do not sell your personal financial data to third parties.</li>
+                    <li><strong>Right to Correct:</strong> You may request correction of inaccurate personal data.</li>
+                    <li><strong>Right to Data Portability:</strong> You may export your data in a portable format using the Export feature.</li>
+                    <li><strong>Non-Discrimination:</strong> We will not discriminate against you for exercising your privacy rights.</li>
+                  </ul>
+                  <p className="mt-2">To exercise any of these rights, use the in-app controls in Settings or contact us at privacy@mycabtaxusa.com.</p>
                 </section>
 
                 <section>
@@ -158,7 +184,7 @@ export default function Legal() {
               <div className="space-y-6 text-sm leading-relaxed text-foreground/90">
                 <section>
                   <h3 className="font-semibold text-base mb-2">3.1 Not Tax Advice</h3>
-                  <p>My Cab Tax USA is a bookkeeping tool, NOT a tax advisory service. The Service does not provide tax advice, legal advice, or accounting services. The calculations and estimates provided by the Service are for informational and organizational purposes only and should not be relied upon as a substitute for professional tax advice. You should consult with a qualified CPA or Tax Attorney before filing any returns with the IRS.</p>
+                  <p>My Cab Tax USA is a bookkeeping tool, NOT a tax advisory service. The Service does not provide tax advice, legal advice, or accounting services. The calculations and estimates provided by the Service are for informational and organizational purposes only and should not be relied upon as a substitute for professional tax advice. You should consult with a qualified CPA or Tax Attorney before submitting any returns to the IRS.</p>
                 </section>
 
                 <section>
@@ -188,7 +214,7 @@ export default function Legal() {
 
                 <section>
                   <h3 className="font-semibold text-base mb-2">3.7 Consult a Tax Professional</h3>
-                  <p>We strongly recommend consulting a qualified tax professional, CPA, enrolled agent, or Tax Attorney for personalized tax advice. My Cab Tax USA is not a substitute for professional tax preparation or filing services. You are solely responsible for the accuracy of your tax returns and compliance with all applicable tax laws.</p>
+                  <p>We strongly recommend consulting a qualified tax professional, CPA, enrolled agent, or Tax Attorney for personalized tax advice. My Cab Tax USA is not a substitute for professional tax preparation or tax submission services. You are solely responsible for the accuracy of your tax returns and compliance with all applicable tax laws.</p>
                 </section>
 
                 <section>
@@ -309,8 +335,14 @@ export default function Legal() {
       </main>
 
       <footer className="py-12 border-t border-border/40 mt-auto bg-background">
-        <div className="max-w-7xl mx-auto px-4 text-center text-muted-foreground text-sm">
-          <p>&copy; {new Date().getFullYear()} My Cab Tax USA. All rights reserved.</p>
+        <div className="max-w-7xl mx-auto px-4 space-y-6">
+          <Card className="p-4 sm:p-6 border-border/40 bg-muted/30" data-testid="card-circular-230">
+            <p className="text-xs text-muted-foreground leading-relaxed uppercase tracking-wide font-medium mb-2">IRS Circular 230 Disclosure</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              To ensure compliance with requirements imposed by the IRS, we inform you that any tax information contained in this communication (including any attachments) is not intended or written to be used, and cannot be used, for the purpose of (i) avoiding penalties under the Internal Revenue Code or (ii) promoting, marketing or recommending to another party any transaction or matter addressed herein.
+            </p>
+          </Card>
+          <p className="text-center text-muted-foreground text-sm">&copy; {new Date().getFullYear()} My Cab Tax USA. All rights reserved.</p>
         </div>
       </footer>
     </div>
