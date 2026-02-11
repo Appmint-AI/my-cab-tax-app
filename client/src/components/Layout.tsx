@@ -9,7 +9,8 @@ import {
   CarFront,
   Menu,
   X,
-  Settings
+  Settings,
+  MapPin,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/incomes", label: "Income", icon: Wallet },
     { href: "/expenses", label: "Expenses", icon: Receipt },
+    { href: "/mileage", label: "Mileage", icon: MapPin },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
@@ -53,15 +55,16 @@ export function Layout({ children }: LayoutProps) {
           return (
             <Link key={item.href} href={item.href}>
               <div
+                data-testid={`link-nav-${item.label.toLowerCase()}`}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer",
                   isActive
-                    ? "bg-primary/10 text-primary-foreground font-semibold"
+                    ? "bg-accent text-accent-foreground font-semibold"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
                 onClick={() => setMobileMenuOpen(false)}
               >
-                <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-muted-foreground")} />
+                <item.icon className={cn("h-5 w-5", isActive ? "text-accent-foreground" : "text-muted-foreground")} />
                 {item.label}
               </div>
             </Link>

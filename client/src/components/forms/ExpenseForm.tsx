@@ -55,7 +55,7 @@ export function ExpenseForm({ initialData, open: controlledOpen, onOpenChange: s
     resolver: zodResolver(formSchema),
     defaultValues: {
       amount: initialData?.amount ?? "" as any,
-      category: initialData?.category ?? "Gas",
+      category: initialData?.category ?? "Car and Truck Expenses",
       date: initialData?.date ? new Date(initialData.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       description: initialData?.description ?? "",
       receiptUrl: initialData?.receiptUrl ?? "",
@@ -90,7 +90,15 @@ export function ExpenseForm({ initialData, open: controlledOpen, onOpenChange: s
     }
   };
 
-  const categories = ["Gas", "Maintenance", "Insurance", "Lease", "Car Wash", "Tolls", "Phone", "Meals", "Other"];
+  const categories = [
+    "Car and Truck Expenses",
+    "Commissions and Fees",
+    "Insurance",
+    "Interest",
+    "Legal and Professional Services",
+    "Office Expense",
+    "Other Expenses",
+  ];
 
   return (
     <Dialog open={isOpen} onOpenChange={setOpen}>

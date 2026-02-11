@@ -142,6 +142,68 @@ export async function registerRoutes(
     res.sendStatus(204);
   });
 
+  // Mileage Logs Routes
+  app.get(api.mileageLogs.list.path, isAuthenticated, async (req, res) => {
+    const userId = (req.user as any).claims.sub;
+    const logs = await storage.getMileageLogs(userId);
+    res.json(logs);
+  });
+
+  app.post(api.mileageLogs.create.path, isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const input = api.mileageLogs.create.input.parse(req.body);
+      const log = await storage.createMileageLog({ ...input, userId });
+      res.status(201).json(log);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      throw err;
+    }
+  });
+
+  app.get(api.mileageLogs.get.path, isAuthenticated, async (req, res) => {
+    const log = await storage.getMileageLog(Number(req.params.id));
+    if (!log) {
+      return res.status(404).json({ message: 'Mileage log not found' });
+    }
+    const userId = (req.user as any).claims.sub;
+    if (log.userId !== userId) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    res.json(log);
+  });
+
+  app.put(api.mileageLogs.update.path, isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const input = api.mileageLogs.update.input.parse(req.body);
+      const updated = await storage.updateMileageLog(userId, Number(req.params.id), input);
+      if (!updated) {
+        return res.status(404).json({ message: 'Mileage log not found' });
+      }
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.mileageLogs.delete.path, isAuthenticated, async (req, res) => {
+    const userId = (req.user as any).claims.sub;
+    await storage.deleteMileageLog(userId, Number(req.params.id));
+    res.sendStatus(204);
+  });
+
   // Tax Summary
   app.get(api.tax.summary.path, isAuthenticated, async (req, res) => {
     const userId = (req.user as any).claims.sub;

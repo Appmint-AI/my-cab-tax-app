@@ -1,10 +1,12 @@
 import { 
-  expenses, incomes, users, legalConsentLogs,
+  expenses, incomes, users, legalConsentLogs, mileageLogs,
   type Expense, type InsertExpense, 
   type Income, type InsertIncome,
-  type UpdateExpenseRequest, type UpdateIncomeRequest,
+  type MileageLog, type InsertMileageLog,
+  type UpdateExpenseRequest, type UpdateIncomeRequest, type UpdateMileageLogRequest,
   type TaxSummary,
-  IRS_MILEAGE_RATE, SE_TAX_RATE, QUARTERLY_DEADLINES
+  IRS_MILEAGE_RATE, SE_TAX_RATE, QUARTERLY_DEADLINES,
+  mapToIRSCategory
 } from "@shared/schema";
 import type { User } from "@shared/models/auth";
 import { db } from "./db";
@@ -24,6 +26,12 @@ export interface IStorage {
   createIncome(income: InsertIncome & { userId: string }): Promise<Income>;
   updateIncome(userId: string, id: number, income: UpdateIncomeRequest): Promise<Income | undefined>;
   deleteIncome(userId: string, id: number): Promise<void>;
+
+  getMileageLogs(userId: string): Promise<MileageLog[]>;
+  getMileageLog(id: number): Promise<MileageLog | undefined>;
+  createMileageLog(log: InsertMileageLog & { userId: string }): Promise<MileageLog>;
+  updateMileageLog(userId: string, id: number, log: UpdateMileageLogRequest): Promise<MileageLog | undefined>;
+  deleteMileageLog(userId: string, id: number): Promise<void>;
 
   getTaxSummary(userId: string): Promise<TaxSummary>;
 
@@ -93,13 +101,45 @@ export class DatabaseStorage implements IStorage {
     await db.delete(incomes).where(and(eq(incomes.id, id), eq(incomes.userId, userId)));
   }
 
+  async getMileageLogs(userId: string): Promise<MileageLog[]> {
+    return await db.select().from(mileageLogs).where(eq(mileageLogs.userId, userId));
+  }
+
+  async getMileageLog(id: number): Promise<MileageLog | undefined> {
+    const [log] = await db.select().from(mileageLogs).where(eq(mileageLogs.id, id));
+    return log;
+  }
+
+  async createMileageLog(insertLog: InsertMileageLog & { userId: string }): Promise<MileageLog> {
+    const [log] = await db.insert(mileageLogs).values(insertLog).returning();
+    return log;
+  }
+
+  async updateMileageLog(userId: string, id: number, updates: UpdateMileageLogRequest): Promise<MileageLog | undefined> {
+    const [updated] = await db
+      .update(mileageLogs)
+      .set(updates)
+      .where(and(eq(mileageLogs.id, id), eq(mileageLogs.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteMileageLog(userId: string, id: number): Promise<void> {
+    await db.delete(mileageLogs).where(and(eq(mileageLogs.id, id), eq(mileageLogs.userId, userId)));
+  }
+
   async getTaxSummary(userId: string): Promise<TaxSummary> {
     const expensesList = await this.getExpenses(userId);
     const incomesList = await this.getIncomes(userId);
+    const mileageLogsList = await this.getMileageLogs(userId);
 
     const grossIncome = incomesList.reduce((sum, inc) => sum + Number(inc.amount), 0);
     const totalPlatformFees = incomesList.reduce((sum, inc) => sum + Number(inc.platformFees || 0), 0);
-    const totalMiles = incomesList.reduce((sum, inc) => sum + Number(inc.miles || 0), 0);
+    
+    const incomeMiles = incomesList.reduce((sum, inc) => sum + Number(inc.miles || 0), 0);
+    const loggedMiles = mileageLogsList.reduce((sum, log) => sum + Number(log.totalMiles), 0);
+    const totalMiles = incomeMiles + loggedMiles;
+    
     const mileageDeduction = totalMiles * IRS_MILEAGE_RATE;
     const totalOtherExpenses = expensesList.reduce((sum, exp) => sum + Number(exp.amount), 0);
 
@@ -110,7 +150,8 @@ export class DatabaseStorage implements IStorage {
 
     const expensesByCategory: Record<string, number> = {};
     expensesList.forEach(exp => {
-      expensesByCategory[exp.category] = (expensesByCategory[exp.category] || 0) + Number(exp.amount);
+      const irsCategory = mapToIRSCategory(exp.category);
+      expensesByCategory[irsCategory] = (expensesByCategory[irsCategory] || 0) + Number(exp.amount);
     });
 
     const incomeBySource: Record<string, number> = {};

@@ -4,6 +4,18 @@
 A tax tracking app for rideshare and cab drivers in the US. Tracks income, expenses, miles driven, and platform fees. Calculates Schedule C profit using real 2026 IRS rates.
 
 ## Recent Changes
+- Added dedicated Mileage Tracker page (/mileage) with IRS Publication 463-compliant contemporaneous mileage log
+  - Form with date, business purpose, total miles, optional start/end odometer readings
+  - Stats cards showing logged miles, mileage deduction at $0.725/mi, and entry count
+  - Delete confirmation with AlertDialog
+- Updated expense categories to IRS Schedule C standard (Car and Truck Expenses, Commissions and Fees, Insurance, Interest, Legal and Professional Services, Office Expense, Other Expenses)
+  - Legacy categories (Gas, Maintenance, etc.) automatically map to IRS buckets in tax summary
+- Added mileage_logs table: date, businessPurpose, totalMiles, startOdometer, endOdometer per user
+- Tax summary now aggregates expenses by IRS categories and includes miles from both income records and dedicated mileage logs
+- Upgraded export from single TXT file to ZIP archive containing:
+  - Schedule C Summary (TXT) with "Self-Prepared / Not Audited" watermarks
+  - Expenses by Category (CSV) with IRS Schedule C categories
+  - Mileage Log (CSV) with date, purpose, miles, odometer readings, and deduction per entry
 - Updated all legal notice email references from legal@mycabtaxusa.com to legal@mycabtax.com
 - Added "Self-Prepared / Not Audited" watermarks at top and bottom of exported tax summary files
 - Added USA-only jurisdiction footer to all email templates (cleanup worker + support auto-responder)
@@ -74,6 +86,8 @@ A tax tracking app for rideshare and cab drivers in the US. Tracks income, expen
 - `client/src/pages/SettingsPage.tsx` — Settings with profile, legal consent, data deletion, support link
 - `client/src/pages/UpgradePage.tsx` — Pro upgrade marketing page with IRS audit pitch
 - `client/src/pages/SupportPage.tsx` — Legal & Privacy Support form with inquiry type dropdown
+- `client/src/pages/MileagePage.tsx` — Mileage Tracker with IRS Publication 463-compliant log form and entries
+- `client/src/hooks/use-mileage-logs.ts` — Frontend CRUD hooks for mileage log API
 - `client/src/components/TermsAcceptanceDialog.tsx` — Legal consent modal (blocks app until accepted)
 - `server/resend.ts` — Resend email client (uses Replit connector for API key)
 - `server/cleanup-worker.ts` — Background worker: 60/80/90-day inactivity emails + data purge + 30-day hard-purge of soft-deleted accounts

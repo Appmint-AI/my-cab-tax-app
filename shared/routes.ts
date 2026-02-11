@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertExpenseSchema, insertIncomeSchema, expenses, incomes } from './schema';
+import { insertExpenseSchema, insertIncomeSchema, insertMileageLogSchema, expenses, incomes, mileageLogs } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -97,6 +97,50 @@ export const api = {
     delete: {
       method: 'DELETE' as const,
       path: '/api/incomes/:id' as const,
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+  mileageLogs: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/mileage-logs' as const,
+      responses: {
+        200: z.array(z.custom<typeof mileageLogs.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/mileage-logs' as const,
+      input: insertMileageLogSchema,
+      responses: {
+        201: z.custom<typeof mileageLogs.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/mileage-logs/:id' as const,
+      responses: {
+        200: z.custom<typeof mileageLogs.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/mileage-logs/:id' as const,
+      input: insertMileageLogSchema.partial(),
+      responses: {
+        200: z.custom<typeof mileageLogs.$inferSelect>(),
+        404: errorSchemas.notFound,
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/mileage-logs/:id' as const,
       responses: {
         204: z.void(),
         404: errorSchemas.notFound,
