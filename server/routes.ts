@@ -205,6 +205,7 @@ export async function registerRoutes(
   app.post("/api/support-inquiry", isAuthenticated, async (req, res) => {
     const supportSchema = z.object({
       inquiryType: z.enum([
+        "legal_inquiry",
         "data_export",
         "account_deletion",
         "dispute_resolution",
@@ -226,6 +227,7 @@ export async function registerRoutes(
     const { inquiryType, message } = parsed.data;
 
     const typeLabels: Record<string, string> = {
+      legal_inquiry: "General Legal Inquiry",
       data_export: "Data Export Request (GDPR/CCPA)",
       account_deletion: "Account Deletion Inquiry",
       dispute_resolution: "Dispute Resolution / Arbitration",

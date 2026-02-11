@@ -135,6 +135,7 @@ export default function Landing() {
               Legal & Privacy Support
             </Link>
           </div>
+          <p className="text-xs text-muted-foreground" data-testid="text-legal-contact-footer">Legal Notices: legal@mycabtaxusa.com</p>
           <p>&copy; {new Date().getFullYear()} My Cab Tax USA. All rights reserved.</p>
         </div>
       </footer>

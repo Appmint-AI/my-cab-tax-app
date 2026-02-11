@@ -112,7 +112,9 @@ export default function Legal() {
 
                 <section>
                   <h3 className="font-semibold text-base mb-2">1.8 Contact for Legal Notices</h3>
-                  <p>All formal legal notices, complaints, and correspondence should be directed to: <strong>legal@mycabtaxusa.com</strong>. This is the designated inbox for service of process, dispute notifications, arbitration filings, and any formal legal communications under these Terms.</p>
+                  <p>All formal legal notices, complaints, arbitration demands, cease-and-desist letters, subpoenas, and correspondence must be directed exclusively to:</p>
+                  <p className="font-medium mt-2 mb-2">legal@mycabtaxusa.com</p>
+                  <p>This is the sole designated address for service of process, dispute notifications, arbitration filings, and any formal legal communications under these Terms. <strong>Any official notice not sent to this address shall not be deemed properly served and will not trigger any obligation or deadline under these Terms.</strong> General support or informational emails sent to other addresses (e.g., info@ or support@) do not constitute legal notice.</p>
                 </section>
               </div>
             </Card>
@@ -160,7 +162,7 @@ export default function Legal() {
                     <li><strong>Right to Data Portability:</strong> You may export your data in a portable format using the Export feature.</li>
                     <li><strong>Non-Discrimination:</strong> We will not discriminate against you for exercising your privacy rights.</li>
                   </ul>
-                  <p className="mt-2">To exercise any of these rights, use the in-app controls in Settings or contact us at privacy@mycabtaxusa.com.</p>
+                  <p className="mt-2">To exercise any of these rights, use the in-app controls in Settings or contact us at legal@mycabtaxusa.com.</p>
                 </section>
 
                 <section>
@@ -170,7 +172,7 @@ export default function Legal() {
 
                 <section>
                   <h3 className="font-semibold text-base mb-2">2.8 Contact Us</h3>
-                  <p>If you have questions about this Privacy Policy or wish to exercise your data rights, please contact us at privacy@mycabtaxusa.com.</p>
+                  <p>If you have questions about this Privacy Policy or wish to exercise your data rights, please contact us at legal@mycabtaxusa.com.</p>
                 </section>
               </div>
             </Card>
@@ -342,6 +344,7 @@ export default function Legal() {
               To ensure compliance with requirements imposed by the IRS, we inform you that any tax information contained in this communication (including any attachments) is not intended or written to be used, and cannot be used, for the purpose of (i) avoiding penalties under the Internal Revenue Code or (ii) promoting, marketing or recommending to another party any transaction or matter addressed herein.
             </p>
           </Card>
+          <p className="text-center text-muted-foreground text-xs">Legal Notices: legal@mycabtaxusa.com</p>
           <p className="text-center text-muted-foreground text-sm">&copy; {new Date().getFullYear()} My Cab Tax USA. All rights reserved.</p>
         </div>
       </footer>

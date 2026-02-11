@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CarFront, ArrowLeft, Send, Shield, CheckCircle } from "lucide-react";
 
 const inquiryTypes = [
+  { value: "legal_inquiry", label: "General Legal Inquiry" },
   { value: "data_export", label: "Data Export Request (GDPR/CCPA)" },
   { value: "account_deletion", label: "Account Deletion Inquiry" },
   { value: "dispute_resolution", label: "Dispute Resolution / Arbitration" },
