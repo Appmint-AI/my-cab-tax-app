@@ -2,26 +2,22 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CarFront, ArrowLeft, Shield, Crown, CheckCircle, AlertTriangle, Clock, FileText, Camera, Lock } from "lucide-react";
+import { useCreateCheckoutSession, useSubscription } from "@/hooks/use-subscription";
+import { CarFront, ArrowLeft, Shield, Crown, CheckCircle, X, AlertTriangle, Clock, FileText, Camera, Lock, Loader2, Zap } from "lucide-react";
 
-const freeFeatures = [
-  "Active usage data access",
-  "90-day inactivity retention",
-  "Basic text export",
-  "Text data only (no receipts)",
-  "User responsible for backups",
-];
-
-const proFeatures = [
-  { label: "7-Year Tax Vault Storage", desc: "Exceeds the IRS minimum 3-year requirement" },
-  { label: "Audit-Ready PDF Exports", desc: "One-click certified reports for the IRS" },
-  { label: "Unlimited Receipt Photos", desc: "Every gas station and repair bill, backed up" },
-  { label: "Record Integrity Certificate", desc: "Digitally signed proof of data authenticity" },
-  { label: "Encrypted Redundant Backups", desc: "Geographically distributed for disaster recovery" },
-  { label: "Priority Support", desc: "Legal & privacy inquiries handled first" },
+const comparisonRows = [
+  { feature: "Manual Expense Entry", basic: true, pro: true },
+  { feature: "Mileage Tracking", basic: true, pro: true },
+  { feature: "Auto-Grossing (25% Rule)", basic: false, pro: true },
+  { feature: "1099-K Matcher", basic: false, pro: true },
+  { feature: "Data Retention", basicText: "90 Days", proText: "7 Years" },
 ];
 
 export default function UpgradePage() {
+  const checkoutMutation = useCreateCheckoutSession();
+  const { data: subscription } = useSubscription();
+  const isPro = subscription?.tier === "pro";
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <nav className="border-b border-border/40 backdrop-blur-sm fixed w-full z-50 bg-background/80">
@@ -47,78 +43,108 @@ export default function UpgradePage() {
             <Shield className="h-8 w-8 text-primary" />
           </div>
           <h1 className="font-display font-bold text-3xl sm:text-4xl mb-3" data-testid="text-upgrade-title">
-            Don't Let the IRS Catch You Empty-Handed.
+            {isPro ? "You're a Pro Member" : "Stop Guessing Your 1099-K."}
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">
-            The IRS can audit your records up to 3 years back. If you've under-reported, that window jumps to 6 years. 
-            On Free Tier, your data is cleared after 90 days of inactivity. Don't risk losing your deductions and receipts when you need them most.
+            {isPro
+              ? "You have full access to Auto-Grossing, 1099-K Matching, and 7-year Tax Vault storage."
+              : "Uber and Lyft report your \"Gross Fares\" to the IRS, but only pay you the \"Net.\" If these don't match on your tax return, you risk an audit."
+            }
           </p>
         </div>
 
-        <Card className="p-5 sm:p-6 mb-8 border-yellow-500/40 bg-yellow-50/50 dark:bg-yellow-900/10" data-testid="card-irs-warning">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
-            <div>
-              <h2 className="font-semibold text-base mb-1 text-yellow-800 dark:text-yellow-300">IRS Recordkeeping Requirement</h2>
-              <p className="text-sm leading-relaxed text-yellow-700/90 dark:text-yellow-400/80">
-                The IRS requires self-employed individuals to keep records that support items reported on their tax returns until the statute of limitations expires &mdash; typically 3 years, but up to 6 years if income is underreported by more than 25%. With the Free Tier's 90-day retention, you may not have your records when you need them.
-              </p>
+        {!isPro && (
+          <Card className="p-5 sm:p-6 mb-8 border-yellow-500/40 bg-yellow-50/50 dark:bg-yellow-900/10" data-testid="card-irs-warning">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
+              <div>
+                <h2 className="font-semibold text-base mb-1 text-yellow-800 dark:text-yellow-300">IRS Recordkeeping Requirement</h2>
+                <p className="text-sm leading-relaxed text-yellow-700/90 dark:text-yellow-400/80">
+                  The IRS requires self-employed individuals to keep records that support items reported on their tax returns until the statute of limitations expires &mdash; typically 3 years, but up to 6 years if income is underreported by more than 25%. With the Free Tier's 90-day retention, you may not have your records when you need them.
+                </p>
+              </div>
             </div>
+          </Card>
+        )}
+
+        <Card className="p-0 mb-10 overflow-visible" data-testid="card-feature-comparison">
+          <div className="grid grid-cols-3 text-sm font-medium border-b border-border/60">
+            <div className="p-4">Feature</div>
+            <div className="p-4 text-center">Basic (Free)</div>
+            <div className="p-4 text-center text-primary">Pro (Paid)</div>
           </div>
+          {comparisonRows.map((row) => (
+            <div key={row.feature} className="grid grid-cols-3 text-sm border-b border-border/30 last:border-0">
+              <div className="p-4 font-medium">{row.feature}</div>
+              <div className="p-4 flex items-center justify-center">
+                {row.basicText ? (
+                  <span className="text-muted-foreground">{row.basicText}</span>
+                ) : row.basic ? (
+                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                ) : (
+                  <X className="h-4 w-4 text-muted-foreground/50" />
+                )}
+              </div>
+              <div className="p-4 flex items-center justify-center">
+                {row.proText ? (
+                  <span className="font-medium text-primary">{row.proText}</span>
+                ) : row.pro ? (
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                ) : (
+                  <X className="h-4 w-4 text-muted-foreground/50" />
+                )}
+              </div>
+            </div>
+          ))}
         </Card>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-          <Card className="p-6 border-border/60" data-testid="card-free-comparison">
-            <div className="flex items-center gap-2 mb-4">
-              <Shield className="h-6 w-6 text-muted-foreground" />
-              <h3 className="font-display font-bold text-xl">Free Tier</h3>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">Basic tracking with limited retention.</p>
-            <ul className="space-y-3">
-              {freeFeatures.map((feature) => (
-                <li key={feature} className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-
-          <Card className="p-6 border-primary/40 bg-primary/5 relative" data-testid="card-pro-comparison">
-            <Badge className="absolute top-4 right-4 no-default-active-elevate">Recommended</Badge>
-            <div className="flex items-center gap-2 mb-4">
-              <Crown className="h-6 w-6 text-primary" />
-              <h3 className="font-display font-bold text-xl text-primary">My Cab Tax Pro</h3>
-            </div>
-            <p className="text-sm text-foreground/80 mb-4">Audit insurance for serious drivers.</p>
-            <ul className="space-y-3">
-              {proFeatures.map((feature) => (
-                <li key={feature.label} className="flex items-start gap-2 text-sm">
-                  <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-medium">{feature.label}</span>
-                    <p className="text-xs text-muted-foreground">{feature.desc}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </div>
 
         <div className="text-center space-y-6">
           <Card className="p-6 sm:p-8 border-primary/30 bg-primary/5 max-w-xl mx-auto" data-testid="card-cta">
             <Crown className="h-8 w-8 text-primary mx-auto mb-3" />
-            <h2 className="font-display font-bold text-2xl mb-2">Lock In Your Records</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Upgrade to My Cab Tax Pro and never worry about losing your tax records again. Your data is secured in the Tax Vault with 7-year guaranteed retention.
+            <h2 className="font-display font-bold text-2xl mb-2">
+              {isPro ? "Pro Features Unlocked" : "Unlock Pro Today"}
+            </h2>
+            <p className="text-sm text-muted-foreground mb-1" data-testid="text-pro-pitch">
+              {isPro
+                ? "Your records are secured in the Tax Vault with 7-year guaranteed retention."
+                : "Upgrade to Pro to unlock Automatic 1099-K Matching and 7-year Tax Vault."
+              }
             </p>
-            <Button size="lg" data-testid="button-lock-in-records">
-              <Lock className="h-4 w-4 mr-2" />
-              Lock In My Records Now
-            </Button>
-            <p className="text-xs text-muted-foreground mt-3">
-              Pro pricing will be announced soon. Join the waitlist to be notified.
-            </p>
+            <ul className="text-sm text-left max-w-sm mx-auto mb-4 space-y-1.5 mt-3">
+              <li className="flex items-start gap-2">
+                <Zap className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <span><strong>Automatically Gross-Up:</strong> Match your records to your 1099-K perfectly.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Zap className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <span><strong>Auto-Deduct Fees:</strong> Instantly categorize platform commissions.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Zap className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <span><strong>7-Year Vault:</strong> Secure storage as long as the IRS statute of limitations.</span>
+              </li>
+            </ul>
+
+            {isPro ? (
+              <Badge className="no-default-active-elevate">
+                <Crown className="h-3 w-3 mr-1" />
+                Active Pro Member
+              </Badge>
+            ) : (
+              <Button
+                size="lg"
+                data-testid="button-upgrade-checkout"
+                onClick={() => checkoutMutation.mutate()}
+                disabled={checkoutMutation.isPending}
+              >
+                {checkoutMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Lock className="h-4 w-4 mr-2" />
+                )}
+                Upgrade to Pro
+              </Button>
+            )}
           </Card>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">

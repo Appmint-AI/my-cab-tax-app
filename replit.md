@@ -54,7 +54,15 @@ A tax tracking app for rideshare and cab drivers in the US. Tracks income, expen
 - lastLoginAt updated via auth middleware with hourly throttle; inactivityEmailSent reset to null on login
 - Integrated Resend for transactional email delivery (uses Replit connector for API key management)
 - Refactored Danger Zone to use AlertDialog with soft-delete: user types "Permanently Delete", account deactivated with 30-day grace
-- Added Subscription Tiers system: subscription_status (free/pro) and data_retention_until fields in users table
+- Added Tiered Pricing (Basic/Pro) with Stripe integration
+  - Users table: subscriptionStatus (basic/pro), stripeCustomerId, stripeSubscriptionId fields
+  - checkProAccess middleware guards Pro-only endpoints (returns 403 with upgrade prompt)
+  - Auto-Grossing endpoint (/api/income/auto-gross): 25% gross-up math (Net / 0.75 = Gross)
+  - Stripe checkout session creation (/api/stripe/create-checkout-session)
+  - Stripe webhook (/api/stripe/webhook): handles checkout.session.completed → upgrade to Pro, customer.subscription.deleted → downgrade with 30-day grace
+  - AutoGrossForm component: locked state for Basic (upsell modal), unlocked Smart Sales Importer for Pro
+  - UpgradePage updated with feature comparison table and Stripe checkout button
+  - Subscription status hook (use-subscription.ts) for frontend Pro/Basic detection
 - Free Tier banner on Dashboard: warns 90-day data retention, links to Pro upgrade info
 - Added Subscription Tiers tab to Legal page: defines Tax Vault service, 7-year Pro retention guarantee, 30-day grace period on lapse
 - Enhanced Legal Consent Modal: shows Tax Disclaimer + Mandatory Arbitration summary, saves termsVersion and consent_timestamp
@@ -99,6 +107,8 @@ A tax tracking app for rideshare and cab drivers in the US. Tracks income, expen
 - `client/src/pages/VehiclesPage.tsx` — Vehicle Management with CRUD and mileage method selection
 - `client/src/hooks/use-vehicles.ts` — Frontend CRUD hooks for vehicle API
 - `client/src/hooks/use-mileage-logs.ts` — Frontend CRUD hooks for mileage log API
+- `client/src/components/forms/AutoGrossForm.tsx` — Smart Sales Importer (Pro) / Upgrade prompt (Basic)
+- `client/src/hooks/use-subscription.ts` — Frontend hooks for subscription status, Stripe checkout, auto-grossing
 - `client/src/components/TermsAcceptanceDialog.tsx` — Legal consent modal (blocks app until accepted)
 - `server/resend.ts` — Resend email client (uses Replit connector for API key)
 - `server/cleanup-worker.ts` — Background worker: 60/80/90-day inactivity emails + data purge + 30-day hard-purge of soft-deleted accounts
@@ -119,7 +129,7 @@ A tax tracking app for rideshare and cab drivers in the US. Tracks income, expen
 - **Dockerfile**: Multi-stage build (Node 20-slim). Stage 1 builds client+server, Stage 2 runs only `dist/index.cjs`
 - **cloudbuild.yaml**: Builds Docker image, pushes to GCR, deploys to Cloud Run (us-central1)
 - **Port**: Cloud Run sets PORT=8080; server reads `process.env.PORT`
-- **Environment vars needed on Cloud Run**: DATABASE_URL, SESSION_SECRET, AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET
+- **Environment vars needed on Cloud Run**: DATABASE_URL, SESSION_SECRET, AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID
 - **Build allowlist**: `openid-client` and `memoizee` added to `script/build.ts` so all server deps are bundled into `dist/index.cjs` (no `node_modules` needed at runtime)
 
 ## User Preferences

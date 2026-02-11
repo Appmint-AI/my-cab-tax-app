@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { IncomeForm } from "@/components/forms/IncomeForm";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
 import { Form1099K } from "@/components/forms/Form1099K";
+import { AutoGrossForm } from "@/components/forms/AutoGrossForm";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { useMileageLogs } from "@/hooks/use-mileage-logs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +41,7 @@ export default function Dashboard() {
   const { data: mileageData } = useMileageLogs();
   const { user } = useAuth();
 
-  const isFreeUser = !user?.subscriptionStatus || user.subscriptionStatus === "free";
+  const isFreeUser = !user?.subscriptionStatus || user.subscriptionStatus === "free" || user.subscriptionStatus === "basic";
 
   if (isLoading || !summary) {
     return (
@@ -100,6 +101,7 @@ export default function Dashboard() {
         </div>
         <div className="flex gap-3 w-full md:w-auto flex-wrap">
           <IncomeForm />
+          <AutoGrossForm />
           <Form1099K />
           <ExpenseForm />
         </div>

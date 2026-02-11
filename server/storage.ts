@@ -46,6 +46,14 @@ export interface IStorage {
   deleteUserData(userId: string): Promise<void>;
   softDeleteAccount(userId: string, confirmation: string): Promise<void>;
   hardDeleteAccount(userId: string): Promise<void>;
+
+  updateUserSubscription(userId: string, data: {
+    subscriptionStatus: string;
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    dataRetentionUntil?: Date | null;
+  }): Promise<void>;
+  getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -284,6 +292,27 @@ export class DatabaseStorage implements IStorage {
     await db.delete(incomes).where(eq(incomes.userId, userId));
     await db.delete(vehicles).where(eq(vehicles.userId, userId));
     await db.delete(users).where(eq(users.id, userId));
+  }
+
+  async updateUserSubscription(userId: string, data: {
+    subscriptionStatus: string;
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    dataRetentionUntil?: Date | null;
+  }): Promise<void> {
+    const updateData: any = {
+      subscriptionStatus: data.subscriptionStatus,
+      updatedAt: new Date(),
+    };
+    if (data.stripeCustomerId !== undefined) updateData.stripeCustomerId = data.stripeCustomerId;
+    if (data.stripeSubscriptionId !== undefined) updateData.stripeSubscriptionId = data.stripeSubscriptionId;
+    if (data.dataRetentionUntil !== undefined) updateData.dataRetentionUntil = data.dataRetentionUntil;
+    await db.update(users).set(updateData).where(eq(users.id, userId));
+  }
+
+  async getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, stripeCustomerId));
+    return user;
   }
 }
 

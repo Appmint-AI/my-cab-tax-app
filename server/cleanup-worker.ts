@@ -87,7 +87,7 @@ export async function runCleanupCycle() {
       .from(users)
       .where(
         and(
-          or(eq(users.subscriptionStatus, "free"), isNull(users.subscriptionStatus)),
+          or(eq(users.subscriptionStatus, "free"), eq(users.subscriptionStatus, "basic"), isNull(users.subscriptionStatus)),
           eq(users.isDeactivated, false),
           isNotNull(users.lastLoginAt),
           isNotNull(users.email)

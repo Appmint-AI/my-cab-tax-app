@@ -1,9 +1,10 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import Stripe from "stripe";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -391,7 +392,7 @@ export async function registerRoutes(
             <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Auth0 User ID</td><td style="padding:6px 12px;font-family:monospace;">${userId}</td></tr>
             <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">User Email</td><td style="padding:6px 12px;">${user?.email || "N/A"}</td></tr>
             <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">User Name</td><td style="padding:6px 12px;">${user?.firstName || ""} ${user?.lastName || ""}</td></tr>
-            <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Subscription</td><td style="padding:6px 12px;">${user?.subscriptionStatus || "free"}</td></tr>
+            <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Subscription</td><td style="padding:6px 12px;">${user?.subscriptionStatus || "basic"}</td></tr>
             <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Submitted At</td><td style="padding:6px 12px;">${submittedAt}</td></tr>
           </table>
           <h3>Message</h3>
@@ -426,6 +427,194 @@ export async function registerRoutes(
       console.error("Support inquiry email error:", error);
       res.json({ success: true, message: "Your inquiry has been recorded. Our legal team will respond within 5 business days." });
     }
+  });
+
+  // checkProAccess middleware
+  const checkProAccess = async (req: Request, res: Response, next: NextFunction) => {
+    const userId = (req.user as any)?.claims?.sub;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const user = await storage.getUser(userId);
+    if (!user || (user.subscriptionStatus !== "pro")) {
+      return res.status(403).json({
+        message: "Upgrade to Pro to unlock Auto-Grossing for Uber and Lyft.",
+        upgradeRequired: true,
+      });
+    }
+    next();
+  };
+
+  // Auto-Grossing endpoint (Pro only)
+  app.post("/api/income/auto-gross", isAuthenticated, checkProAccess, async (req, res) => {
+    try {
+      const autoGrossSchema = z.object({
+        netPayout: z.coerce.number().positive("Net payout must be positive"),
+        source: z.string().min(1, "Source is required"),
+        date: z.string().min(1, "Date is required"),
+        description: z.string().optional().default(""),
+        commissionRate: z.coerce.number().min(0).max(1).optional().default(0.25),
+      });
+
+      const parsed = autoGrossSchema.parse(req.body);
+      const userId = (req.user as any).claims.sub;
+
+      const calculatedGross = parsed.netPayout / (1 - parsed.commissionRate);
+      const calculatedFee = calculatedGross - parsed.netPayout;
+
+      const income = await storage.createIncome({
+        userId,
+        date: parsed.date,
+        amount: calculatedGross,
+        source: parsed.source,
+        description: parsed.description || `Auto-Grossed from $${parsed.netPayout.toFixed(2)} net payout`,
+        miles: 0,
+        platformFees: calculatedFee,
+      });
+
+      res.status(201).json({
+        income,
+        calculation: {
+          netPayout: parsed.netPayout,
+          commissionRate: parsed.commissionRate,
+          calculatedGross: Math.round(calculatedGross * 100) / 100,
+          calculatedFee: Math.round(calculatedFee * 100) / 100,
+        },
+      });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join(".") });
+      }
+      throw err;
+    }
+  });
+
+  // Get user subscription status
+  app.get("/api/subscription/status", isAuthenticated, async (req, res) => {
+    const userId = (req.user as any).claims.sub;
+    const user = await storage.getUser(userId);
+    res.json({
+      tier: user?.subscriptionStatus || "basic",
+      stripeCustomerId: user?.stripeCustomerId || null,
+      dataRetentionUntil: user?.dataRetentionUntil || null,
+    });
+  });
+
+  // Stripe integration
+  const getStripeClient = () => {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) return null;
+    return new Stripe(key, { apiVersion: "2025-04-30.basil" as any });
+  };
+
+  // Create Stripe Checkout Session
+  app.post("/api/stripe/create-checkout-session", isAuthenticated, async (req, res) => {
+    const stripe = getStripeClient();
+    if (!stripe) {
+      return res.status(503).json({ message: "Payment processing is not configured yet." });
+    }
+
+    try {
+      const userId = (req.user as any).claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      if (user.subscriptionStatus === "pro") {
+        return res.status(400).json({ message: "You are already a Pro subscriber." });
+      }
+
+      const priceId = process.env.STRIPE_PRO_PRICE_ID;
+      if (!priceId) {
+        return res.status(503).json({ message: "Pro plan pricing is not configured yet." });
+      }
+
+      const appUrl = process.env.REPLIT_DEV_DOMAIN
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : process.env.APP_URL || `http://localhost:5000`;
+
+      const sessionConfig: any = {
+        mode: "subscription",
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: `${appUrl}/dashboard?upgrade=success`,
+        cancel_url: `${appUrl}/upgrade?cancelled=true`,
+        metadata: { userId },
+      };
+
+      if (user.stripeCustomerId) {
+        sessionConfig.customer = user.stripeCustomerId;
+      } else if (user.email) {
+        sessionConfig.customer_email = user.email;
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionConfig);
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Stripe checkout error:", error);
+      res.status(500).json({ message: "Failed to create checkout session." });
+    }
+  });
+
+  // Stripe Webhook
+  app.post("/api/stripe/webhook", async (req, res) => {
+    const stripe = getStripeClient();
+    if (!stripe) return res.status(503).send("Stripe not configured");
+
+    const sig = req.headers["stripe-signature"] as string;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      console.error("STRIPE_WEBHOOK_SECRET not configured");
+      return res.status(503).send("Webhook secret not configured");
+    }
+
+    let event: Stripe.Event;
+    try {
+      const rawBody = (req as any).rawBody;
+      if (!rawBody) {
+        return res.status(400).send("Missing raw body for signature verification");
+      }
+      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    } catch (err: any) {
+      console.error("Webhook signature verification failed:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    try {
+      switch (event.type) {
+        case "checkout.session.completed": {
+          const session = event.data.object as Stripe.Checkout.Session;
+          const userId = session.metadata?.userId;
+          if (userId && session.customer) {
+            const retentionDate = new Date();
+            retentionDate.setFullYear(retentionDate.getFullYear() + 7);
+            await storage.updateUserSubscription(userId, {
+              subscriptionStatus: "pro",
+              stripeCustomerId: session.customer as string,
+              stripeSubscriptionId: session.subscription as string,
+              dataRetentionUntil: retentionDate,
+            });
+          }
+          break;
+        }
+        case "customer.subscription.deleted": {
+          const subscription = event.data.object as Stripe.Subscription;
+          const customerId = subscription.customer as string;
+          const user = await storage.getUserByStripeCustomerId(customerId);
+          if (user) {
+            const graceDate = new Date();
+            graceDate.setDate(graceDate.getDate() + 30);
+            await storage.updateUserSubscription(user.id, {
+              subscriptionStatus: "basic",
+              dataRetentionUntil: graceDate,
+            });
+          }
+          break;
+        }
+      }
+    } catch (error) {
+      console.error("Webhook processing error:", error);
+    }
+
+    res.json({ received: true });
   });
 
   return httpServer;
