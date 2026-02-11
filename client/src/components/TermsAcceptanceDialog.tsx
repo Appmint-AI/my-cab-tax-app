@@ -53,17 +53,17 @@ export function TermsAcceptanceDialog() {
             <div className="space-y-3">
               <div>
                 <p className="font-semibold text-foreground">Terms of Service</p>
-                <p>You agree to use the Service responsibly and in accordance with applicable laws. Your account data is your responsibility.</p>
+                <p>You agree to use the Service responsibly and in accordance with applicable laws. We are not liable for any IRS audits, penalties, or interest resulting from your use of this app. Accuracy of data entry is the sole responsibility of the driver. Disputes are resolved through individual binding arbitration.</p>
               </div>
 
               <div>
-                <p className="font-semibold text-foreground">Privacy Policy</p>
-                <p>We collect your name, email, and financial data you enter (income, expenses, miles, fees) to provide tax estimates. We do not sell your data.</p>
+                <p className="font-semibold text-foreground">Privacy Policy (GLBA & CCPA Compliant)</p>
+                <p>We collect your name, email, and financial data you enter (income, expenses, miles, fees) to provide our services. We use industry-standard encryption to protect your data. We do not sell your personal financial data to third parties.</p>
               </div>
 
               <div>
-                <p className="font-semibold text-foreground">Tax Disclaimer</p>
-                <p>This Service provides estimated tax calculations for informational purposes only. It is not a substitute for professional tax advice. Calculations use 2026 IRS rates ($0.725/mi mileage, 15.3% SE tax) which may change. Consult a qualified CPA or tax professional for personalized guidance.</p>
+                <p className="font-semibold text-foreground">Tax Disclaimer & Limitation of Liability</p>
+                <p>My Cab Tax USA is a bookkeeping tool, NOT a tax advisory service. Consult a qualified CPA or Tax Attorney before filing any returns. Our total liability shall not exceed the amount you paid in the last 12 months, or $100, whichever is less.</p>
               </div>
             </div>
 
