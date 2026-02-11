@@ -30,6 +30,8 @@ export const users = pgTable("users", {
   isDeactivated: boolean("is_deactivated").default(false),
   subscriptionStatus: varchar("subscription_status").default("free"),
   dataRetentionUntil: timestamp("data_retention_until"),
+  lastLoginAt: timestamp("last_login_at"),
+  inactivityEmailSent: varchar("inactivity_email_sent"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -4,16 +4,18 @@
 A tax tracking app for rideshare and cab drivers in the US. Tracks income, expenses, miles driven, and platform fees. Calculates Schedule C profit using real 2026 IRS rates.
 
 ## Recent Changes
+- Added background cleanup worker: checks lastLoginAt for all free users every 6 hours
+  - Day 60: sends reminder email via Resend ("log in to keep your data")
+  - Day 80: sends urgent warning email with Pro upgrade link ("10 days until deletion")
+  - Day 90: purges tax data (expenses/incomes) but keeps account profile; sends final notice email
+- Added lastLoginAt and inactivityEmailSent fields to users table (tracks login activity + email stage)
+- lastLoginAt updated on every login via upsertUser; inactivityEmailSent reset to null on login
+- Integrated Resend for transactional email delivery (uses Replit connector for API key management)
 - Refactored Danger Zone to use AlertDialog: user must type "Permanently Delete" to enable Confirm Delete button (variant=destructive)
 - Hard-delete backend: wipes user row from database, clears all expenses/incomes, destroys session on deletion
 - Added Subscription Tiers system: subscription_status (free/pro) and data_retention_until fields in users table
 - Free Tier banner on Dashboard: warns 90-day data retention, links to Pro upgrade info
 - Added Subscription Tiers tab to Legal page: defines Tax Vault service, 7-year Pro retention guarantee, 30-day grace period on lapse
-- Free Tier: text data only, 90-day inactivity retention, basic CSV export
-- Pro Tier: Tax Vault with 7-year guaranteed retention, unlimited receipt photos, certified PDF Audit Packs, Record Integrity Certificate
-- Added Danger Zone: "Delete My Account and Data" with AlertDialog confirmation
-- Deactivated users are blocked from logging in (403 response, session destroyed)
-- Added accountDeletedAt, accountDeleteConfirmation, scheduledPurgeAt, isDeactivated fields to users table
 - Enhanced Legal Consent Modal: shows Tax Disclaimer + Mandatory Arbitration summary, saves termsVersion and consent_timestamp
 - Added Settings page (/settings) with Profile, Legal Consent status, Data Privacy, and Danger Zone sections
 - Data Privacy: "Request Data Deletion" button with confirmation dialog (CCPA compliant, permanently erases all tax records)
@@ -51,6 +53,8 @@ A tax tracking app for rideshare and cab drivers in the US. Tracks income, expen
 - `client/src/components/forms/IncomeForm.tsx` — Income form with miles & fees
 - `client/src/pages/SettingsPage.tsx` — Settings with profile, legal consent status, data deletion
 - `client/src/components/TermsAcceptanceDialog.tsx` — Legal consent modal (blocks app until accepted)
+- `server/resend.ts` — Resend email client (uses Replit connector for API key)
+- `server/cleanup-worker.ts` — Background worker: 60/80/90-day inactivity emails + data purge
 
 ## Auth0 Setup
 - Configure in Auth0 Dashboard:

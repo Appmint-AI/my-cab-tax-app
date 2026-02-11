@@ -81,6 +81,8 @@ async function upsertUser(claims: any) {
     firstName: claims["given_name"] || claims["first_name"] || claims["nickname"] || null,
     lastName: claims["family_name"] || claims["last_name"] || null,
     profileImageUrl: claims["picture"] || claims["profile_image_url"] || null,
+    lastLoginAt: new Date(),
+    inactivityEmailSent: null,
   });
 }
 
@@ -184,6 +186,12 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
         });
       });
       return;
+    }
+
+    const lastTouch = dbUser?.lastLoginAt ? dbUser.lastLoginAt.getTime() : 0;
+    const hoursSinceTouch = (Date.now() - lastTouch) / (1000 * 60 * 60);
+    if (hoursSinceTouch >= 1) {
+      authStorage.touchLastLogin(userId).catch(() => {});
     }
   }
 
