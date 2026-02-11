@@ -7,6 +7,17 @@ import { ExpenseForm } from "@/components/forms/ExpenseForm";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -271,6 +282,7 @@ function FreeRetentionAlert({ user }: { user: User | null | undefined }) {
 
 function ExportSection({ summary }: { summary: TaxSummary }) {
   const [certified, setCertified] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   function handleExport() {
     const now = new Date();
@@ -361,14 +373,40 @@ function ExportSection({ summary }: { summary: TaxSummary }) {
             </Label>
           </div>
 
-          <Button
-            onClick={handleExport}
-            disabled={!certified}
-            data-testid="button-export-summary"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export Summary
-          </Button>
+          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <AlertDialogTrigger asChild>
+              <Button
+                disabled={!certified}
+                data-testid="button-export-summary"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Summary
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2" data-testid="text-export-confirm-title">
+                  <Shield className="h-5 w-5 text-primary" />
+                  Confirm Your Records
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <p className="text-sm leading-relaxed" data-testid="text-export-confirm-body">
+                    I acknowledge that I have reviewed these records for accuracy. I understand that My Cab Tax USA has not verified these figures with the IRS and that I am responsible for any tax submissions or audits.
+                  </p>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel data-testid="button-export-cancel">Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { handleExport(); setConfirmOpen(false); }}
+                  data-testid="button-export-proceed"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Proceed to Export
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
     </motion.div>
