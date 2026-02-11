@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useTaxSummary } from "@/hooks/use-tax";
 import { IncomeForm } from "@/components/forms/IncomeForm";
@@ -6,9 +7,13 @@ import { DashboardCharts } from "@/components/DashboardCharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, parseISO } from "date-fns";
+import type { TaxSummary } from "@shared/schema";
 
 export default function Dashboard() {
   const { data: summary, isLoading } = useTaxSummary();
@@ -167,6 +172,114 @@ export default function Dashboard() {
       <div className="mt-8 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
         <DashboardCharts summary={summary} />
       </div>
+
+      <ExportSection summary={summary} />
     </Layout>
+  );
+}
+
+function ExportSection({ summary }: { summary: TaxSummary }) {
+  const [certified, setCertified] = useState(false);
+
+  function handleExport() {
+    const now = new Date();
+    const lines = [
+      "MY CAB TAX USA - Schedule C Tax Summary",
+      `Generated: ${format(now, "MMMM d, yyyy 'at' h:mm a")}`,
+      "=".repeat(50),
+      "",
+      "INCOME",
+      `  Gross Income:            $${summary.grossIncome.toFixed(2)}`,
+      `  Platform Fees:           -$${summary.totalPlatformFees.toFixed(2)}`,
+      "",
+      "DEDUCTIONS",
+      `  Mileage (${summary.totalMiles.toLocaleString()} mi x $${summary.mileageRate}/mi): -$${summary.mileageDeduction.toFixed(2)}`,
+      `  Other Expenses:          -$${summary.totalOtherExpenses.toFixed(2)}`,
+      `  Total Deductions:        -$${summary.totalDeductions.toFixed(2)}`,
+      "",
+      "SUMMARY",
+      `  Net Profit:              $${summary.netProfit.toFixed(2)}`,
+      `  Self-Employment Tax (15.3%): $${summary.selfEmploymentTax.toFixed(2)}`,
+      `  Est. Quarterly Payment:  $${summary.estimatedQuarterlyPayment.toFixed(2)}`,
+      "",
+      "QUARTERLY DEADLINES",
+      ...summary.quarterlyDeadlines.map((d, i) => `  Q${i + 1}: ${format(parseISO(d), "MMMM d, yyyy")}`),
+      "",
+      ...Object.keys(summary.expensesByCategory).length > 0 ? [
+        "EXPENSES BY CATEGORY",
+        ...Object.entries(summary.expensesByCategory).map(([cat, val]) => `  ${cat}: $${Number(val).toFixed(2)}`),
+        "",
+      ] : [],
+      ...Object.keys(summary.incomeBySource).length > 0 ? [
+        "INCOME BY SOURCE",
+        ...Object.entries(summary.incomeBySource).map(([src, val]) => `  ${src}: $${Number(val).toFixed(2)}`),
+        "",
+      ] : [],
+      "=".repeat(50),
+      "CERTIFICATION",
+      "I certify under penalty of perjury that the information",
+      "provided is true and correct to the best of my knowledge.",
+      "I acknowledge that My Cab Tax USA is a tool and not a tax professional.",
+      "",
+      "DISCLAIMER: This is a bookkeeping summary only. It is NOT",
+      "a tax return. Consult a qualified CPA or Tax Attorney before",
+      "filing any returns with the IRS.",
+      "=".repeat(50),
+    ];
+
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `MyCabTax_Summary_${format(now, "yyyy-MM-dd")}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.5 }}
+      className="mt-8"
+    >
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="h-5 w-5" />
+            Export Tax Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/5 border border-destructive/20">
+            <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+            <p className="text-xs text-foreground/80 leading-relaxed">
+              This export is for your personal records only. It is not a tax return. Consult a qualified CPA or Tax Attorney before filing with the IRS.
+            </p>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="certify-export"
+              checked={certified}
+              onCheckedChange={(checked) => setCertified(checked === true)}
+              data-testid="checkbox-certify-export"
+            />
+            <Label htmlFor="certify-export" className="text-sm leading-snug cursor-pointer">
+              I certify under penalty of perjury that the information provided is true and correct to the best of my knowledge. I acknowledge that My Cab Tax USA is a tool and not a tax professional.
+            </Label>
+          </div>
+
+          <Button
+            onClick={handleExport}
+            disabled={!certified}
+            data-testid="button-export-summary"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export Summary
+          </Button>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }
