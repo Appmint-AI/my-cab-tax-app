@@ -4,6 +4,9 @@
 A tax tracking app for rideshare and cab drivers in the US. Tracks income, expenses, miles driven, and platform fees. Calculates Schedule C profit using real 2026 IRS rates.
 
 ## Recent Changes
+- Added Legal page (/legal) with tabbed Terms of Service, Privacy Policy, and Tax Disclaimers
+- Added mandatory Terms Acceptance dialog for new users (blocks app until accepted, stored as termsAcceptedAt)
+- Added Legal link in landing page footer
 - Switched authentication from Replit Auth to Auth0 OIDC with MFA/biometric support
 - Auth0 Universal Login handles multi-factor authentication and biometric login
 - Integrated US Tax Engine with IRS 2026 mileage rate ($0.725/mi), self-employment tax rate (15.3%), and quarterly deadlines

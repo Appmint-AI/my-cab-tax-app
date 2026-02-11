@@ -1,5 +1,5 @@
 import { 
-  expenses, incomes, 
+  expenses, incomes, users,
   type Expense, type InsertExpense, 
   type Income, type InsertIncome,
   type UpdateExpenseRequest, type UpdateIncomeRequest,
@@ -23,6 +23,8 @@ export interface IStorage {
   deleteIncome(userId: string, id: number): Promise<void>;
 
   getTaxSummary(userId: string): Promise<TaxSummary>;
+
+  acceptTerms(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -120,6 +122,13 @@ export class DatabaseStorage implements IStorage {
       quarterlyDeadlines: QUARTERLY_DEADLINES,
       mileageRate: IRS_MILEAGE_RATE,
     };
+  }
+
+  async acceptTerms(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ termsAcceptedAt: new Date(), updatedAt: new Date() })
+      .where(eq(users.id, userId));
   }
 }
 

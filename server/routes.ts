@@ -149,6 +149,13 @@ export async function registerRoutes(
     res.json(summary);
   });
 
+  // Accept Terms
+  app.post("/api/accept-terms", isAuthenticated, async (req, res) => {
+    const userId = (req.user as any).claims.sub;
+    await storage.acceptTerms(userId);
+    res.json({ success: true });
+  });
+
   return httpServer;
 }
 

@@ -5,12 +5,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
+import { TermsAcceptanceDialog } from "@/components/TermsAcceptanceDialog";
 
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import ExpensesPage from "@/pages/ExpensesPage";
 import IncomesPage from "@/pages/IncomesPage";
+import Legal from "@/pages/Legal";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -34,6 +36,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/legal" component={Legal} />
       
       <Route path="/dashboard">
         <ProtectedRoute component={Dashboard} />
@@ -58,6 +61,7 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <Router />
+        <TermsAcceptanceDialog />
       </TooltipProvider>
     </QueryClientProvider>
   );

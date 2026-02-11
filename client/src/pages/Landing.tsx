@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
-import { Redirect } from "wouter";
+import { Redirect, Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { CarFront, Calculator, TrendingUp, ShieldCheck, Fingerprint } from "lucide-react";
+import { CarFront, Calculator, TrendingUp, ShieldCheck } from "lucide-react";
 
 export default function Landing() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -126,7 +126,10 @@ export default function Landing() {
 
       {/* Footer */}
       <footer className="py-12 border-t border-border/40 mt-auto bg-background">
-        <div className="max-w-7xl mx-auto px-4 text-center text-muted-foreground text-sm">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-3 text-muted-foreground text-sm">
+          <Link href="/legal" className="underline hover-elevate px-2 py-1 rounded-md" data-testid="link-legal-footer">
+            Legal &mdash; Terms, Privacy & Tax Disclaimers
+          </Link>
           <p>&copy; {new Date().getFullYear()} My Cab Tax USA. All rights reserved.</p>
         </div>
       </footer>
