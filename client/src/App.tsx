@@ -14,6 +14,8 @@ import ExpensesPage from "@/pages/ExpensesPage";
 import IncomesPage from "@/pages/IncomesPage";
 import SettingsPage from "@/pages/SettingsPage";
 import Legal from "@/pages/Legal";
+import UpgradePage from "@/pages/UpgradePage";
+import SupportPage from "@/pages/SupportPage";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -38,6 +40,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/legal" component={Legal} />
+      <Route path="/upgrade" component={UpgradePage} />
+      <Route path="/support" component={SupportPage} />
       
       <Route path="/dashboard">
         <ProtectedRoute component={Dashboard} />

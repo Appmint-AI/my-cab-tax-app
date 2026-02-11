@@ -127,9 +127,14 @@ export default function Landing() {
       {/* Footer */}
       <footer className="py-12 border-t border-border/40 mt-auto bg-background">
         <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-3 text-muted-foreground text-sm">
-          <Link href="/legal" className="underline hover-elevate px-2 py-1 rounded-md" data-testid="link-legal-footer">
-            Legal &mdash; Terms, Privacy & Tax Disclaimers
-          </Link>
+          <div className="flex gap-4 flex-wrap justify-center">
+            <Link href="/legal" className="underline hover-elevate px-2 py-1 rounded-md" data-testid="link-legal-footer">
+              Legal &mdash; Terms, Privacy & Tax Disclaimers
+            </Link>
+            <Link href="/support" className="underline hover-elevate px-2 py-1 rounded-md" data-testid="link-support-footer">
+              Legal & Privacy Support
+            </Link>
+          </div>
           <p>&copy; {new Date().getFullYear()} My Cab Tax USA. All rights reserved.</p>
         </div>
       </footer>

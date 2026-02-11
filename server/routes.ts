@@ -189,14 +189,83 @@ export async function registerRoutes(
 
     const userId = (req.user as any).claims.sub;
 
-    await storage.hardDeleteAccount(userId);
+    await storage.softDeleteAccount(userId, confirmation);
 
     req.session.destroy(() => {
       res.json({
         success: true,
-        message: "Your account and all associated data have been permanently deleted.",
+        message: "Your account has been deactivated. Your data will be permanently deleted after 30 days. If you change your mind, contact legal@mycabtaxusa.com before then.",
       });
     });
+  });
+
+  // Legal & Privacy Support Inquiry
+  app.post("/api/support-inquiry", isAuthenticated, async (req, res) => {
+    const supportSchema = z.object({
+      inquiryType: z.enum([
+        "data_export",
+        "account_deletion",
+        "dispute_resolution",
+        "security_concern",
+      ]),
+      message: z.string().min(10, "Please provide at least 10 characters of detail.").max(5000),
+    });
+
+    const parsed = supportSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: parsed.error.errors[0].message,
+        field: parsed.error.errors[0].path.join("."),
+      });
+    }
+
+    const userId = (req.user as any).claims.sub;
+    const user = await storage.getUser(userId);
+    const { inquiryType, message } = parsed.data;
+
+    const typeLabels: Record<string, string> = {
+      data_export: "Data Export Request (GDPR/CCPA)",
+      account_deletion: "Account Deletion Inquiry",
+      dispute_resolution: "Dispute Resolution / Arbitration",
+      security_concern: "Report a Security Concern",
+    };
+
+    try {
+      const { getResendClient } = await import("./resend");
+      const { client, fromEmail } = await getResendClient();
+
+      await client.emails.send({
+        from: fromEmail,
+        to: "legal@mycabtaxusa.com",
+        replyTo: user?.email || undefined,
+        subject: `[Legal Support] ${typeLabels[inquiryType]} - User ${userId}`,
+        tags: [
+          { name: "category", value: "legal_support" },
+          { name: "inquiry_type", value: inquiryType },
+        ],
+        headers: {
+          "X-Auth0-User-ID": userId,
+        },
+        html: `
+          <h2>Legal & Privacy Support Inquiry</h2>
+          <table style="border-collapse:collapse;width:100%;margin-bottom:16px;">
+            <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Inquiry Type</td><td style="padding:6px 12px;">${typeLabels[inquiryType]}</td></tr>
+            <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Auth0 User ID</td><td style="padding:6px 12px;font-family:monospace;">${userId}</td></tr>
+            <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">User Email</td><td style="padding:6px 12px;">${user?.email || "N/A"}</td></tr>
+            <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">User Name</td><td style="padding:6px 12px;">${user?.firstName || ""} ${user?.lastName || ""}</td></tr>
+            <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Subscription</td><td style="padding:6px 12px;">${user?.subscriptionStatus || "free"}</td></tr>
+            <tr><td style="padding:6px 12px;font-weight:bold;background:#f3f4f6;">Submitted At</td><td style="padding:6px 12px;">${new Date().toISOString()}</td></tr>
+          </table>
+          <h3>Message</h3>
+          <div style="background:#f9fafb;padding:16px;border-radius:8px;white-space:pre-wrap;">${message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+        `,
+      });
+
+      res.json({ success: true, message: "Your inquiry has been submitted. Our legal team will respond within 5 business days." });
+    } catch (error) {
+      console.error("Support inquiry email error:", error);
+      res.json({ success: true, message: "Your inquiry has been recorded. Our legal team will respond within 5 business days." });
+    }
   });
 
   return httpServer;

@@ -22,8 +22,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Trash2, User, FileText, AlertTriangle, XCircle } from "lucide-react";
+import { Shield, Trash2, User, FileText, AlertTriangle, XCircle, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
+import { Link } from "wouter";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -200,6 +201,26 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Legal & Privacy Support
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-foreground/80 leading-relaxed">
+            Have a data export request, account deletion inquiry, dispute, or security concern? Submit a formal inquiry to our legal team.
+          </p>
+          <Link href="/support">
+            <Button variant="outline" data-testid="button-legal-support">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Contact Legal & Privacy Support
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
+
       <Separator className="my-2" />
 
       <Card className="border-destructive/40">
@@ -211,7 +232,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-foreground/80 leading-relaxed">
-            Permanently delete your account and all associated data. This action is irreversible and cannot be undone.
+            Deactivate your account and schedule all data for permanent deletion. You will have a 30-day grace period to contact support if you change your mind. After 30 days, your account and all data will be permanently and irreversibly removed.
           </p>
 
           <AlertDialog
@@ -239,7 +260,7 @@ export default function SettingsPage() {
                 <AlertDialogDescription asChild>
                   <div className="space-y-3">
                     <p>
-                      This will <strong className="text-foreground">permanently delete</strong> your account and all associated data, including:
+                      This will <strong className="text-foreground">deactivate your account</strong> and schedule all associated data for permanent deletion after a 30-day grace period, including:
                     </p>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
                       <li>All mileage logs</li>

@@ -4,15 +4,22 @@
 A tax tracking app for rideshare and cab drivers in the US. Tracks income, expenses, miles driven, and platform fees. Calculates Schedule C profit using real 2026 IRS rates.
 
 ## Recent Changes
+- Added Upgrade to Pro marketing page (/upgrade) with IRS audit pitch, Free vs Pro comparison, Tax Vault benefits
+- Added Legal & Privacy Support form (/support) with inquiry type dropdown (GDPR/CCPA, deletion, arbitration, security)
+  - Sends structured email to legal@mycabtaxusa.com via Resend with Auth0 user ID metadata
+- Converted Delete Account to soft-delete: sets isDeactivated=true + accountDeletedAt, 30-day grace period
+  - Login blocked for soft-deleted users via auth middleware (already existed)
+  - Cleanup worker hard-purges soft-deleted accounts after 30 days (removes user, expenses, incomes)
+- Dashboard retention alert: dynamic countdown showing days until cleanup for Free users (escalates from yellow to red)
+  - Under 60 days: mild banner; 60-80 days: high-visibility Alert; 80-90 days: critical destructive Alert
 - Added background cleanup worker: checks lastLoginAt for all free users every 6 hours
   - Day 60: sends reminder email via Resend ("log in to keep your data")
   - Day 80: sends urgent warning email with Pro upgrade link ("10 days until deletion")
   - Day 90: purges tax data (expenses/incomes) but keeps account profile; sends final notice email
 - Added lastLoginAt and inactivityEmailSent fields to users table (tracks login activity + email stage)
-- lastLoginAt updated on every login via upsertUser; inactivityEmailSent reset to null on login
+- lastLoginAt updated via auth middleware with hourly throttle; inactivityEmailSent reset to null on login
 - Integrated Resend for transactional email delivery (uses Replit connector for API key management)
-- Refactored Danger Zone to use AlertDialog: user must type "Permanently Delete" to enable Confirm Delete button (variant=destructive)
-- Hard-delete backend: wipes user row from database, clears all expenses/incomes, destroys session on deletion
+- Refactored Danger Zone to use AlertDialog with soft-delete: user types "Permanently Delete", account deactivated with 30-day grace
 - Added Subscription Tiers system: subscription_status (free/pro) and data_retention_until fields in users table
 - Free Tier banner on Dashboard: warns 90-day data retention, links to Pro upgrade info
 - Added Subscription Tiers tab to Legal page: defines Tax Vault service, 7-year Pro retention guarantee, 30-day grace period on lapse
@@ -51,10 +58,12 @@ A tax tracking app for rideshare and cab drivers in the US. Tracks income, expen
 - `client/src/hooks/use-auth.ts` — Frontend auth hook (fetches /api/auth/user)
 - `client/src/pages/Dashboard.tsx` — Main dashboard with stats cards and charts
 - `client/src/components/forms/IncomeForm.tsx` — Income form with miles & fees
-- `client/src/pages/SettingsPage.tsx` — Settings with profile, legal consent status, data deletion
+- `client/src/pages/SettingsPage.tsx` — Settings with profile, legal consent, data deletion, support link
+- `client/src/pages/UpgradePage.tsx` — Pro upgrade marketing page with IRS audit pitch
+- `client/src/pages/SupportPage.tsx` — Legal & Privacy Support form with inquiry type dropdown
 - `client/src/components/TermsAcceptanceDialog.tsx` — Legal consent modal (blocks app until accepted)
 - `server/resend.ts` — Resend email client (uses Replit connector for API key)
-- `server/cleanup-worker.ts` — Background worker: 60/80/90-day inactivity emails + data purge
+- `server/cleanup-worker.ts` — Background worker: 60/80/90-day inactivity emails + data purge + 30-day hard-purge of soft-deleted accounts
 
 ## Auth0 Setup
 - Configure in Auth0 Dashboard:

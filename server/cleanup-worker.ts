@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { users } from "@shared/models/auth";
 import { expenses, incomes } from "@shared/schema";
-import { eq, and, lt, isNull, isNotNull, or, ne } from "drizzle-orm";
+import { eq, and, lt, lte, isNull, isNotNull, or, ne } from "drizzle-orm";
 import { getResendClient } from "./resend";
 import { log } from "./index";
 
@@ -41,7 +41,7 @@ async function sendInactivityEmail(
         <p><strong>The IRS requires you to keep tax records for at least 3 years.</strong> Make sure you export your data before it's gone.</p>
         <p><a href="https://mycabtaxusa.com">Log In & Save Your Data</a></p>
         <p>Want to never worry about this again? <strong>Upgrade to Pro</strong> for guaranteed 7-year storage in our Tax Vault with unlimited receipt photos and certified PDF Audit Packs.</p>
-        <p><a href="https://mycabtaxusa.com/legal?tab=subscriptions">Learn About Pro</a></p>
+        <p><a href="https://mycabtaxusa.com/upgrade">Upgrade to Pro</a></p>
         <p style="color: #666; font-size: 12px;">My Cab Tax USA - This is an automated reminder. You are receiving this because you have a free account with us.</p>
       `,
       purged: `
@@ -49,7 +49,7 @@ async function sendInactivityEmail(
         <p>Your tax data has been removed from My Cab Tax USA due to 90 days of inactivity on your Free account.</p>
         <p>Your account profile is still active &mdash; you can log back in and start fresh at any time.</p>
         <p>Next time, consider upgrading to <strong>Pro</strong> for 7-year guaranteed storage so you never lose your records again.</p>
-        <p><a href="https://mycabtaxusa.com">Start Fresh</a> | <a href="https://mycabtaxusa.com/legal?tab=subscriptions">Upgrade to Pro</a></p>
+        <p><a href="https://mycabtaxusa.com">Start Fresh</a> | <a href="https://mycabtaxusa.com/upgrade">Upgrade to Pro</a></p>
         <p style="color: #666; font-size: 12px;">My Cab Tax USA - This is an automated notification. You are receiving this because you have a free account with us.</p>
       `,
     };
@@ -134,6 +134,32 @@ export async function runCleanupCycle() {
       `Cleanup cycle complete: ${reminderCount} reminders, ${urgentCount} urgent warnings, ${purgedCount} accounts purged`,
       "cleanup"
     );
+
+    // Hard-purge soft-deleted accounts older than 30 days
+    const purgeThreshold = daysAgo(30);
+    const softDeletedUsers = await db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.isDeactivated, true),
+          isNotNull(users.accountDeletedAt),
+          lte(users.accountDeletedAt, purgeThreshold)
+        )
+      );
+
+    let hardPurgedCount = 0;
+    for (const user of softDeletedUsers) {
+      await db.delete(expenses).where(eq(expenses.userId, user.id));
+      await db.delete(incomes).where(eq(incomes.userId, user.id));
+      await db.delete(users).where(eq(users.id, user.id));
+      hardPurgedCount++;
+      log(`Hard-purged soft-deleted account: ${user.id} (deleted at ${user.accountDeletedAt?.toISOString()})`, "cleanup");
+    }
+
+    if (hardPurgedCount > 0) {
+      log(`Hard-purge complete: ${hardPurgedCount} accounts permanently removed`, "cleanup");
+    }
   } catch (error) {
     log(`Cleanup cycle error: ${error}`, "cleanup");
   }

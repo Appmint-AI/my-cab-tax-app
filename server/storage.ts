@@ -6,10 +6,13 @@ import {
   type TaxSummary,
   IRS_MILEAGE_RATE, SE_TAX_RATE, QUARTERLY_DEADLINES
 } from "@shared/schema";
+import type { User } from "@shared/models/auth";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
+  getUser(userId: string): Promise<User | undefined>;
+
   getExpenses(userId: string): Promise<Expense[]>;
   getExpense(id: number): Promise<Expense | undefined>;
   createExpense(expense: InsertExpense & { userId: string }): Promise<Expense>;
@@ -31,6 +34,11 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  async getUser(userId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    return user;
+  }
+
   async getExpenses(userId: string): Promise<Expense[]> {
     return await db.select().from(expenses).where(eq(expenses.userId, userId));
   }

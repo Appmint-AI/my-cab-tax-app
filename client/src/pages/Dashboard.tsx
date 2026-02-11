@@ -214,7 +214,7 @@ function FreeRetentionAlert({ user }: { user: User | null | undefined }) {
               Upgrade to Pro for 7-year IRS-compliant storage with the Tax Vault.
             </p>
           </div>
-          <Link href="/legal?tab=subscriptions">
+          <Link href="/upgrade">
             <Button variant="outline" size="sm" className="shrink-0 border-yellow-500/50 text-yellow-700 dark:text-yellow-300" data-testid="button-upgrade-pro">
               Learn More
             </Button>
@@ -251,7 +251,7 @@ function FreeRetentionAlert({ user }: { user: User | null | undefined }) {
             : "Upgrade to Pro for permanent IRS-compliant storage. Pro members get 7-year Tax Vault retention, unlimited receipt photos, and certified audit-ready exports."}
         </p>
         <div className="flex gap-3 mt-3 flex-wrap">
-          <Link href="/legal?tab=subscriptions">
+          <Link href="/upgrade">
             <Button
               variant={isCritical ? "default" : "outline"}
               size="sm"
