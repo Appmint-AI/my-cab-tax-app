@@ -1,9 +1,10 @@
 import { 
-  expenses, incomes, users, legalConsentLogs, mileageLogs, vehicles,
+  expenses, incomes, users, legalConsentLogs, mileageLogs, vehicles, receipts,
   type Expense, type InsertExpense, 
   type Income, type InsertIncome,
   type MileageLog, type InsertMileageLog,
   type Vehicle, type InsertVehicle,
+  type Receipt, type InsertReceipt,
   type UpdateExpenseRequest, type UpdateIncomeRequest, type UpdateMileageLogRequest, type UpdateVehicleRequest,
   type TaxSummary,
   IRS_MILEAGE_RATE, SE_TAX_RATE, SE_TAXABLE_BASE, QUARTERLY_DEADLINES,
@@ -11,7 +12,7 @@ import {
 } from "@shared/schema";
 import type { User } from "@shared/models/auth";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, lt } from "drizzle-orm";
 
 export interface IStorage {
   getUser(userId: string): Promise<User | undefined>;
@@ -39,6 +40,13 @@ export interface IStorage {
   createMileageLog(log: InsertMileageLog & { userId: string }): Promise<MileageLog>;
   updateMileageLog(userId: string, id: number, log: UpdateMileageLogRequest): Promise<MileageLog | undefined>;
   deleteMileageLog(userId: string, id: number): Promise<void>;
+
+  getReceipts(userId: string): Promise<Receipt[]>;
+  getReceipt(id: number): Promise<Receipt | undefined>;
+  getReceiptByImageUrl(userId: string, imageUrl: string): Promise<Receipt | undefined>;
+  createReceipt(receipt: InsertReceipt & { userId: string }): Promise<Receipt>;
+  deleteReceipt(userId: string, id: number): Promise<void>;
+  deleteExpiredReceipts(): Promise<number>;
 
   getTaxSummary(userId: string): Promise<TaxSummary>;
 
@@ -172,6 +180,37 @@ export class DatabaseStorage implements IStorage {
     await db.delete(mileageLogs).where(and(eq(mileageLogs.id, id), eq(mileageLogs.userId, userId)));
   }
 
+  async getReceipts(userId: string): Promise<Receipt[]> {
+    return await db.select().from(receipts).where(eq(receipts.userId, userId));
+  }
+
+  async getReceipt(id: number): Promise<Receipt | undefined> {
+    const [receipt] = await db.select().from(receipts).where(eq(receipts.id, id));
+    return receipt;
+  }
+
+  async getReceiptByImageUrl(userId: string, imageUrl: string): Promise<Receipt | undefined> {
+    const [receipt] = await db.select().from(receipts).where(
+      and(eq(receipts.userId, userId), eq(receipts.imageUrl, imageUrl))
+    );
+    return receipt;
+  }
+
+  async createReceipt(insertReceipt: InsertReceipt & { userId: string }): Promise<Receipt> {
+    const [receipt] = await db.insert(receipts).values(insertReceipt).returning();
+    return receipt;
+  }
+
+  async deleteReceipt(userId: string, id: number): Promise<void> {
+    await db.delete(receipts).where(and(eq(receipts.id, id), eq(receipts.userId, userId)));
+  }
+
+  async deleteExpiredReceipts(): Promise<number> {
+    const now = new Date();
+    const expired = await db.delete(receipts).where(lt(receipts.expiresAt, now)).returning();
+    return expired.length;
+  }
+
   async getTaxSummary(userId: string): Promise<TaxSummary> {
     const expensesList = await this.getExpenses(userId);
     const incomesList = await this.getIncomes(userId);
@@ -257,6 +296,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUserData(userId: string): Promise<void> {
+    await db.delete(receipts).where(eq(receipts.userId, userId));
     await db.delete(expenses).where(eq(expenses.userId, userId));
     await db.delete(incomes).where(eq(incomes.userId, userId));
     await db
@@ -287,6 +327,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async hardDeleteAccount(userId: string): Promise<void> {
+    await db.delete(receipts).where(eq(receipts.userId, userId));
     await db.delete(mileageLogs).where(eq(mileageLogs.userId, userId));
     await db.delete(expenses).where(eq(expenses.userId, userId));
     await db.delete(incomes).where(eq(incomes.userId, userId));
@@ -299,6 +340,7 @@ export class DatabaseStorage implements IStorage {
     stripeCustomerId?: string;
     stripeSubscriptionId?: string;
     dataRetentionUntil?: Date | null;
+    vaultEnabled?: boolean;
   }): Promise<void> {
     const updateData: any = {
       subscriptionStatus: data.subscriptionStatus,
@@ -307,6 +349,7 @@ export class DatabaseStorage implements IStorage {
     if (data.stripeCustomerId !== undefined) updateData.stripeCustomerId = data.stripeCustomerId;
     if (data.stripeSubscriptionId !== undefined) updateData.stripeSubscriptionId = data.stripeSubscriptionId;
     if (data.dataRetentionUntil !== undefined) updateData.dataRetentionUntil = data.dataRetentionUntil;
+    if (data.vaultEnabled !== undefined) updateData.vaultEnabled = data.vaultEnabled;
     await db.update(users).set(updateData).where(eq(users.id, userId));
   }
 

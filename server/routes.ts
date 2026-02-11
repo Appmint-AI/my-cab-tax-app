@@ -5,6 +5,34 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import Stripe from "stripe";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+const UPLOADS_DIR = path.join(process.cwd(), "uploads", "receipts");
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+const receiptUpload = multer({
+  storage: multer.diskStorage({
+    destination: UPLOADS_DIR,
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      const ext = path.extname(file.originalname) || ".jpg";
+      cb(null, `receipt-${uniqueSuffix}${ext}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/heic"];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only JPEG, PNG, WebP, and HEIC images are allowed"));
+    }
+  },
+});
 
 export async function registerRoutes(
   httpServer: Server,
@@ -272,6 +300,133 @@ export async function registerRoutes(
     const userId = (req.user as any).claims.sub;
     const summary = await storage.getTaxSummary(userId);
     res.json(summary);
+  });
+
+  app.get("/uploads/receipts/:filename", isAuthenticated, async (req, res) => {
+    const userId = (req.user as any).claims.sub;
+    const filename = path.basename(req.params.filename);
+    const imageUrl = `/uploads/receipts/${filename}`;
+
+    const receipt = await storage.getReceiptByImageUrl(userId, imageUrl);
+    if (!receipt) {
+      return res.status(404).json({ message: "File not found" });
+    }
+
+    const filePath = path.join(UPLOADS_DIR, filename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "File not found" });
+    }
+    res.sendFile(filePath);
+  });
+
+  // Receipt Routes
+  app.get("/api/receipts", isAuthenticated, async (req, res) => {
+    const userId = (req.user as any).claims.sub;
+    const receiptList = await storage.getReceipts(userId);
+    res.json(receiptList);
+  });
+
+  const receiptMetadataSchema = z.object({
+    merchantName: z.string().max(255).optional().nullable(),
+    receiptDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD format").optional().nullable(),
+    totalAmount: z.union([z.string(), z.number()]).optional().nullable().transform(v => {
+      if (v == null || v === "") return null;
+      const n = Number(v);
+      if (isNaN(n) || n < 0 || n > 999999.99) return null;
+      return n;
+    }),
+    ocrData: z.string().optional().nullable(),
+    ocrConfidence: z.union([z.string(), z.number()]).optional().nullable().transform(v => {
+      if (v == null || v === "") return null;
+      const n = Number(v);
+      if (isNaN(n) || n < 0 || n > 100) return null;
+      return n;
+    }),
+    expenseId: z.union([z.string(), z.number()]).optional().nullable().transform(v => {
+      if (v == null || v === "") return null;
+      return Number(v);
+    }),
+  });
+
+  app.post("/api/receipts/upload", isAuthenticated, receiptUpload.single("receipt"), async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      if (file.size < 50 * 1024) {
+        fs.unlinkSync(file.path);
+        return res.status(400).json({ message: "File too small. Minimum 50KB required for IRS-quality receipt images." });
+      }
+
+      const parsed = receiptMetadataSchema.safeParse(req.body);
+      if (!parsed.success) {
+        fs.unlinkSync(file.path);
+        return res.status(400).json({ message: "Invalid receipt metadata", errors: parsed.error.flatten() });
+      }
+      const meta = parsed.data;
+
+      const user = await storage.getUser(userId);
+      const isPro = user?.subscriptionStatus === "pro";
+      const retentionPolicy = isPro ? "pro" : "basic";
+
+      const expiresAt = new Date();
+      if (isPro) {
+        expiresAt.setFullYear(expiresAt.getFullYear() + 7);
+      } else {
+        expiresAt.setDate(expiresAt.getDate() + 90);
+      }
+
+      const imageUrl = `/uploads/receipts/${file.filename}`;
+
+      let ocrData = null;
+      if (meta.ocrData) {
+        try { ocrData = JSON.parse(meta.ocrData); } catch { ocrData = null; }
+      }
+
+      const receipt = await storage.createReceipt({
+        userId,
+        imageUrl,
+        originalFilename: file.originalname,
+        merchantName: meta.merchantName || null,
+        receiptDate: meta.receiptDate || null,
+        totalAmount: meta.totalAmount ?? null,
+        ocrData,
+        ocrConfidence: meta.ocrConfidence ?? null,
+        retentionPolicy,
+        expiresAt,
+        expenseId: meta.expenseId ?? null,
+      });
+
+      res.status(201).json(receipt);
+    } catch (err: any) {
+      if (req.file) {
+        try { fs.unlinkSync(req.file.path); } catch {}
+      }
+      console.error("Receipt upload error:", err);
+      res.status(500).json({ message: err.message || "Upload failed" });
+    }
+  });
+
+  app.delete("/api/receipts/:id", isAuthenticated, async (req, res) => {
+    const userId = (req.user as any).claims.sub;
+    const receipt = await storage.getReceipt(Number(req.params.id));
+    if (!receipt) {
+      return res.status(404).json({ message: "Receipt not found" });
+    }
+    if (receipt.userId !== userId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const filePath = path.join(UPLOADS_DIR, path.basename(receipt.imageUrl));
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    await storage.deleteReceipt(userId, receipt.id);
+    res.sendStatus(204);
   });
 
   // Accept Terms
@@ -591,6 +746,7 @@ export async function registerRoutes(
               stripeCustomerId: session.customer as string,
               stripeSubscriptionId: session.subscription as string,
               dataRetentionUntil: retentionDate,
+              vaultEnabled: true,
             });
           }
           break;

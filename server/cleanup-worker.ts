@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { users } from "@shared/models/auth";
-import { expenses, incomes } from "@shared/schema";
+import { expenses, incomes, receipts, mileageLogs, vehicles } from "@shared/schema";
 import { eq, and, lt, lte, isNull, isNotNull, or, ne } from "drizzle-orm";
 import { getResendClient } from "./resend";
 import { log } from "./index";
@@ -161,8 +161,11 @@ export async function runCleanupCycle() {
 
     let hardPurgedCount = 0;
     for (const user of softDeletedUsers) {
+      await db.delete(receipts).where(eq(receipts.userId, user.id));
+      await db.delete(mileageLogs).where(eq(mileageLogs.userId, user.id));
       await db.delete(expenses).where(eq(expenses.userId, user.id));
       await db.delete(incomes).where(eq(incomes.userId, user.id));
+      await db.delete(vehicles).where(eq(vehicles.userId, user.id));
       await db.delete(users).where(eq(users.id, user.id));
       hardPurgedCount++;
       log(`Hard-purged soft-deleted account: ${user.id} (deleted at ${user.accountDeletedAt?.toISOString()})`, "cleanup");
@@ -170,6 +173,12 @@ export async function runCleanupCycle() {
 
     if (hardPurgedCount > 0) {
       log(`Hard-purge complete: ${hardPurgedCount} accounts permanently removed`, "cleanup");
+    }
+
+    const currentTime = new Date();
+    const expiredReceipts = await db.delete(receipts).where(lt(receipts.expiresAt, currentTime)).returning();
+    if (expiredReceipts.length > 0) {
+      log(`Expired receipt cleanup: ${expiredReceipts.length} receipts removed`, "cleanup");
     }
   } catch (error) {
     log(`Cleanup cycle error: ${error}`, "cleanup");

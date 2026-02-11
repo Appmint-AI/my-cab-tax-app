@@ -32,6 +32,7 @@ export const users = pgTable("users", {
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   dataRetentionUntil: timestamp("data_retention_until"),
+  vaultEnabled: boolean("vault_enabled").default(false),
   lastLoginAt: timestamp("last_login_at"),
   inactivityEmailSent: varchar("inactivity_email_sent"),
   createdAt: timestamp("created_at").defaultNow(),

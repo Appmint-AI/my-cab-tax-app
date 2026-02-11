@@ -54,8 +54,19 @@ A tax tracking app for rideshare and cab drivers in the US. Tracks income, expen
 - lastLoginAt updated via auth middleware with hourly throttle; inactivityEmailSent reset to null on login
 - Integrated Resend for transactional email delivery (uses Replit connector for API key management)
 - Refactored Danger Zone to use AlertDialog with soft-delete: user types "Permanently Delete", account deactivated with 30-day grace
+- Added AI Receipt Scanner with tiered access and IRS-compliant image quality checks
+  - Receipts table: imageUrl, merchantName, receiptDate, totalAmount, ocrData (JSONB), ocrConfidence, retentionPolicy, expiresAt
+  - Client-side OCR via Tesseract.js extracts merchant, date, total from receipt photos
+  - Image quality gate: file size (50KB–10MB) and resolution (min 400x400) checks before processing
+  - Basic tier: manual file upload only; Pro tier: live camera capture via getUserMedia + auto-OCR
+  - Receipt retention: Basic = 90 days, Pro = 7 years (IRS statute of limitations)
+  - Cleanup worker purges expired receipts automatically
+  - ReceiptsPage (/receipts) with receipt history, retention badges, delete with confirmation
+  - ReceiptCapture component with camera feed, photo capture, upload, and editable OCR results
+  - Multer middleware handles receipt image upload to local disk storage (uploads/receipts/)
+  - vaultEnabled boolean on users table set to true on Pro upgrade
 - Added Tiered Pricing (Basic/Pro) with Stripe integration
-  - Users table: subscriptionStatus (basic/pro), stripeCustomerId, stripeSubscriptionId fields
+  - Users table: subscriptionStatus (basic/pro), stripeCustomerId, stripeSubscriptionId, vaultEnabled fields
   - checkProAccess middleware guards Pro-only endpoints (returns 403 with upgrade prompt)
   - Auto-Grossing endpoint (/api/income/auto-gross): 25% gross-up math (Net / 0.75 = Gross)
   - Stripe checkout session creation (/api/stripe/create-checkout-session)
@@ -110,8 +121,11 @@ A tax tracking app for rideshare and cab drivers in the US. Tracks income, expen
 - `client/src/components/forms/AutoGrossForm.tsx` — Smart Sales Importer (Pro) / Upgrade prompt (Basic)
 - `client/src/hooks/use-subscription.ts` — Frontend hooks for subscription status, Stripe checkout, auto-grossing
 - `client/src/components/TermsAcceptanceDialog.tsx` — Legal consent modal (blocks app until accepted)
+- `client/src/components/ReceiptCapture.tsx` — Receipt scanner with camera capture (Pro) and file upload (Basic), OCR via Tesseract.js
+- `client/src/pages/ReceiptsPage.tsx` — Receipt history with retention badges, delete confirmation
+- `client/src/hooks/use-receipts.ts` — Frontend CRUD hooks for receipt API (upload, list, delete)
 - `server/resend.ts` — Resend email client (uses Replit connector for API key)
-- `server/cleanup-worker.ts` — Background worker: 60/80/90-day inactivity emails + data purge + 30-day hard-purge of soft-deleted accounts
+- `server/cleanup-worker.ts` — Background worker: 60/80/90-day inactivity emails + data purge + 30-day hard-purge of soft-deleted accounts + expired receipt cleanup
 
 ## Auth0 Setup
 - Configure in Auth0 Dashboard:

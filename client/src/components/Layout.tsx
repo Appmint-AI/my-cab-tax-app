@@ -11,6 +11,7 @@ import {
   X,
   Settings,
   MapPin,
+  ScanLine,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/incomes", label: "Income", icon: Wallet },
     { href: "/expenses", label: "Expenses", icon: Receipt },
     { href: "/mileage", label: "Mileage", icon: MapPin },
+    { href: "/receipts", label: "Receipts", icon: ScanLine },
     { href: "/vehicles", label: "Vehicles", icon: CarFront },
     { href: "/settings", label: "Settings", icon: Settings },
   ];

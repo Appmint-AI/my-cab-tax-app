@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, numeric, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, numeric, date, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -97,6 +97,23 @@ export const mileageLogs = pgTable("mileage_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Receipts table - OCR-scanned receipt images with retention policy
+export const receipts = pgTable("receipts", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  expenseId: integer("expense_id").references(() => expenses.id),
+  imageUrl: text("image_url").notNull(),
+  originalFilename: text("original_filename"),
+  merchantName: text("merchant_name"),
+  receiptDate: text("receipt_date"),
+  totalAmount: numeric("total_amount"),
+  ocrData: jsonb("ocr_data"),
+  ocrConfidence: numeric("ocr_confidence"),
+  retentionPolicy: text("retention_policy").notNull().default("basic"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Legal consent audit log
 export const legalConsentLogs = pgTable("legal_consent_logs", {
   id: serial("id").primaryKey(),
@@ -126,6 +143,17 @@ export const mileageLogsRelations = relations(mileageLogs, ({ one }) => ({
   vehicle: one(vehicles, {
     fields: [mileageLogs.vehicleId],
     references: [vehicles.id],
+  }),
+}));
+
+export const receiptsRelations = relations(receipts, ({ one }) => ({
+  user: one(users, {
+    fields: [receipts.userId],
+    references: [users.id],
+  }),
+  expense: one(expenses, {
+    fields: [receipts.expenseId],
+    references: [expenses.id],
   }),
 }));
 
@@ -196,7 +224,18 @@ export const insertMileageLogSchema = createInsertSchema(mileageLogs).omit({
   vehicleId: z.coerce.number().optional().nullable(),
 });
 
+export const insertReceiptSchema = createInsertSchema(receipts).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+}).extend({
+  totalAmount: z.coerce.number().min(0).optional().nullable(),
+  ocrConfidence: z.coerce.number().min(0).max(100).optional().nullable(),
+});
+
 // Types
+export type Receipt = typeof receipts.$inferSelect;
+export type InsertReceipt = z.infer<typeof insertReceiptSchema>;
 export type Vehicle = typeof vehicles.$inferSelect;
 export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
 export type Expense = typeof expenses.$inferSelect;

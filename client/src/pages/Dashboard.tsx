@@ -6,6 +6,7 @@ import { IncomeForm } from "@/components/forms/IncomeForm";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
 import { Form1099K } from "@/components/forms/Form1099K";
 import { AutoGrossForm } from "@/components/forms/AutoGrossForm";
+import { ReceiptCapture } from "@/components/ReceiptCapture";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { useMileageLogs } from "@/hooks/use-mileage-logs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -104,6 +105,7 @@ export default function Dashboard() {
           <AutoGrossForm />
           <Form1099K />
           <ExpenseForm />
+          <ReceiptCapture />
         </div>
       </div>
 
