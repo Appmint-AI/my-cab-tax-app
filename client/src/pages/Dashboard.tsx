@@ -6,16 +6,18 @@ import { IncomeForm } from "@/components/forms/IncomeForm";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield } from "lucide-react";
+import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock } from "lucide-react";
 import { motion } from "framer-motion";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInDays } from "date-fns";
 import { Link } from "wouter";
 import type { TaxSummary } from "@shared/schema";
+import type { User } from "@shared/models/auth";
 
 export default function Dashboard() {
   const { data: summary, isLoading } = useTaxSummary();
@@ -84,26 +86,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {isFreeUser && (
-        <Card className="border-yellow-500/40 bg-yellow-50/50 dark:bg-yellow-900/10" data-testid="banner-free-tier">
-          <CardContent className="flex items-start gap-3 py-3 px-4">
-            <Shield className="h-5 w-5 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
-                Free Tier: Your tax data is only stored for 90 days.
-              </p>
-              <p className="text-xs text-yellow-700/80 dark:text-yellow-400/70 mt-0.5">
-                Upgrade to Pro to lock in 7-year IRS-compliant storage with the Tax Vault, unlimited receipt photo uploads, and certified audit-ready PDF exports.
-              </p>
-            </div>
-            <Link href="/legal?tab=subscriptions">
-              <Button variant="outline" size="sm" className="shrink-0 border-yellow-500/50 text-yellow-700 dark:text-yellow-300" data-testid="button-upgrade-pro">
-                Learn More
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      )}
+      {isFreeUser && <FreeRetentionAlert user={user} />}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, i) => (
@@ -201,6 +184,85 @@ export default function Dashboard() {
 
       <ExportSection summary={summary} />
     </Layout>
+  );
+}
+
+function FreeRetentionAlert({ user }: { user: User | null | undefined }) {
+  if (!user) return null;
+
+  const referenceDate = user.lastLoginAt
+    ? new Date(user.lastLoginAt)
+    : user.createdAt
+      ? new Date(user.createdAt)
+      : null;
+
+  if (!referenceDate) return null;
+
+  const daysSinceActivity = differenceInDays(new Date(), referenceDate);
+  const daysRemaining = Math.max(0, 90 - daysSinceActivity);
+
+  if (daysSinceActivity < 60) {
+    return (
+      <Card className="border-yellow-500/40 bg-yellow-50/50 dark:bg-yellow-900/10 mb-2" data-testid="banner-free-tier">
+        <CardContent className="flex items-start gap-3 py-3 px-4">
+          <Shield className="h-5 w-5 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+              Free Tier: Your tax data is stored for 90 days.
+            </p>
+            <p className="text-xs text-yellow-700/80 dark:text-yellow-400/70 mt-0.5">
+              Upgrade to Pro for 7-year IRS-compliant storage with the Tax Vault.
+            </p>
+          </div>
+          <Link href="/legal?tab=subscriptions">
+            <Button variant="outline" size="sm" className="shrink-0 border-yellow-500/50 text-yellow-700 dark:text-yellow-300" data-testid="button-upgrade-pro">
+              Learn More
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const isCritical = daysRemaining <= 10;
+
+  return (
+    <Alert
+      variant="destructive"
+      className={
+        isCritical
+          ? "border-destructive bg-destructive/10 dark:bg-destructive/20 mb-2"
+          : "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-600 mb-2 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-400 text-yellow-900 dark:text-yellow-200"
+      }
+      data-testid="alert-retention-countdown"
+    >
+      {isCritical ? (
+        <AlertTriangle className="h-5 w-5" />
+      ) : (
+        <Clock className="h-5 w-5" />
+      )}
+      <AlertTitle className="flex items-center gap-2 flex-wrap">
+        Free Tier Storage: Your data is scheduled for cleanup in {daysRemaining} day{daysRemaining !== 1 ? "s" : ""}.
+      </AlertTitle>
+      <AlertDescription className="mt-1">
+        <p className="text-sm">
+          {isCritical
+            ? "Your tax records, mileage logs, and expense data will be permanently deleted soon. Act now to preserve your records."
+            : "Upgrade to Pro for permanent IRS-compliant storage. Pro members get 7-year Tax Vault retention, unlimited receipt photos, and certified audit-ready exports."}
+        </p>
+        <div className="flex gap-3 mt-3 flex-wrap">
+          <Link href="/legal?tab=subscriptions">
+            <Button
+              variant={isCritical ? "default" : "outline"}
+              size="sm"
+              data-testid="button-upgrade-pro-alert"
+            >
+              Upgrade to Pro
+            </Button>
+          </Link>
+        </div>
+      </AlertDescription>
+    </Alert>
   );
 }
 
