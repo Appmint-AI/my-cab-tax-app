@@ -151,9 +151,19 @@ export async function registerRoutes(
 
   // Accept Terms
   app.post("/api/accept-terms", isAuthenticated, async (req, res) => {
+    const schema = z.object({ version: z.string().min(1).default("1.0") });
+    const parsed = schema.safeParse(req.body || {});
+    const version = parsed.success ? parsed.data.version : "1.0";
     const userId = (req.user as any).claims.sub;
-    await storage.acceptTerms(userId);
+    await storage.acceptTerms(userId, version);
     res.json({ success: true });
+  });
+
+  // Request Data Deletion (CCPA)
+  app.post("/api/request-data-deletion", isAuthenticated, async (req, res) => {
+    const userId = (req.user as any).claims.sub;
+    await storage.deleteUserData(userId);
+    res.json({ success: true, message: "All your tax records have been permanently deleted." });
   });
 
   return httpServer;

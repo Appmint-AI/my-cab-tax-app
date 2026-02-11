@@ -8,7 +8,8 @@ import {
   LogOut, 
   CarFront,
   Menu,
-  X
+  X,
+  Settings
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/incomes", label: "Income", icon: Wallet },
     { href: "/expenses", label: "Expenses", icon: Receipt },
+    { href: "/settings", label: "Settings", icon: Settings },
   ];
 
   const NavContent = () => (

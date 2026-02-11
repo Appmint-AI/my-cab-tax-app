@@ -12,6 +12,7 @@ import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import ExpensesPage from "@/pages/ExpensesPage";
 import IncomesPage from "@/pages/IncomesPage";
+import SettingsPage from "@/pages/SettingsPage";
 import Legal from "@/pages/Legal";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -48,6 +49,10 @@ function Router() {
       
       <Route path="/incomes">
         <ProtectedRoute component={IncomesPage} />
+      </Route>
+
+      <Route path="/settings">
+        <ProtectedRoute component={SettingsPage} />
       </Route>
       
       <Route component={NotFound} />

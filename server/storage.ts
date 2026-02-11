@@ -24,7 +24,8 @@ export interface IStorage {
 
   getTaxSummary(userId: string): Promise<TaxSummary>;
 
-  acceptTerms(userId: string): Promise<void>;
+  acceptTerms(userId: string, version: string): Promise<void>;
+  deleteUserData(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -124,10 +125,24 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async acceptTerms(userId: string): Promise<void> {
+  async acceptTerms(userId: string, version: string): Promise<void> {
     await db
       .update(users)
-      .set({ termsAcceptedAt: new Date(), updatedAt: new Date() })
+      .set({ termsAcceptedAt: new Date(), termsVersion: version, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+  }
+
+  async deleteUserData(userId: string): Promise<void> {
+    await db.delete(expenses).where(eq(expenses.userId, userId));
+    await db.delete(incomes).where(eq(incomes.userId, userId));
+    await db
+      .update(users)
+      .set({
+        dataDeletionRequestedAt: new Date(),
+        termsAcceptedAt: null,
+        termsVersion: null,
+        updatedAt: new Date(),
+      })
       .where(eq(users.id, userId));
   }
 }

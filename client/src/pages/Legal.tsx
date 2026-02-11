@@ -25,7 +25,8 @@ export default function Legal() {
       </nav>
 
       <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto flex-1 w-full">
-        <h1 className="font-display font-bold text-3xl sm:text-4xl mb-6" data-testid="text-legal-title">Legal Center - My Cab Tax USA</h1>
+        <h1 className="font-display font-bold text-3xl sm:text-4xl mb-2" data-testid="text-legal-title">Legal Center - My Cab Tax USA</h1>
+        <p className="text-sm text-muted-foreground mb-6" data-testid="text-legal-last-updated">Last Updated: February 11, 2026 &mdash; Version 1.0</p>
 
         <Card className="p-6 sm:p-8 mb-8 border-destructive/50 bg-destructive/5" data-testid="disclaimer-box">
           <div className="flex items-start gap-3">

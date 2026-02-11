@@ -266,7 +266,7 @@ function ExportSection({ summary }: { summary: TaxSummary }) {
               data-testid="checkbox-certify-export"
             />
             <Label htmlFor="certify-export" className="text-sm leading-snug cursor-pointer">
-              I certify under penalty of perjury that the information provided is true and correct to the best of my knowledge. I acknowledge that My Cab Tax USA is a tool and not a tax professional.
+              I certify that these records are accurate and I understand My Cab Tax USA is not a licensed tax professional.
             </Label>
           </div>
 

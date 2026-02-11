@@ -22,6 +22,8 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   termsAcceptedAt: timestamp("terms_accepted_at"),
+  termsVersion: varchar("terms_version"),
+  dataDeletionRequestedAt: timestamp("data_deletion_requested_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -4,6 +4,12 @@
 A tax tracking app for rideshare and cab drivers in the US. Tracks income, expenses, miles driven, and platform fees. Calculates Schedule C profit using real 2026 IRS rates.
 
 ## Recent Changes
+- Enhanced Legal Consent Modal: shows Tax Disclaimer + Mandatory Arbitration summary, saves termsVersion and consent_timestamp
+- Added Settings page (/settings) with Profile, Legal Consent status, and Data Privacy section
+- Data Privacy: "Request Data Deletion" button with confirmation dialog (CCPA compliant, permanently erases all tax records)
+- Export Tax Summary: checkbox label updated to "I certify that these records are accurate and I understand My Cab Tax USA is not a licensed tax professional."
+- Legal page now shows "Last Updated" date and version at the top
+- Added termsVersion and dataDeletionRequestedAt fields to users table
 - Added Legal page (/legal) with tabbed Terms of Service, Privacy Policy, and Tax Disclaimers
 - Added mandatory Terms Acceptance dialog for new users (blocks app until accepted, stored as termsAcceptedAt)
 - Added Legal link in landing page footer
@@ -33,6 +39,8 @@ A tax tracking app for rideshare and cab drivers in the US. Tracks income, expen
 - `client/src/hooks/use-auth.ts` — Frontend auth hook (fetches /api/auth/user)
 - `client/src/pages/Dashboard.tsx` — Main dashboard with stats cards and charts
 - `client/src/components/forms/IncomeForm.tsx` — Income form with miles & fees
+- `client/src/pages/SettingsPage.tsx` — Settings with profile, legal consent status, data deletion
+- `client/src/components/TermsAcceptanceDialog.tsx` — Legal consent modal (blocks app until accepted)
 
 ## Auth0 Setup
 - Configure in Auth0 Dashboard:
