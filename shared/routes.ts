@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertExpenseSchema, insertIncomeSchema, insertMileageLogSchema, expenses, incomes, mileageLogs } from './schema';
+import { insertExpenseSchema, insertIncomeSchema, insertMileageLogSchema, insertVehicleSchema, expenses, incomes, mileageLogs, vehicles } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -15,6 +15,50 @@ export const errorSchemas = {
 };
 
 export const api = {
+  vehicles: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/vehicles' as const,
+      responses: {
+        200: z.array(z.custom<typeof vehicles.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/vehicles' as const,
+      input: insertVehicleSchema,
+      responses: {
+        201: z.custom<typeof vehicles.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/vehicles/:id' as const,
+      responses: {
+        200: z.custom<typeof vehicles.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/vehicles/:id' as const,
+      input: insertVehicleSchema.partial(),
+      responses: {
+        200: z.custom<typeof vehicles.$inferSelect>(),
+        404: errorSchemas.notFound,
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/vehicles/:id' as const,
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
   expenses: {
     list: {
       method: 'GET' as const,
@@ -160,7 +204,9 @@ export const api = {
           totalOtherExpenses: z.number(),
           totalDeductions: z.number(),
           netProfit: z.number(),
+          seTaxableBase: z.number(),
           selfEmploymentTax: z.number(),
+          seDeduction: z.number(),
           estimatedQuarterlyPayment: z.number(),
           expensesByCategory: z.record(z.number()),
           incomeBySource: z.record(z.number()),

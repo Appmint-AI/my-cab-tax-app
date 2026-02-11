@@ -9,7 +9,12 @@ export * from "./models/auth";
 // 2026 IRS Constants
 export const IRS_MILEAGE_RATE = 0.725;
 export const SE_TAX_RATE = 0.153;
+export const SE_TAXABLE_BASE = 0.9235; // SE tax applies to 92.35% of net profit
 export const QUARTERLY_DEADLINES = ["2026-04-15", "2026-06-15", "2026-09-15", "2027-01-15"];
+
+// Mileage methodology options per IRS rules
+export const MILEAGE_METHODS = ["standard", "actual"] as const;
+export type MileageMethod = typeof MILEAGE_METHODS[number];
 
 // IRS Schedule C Expense Categories
 export const IRS_EXPENSE_CATEGORIES = [
@@ -41,10 +46,23 @@ export function mapToIRSCategory(category: string): IRSExpenseCategory {
   return LEGACY_CATEGORY_MAP[category] || (IRS_EXPENSE_CATEGORIES.includes(category as IRSExpenseCategory) ? category as IRSExpenseCategory : "Other Expenses");
 }
 
+// Vehicles table - multi-car management
+export const vehicles = pgTable("vehicles", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  year: integer("year"),
+  make: text("make"),
+  model: text("model"),
+  mileageMethod: text("mileage_method").notNull().default("standard"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Expenses table
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),
+  vehicleId: integer("vehicle_id").references(() => vehicles.id),
   date: date("date").notNull(),
   amount: numeric("amount").notNull(),
   category: text("category").notNull(),
@@ -70,6 +88,7 @@ export const incomes = pgTable("incomes", {
 export const mileageLogs = pgTable("mileage_logs", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),
+  vehicleId: integer("vehicle_id").references(() => vehicles.id),
   date: date("date").notNull(),
   businessPurpose: text("business_purpose").notNull(),
   startOdometer: numeric("start_odometer"),
@@ -90,10 +109,23 @@ export const legalConsentLogs = pgTable("legal_consent_logs", {
   consentTimestamp: timestamp("consent_timestamp").notNull().defaultNow(),
 });
 
+export const vehiclesRelations = relations(vehicles, ({ one, many }) => ({
+  user: one(users, {
+    fields: [vehicles.userId],
+    references: [users.id],
+  }),
+  expenses: many(expenses),
+  mileageLogs: many(mileageLogs),
+}));
+
 export const mileageLogsRelations = relations(mileageLogs, ({ one }) => ({
   user: one(users, {
     fields: [mileageLogs.userId],
     references: [users.id],
+  }),
+  vehicle: one(vehicles, {
+    fields: [mileageLogs.vehicleId],
+    references: [vehicles.id],
   }),
 }));
 
@@ -110,6 +142,10 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
     fields: [expenses.userId],
     references: [users.id],
   }),
+  vehicle: one(vehicles, {
+    fields: [expenses.vehicleId],
+    references: [vehicles.id],
+  }),
 }));
 
 export const incomesRelations = relations(incomes, ({ one }) => ({
@@ -120,12 +156,23 @@ export const incomesRelations = relations(incomes, ({ one }) => ({
 }));
 
 // Schemas
+export const insertVehicleSchema = createInsertSchema(vehicles).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+}).extend({
+  name: z.string().min(1, "Vehicle name is required"),
+  year: z.coerce.number().min(1900).max(2100).optional().nullable(),
+  mileageMethod: z.enum(MILEAGE_METHODS).default("standard"),
+});
+
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ 
   id: true, 
   userId: true, 
   createdAt: true 
 }).extend({
   amount: z.coerce.number().positive(),
+  vehicleId: z.coerce.number().optional().nullable(),
 });
 
 export const insertIncomeSchema = createInsertSchema(incomes).omit({ 
@@ -146,9 +193,12 @@ export const insertMileageLogSchema = createInsertSchema(mileageLogs).omit({
   totalMiles: z.coerce.number().positive("Miles must be positive"),
   startOdometer: z.coerce.number().min(0).optional().nullable(),
   endOdometer: z.coerce.number().min(0).optional().nullable(),
+  vehicleId: z.coerce.number().optional().nullable(),
 });
 
 // Types
+export type Vehicle = typeof vehicles.$inferSelect;
+export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type Income = typeof incomes.$inferSelect;
@@ -158,6 +208,7 @@ export type InsertMileageLog = z.infer<typeof insertMileageLogSchema>;
 
 export type CreateExpenseRequest = InsertExpense;
 export type CreateIncomeRequest = InsertIncome;
+export type UpdateVehicleRequest = Partial<InsertVehicle>;
 export type UpdateExpenseRequest = Partial<InsertExpense>;
 export type UpdateIncomeRequest = Partial<InsertIncome>;
 export type UpdateMileageLogRequest = Partial<InsertMileageLog>;
@@ -171,7 +222,9 @@ export interface TaxSummary {
   totalOtherExpenses: number;
   totalDeductions: number;
   netProfit: number;
+  seTaxableBase: number;
   selfEmploymentTax: number;
+  seDeduction: number;
   estimatedQuarterlyPayment: number;
   expensesByCategory: Record<string, number>;
   incomeBySource: Record<string, number>;

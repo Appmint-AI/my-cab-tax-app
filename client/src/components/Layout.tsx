@@ -32,6 +32,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/incomes", label: "Income", icon: Wallet },
     { href: "/expenses", label: "Expenses", icon: Receipt },
     { href: "/mileage", label: "Mileage", icon: MapPin },
+    { href: "/vehicles", label: "Vehicles", icon: CarFront },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 

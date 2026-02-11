@@ -46,6 +46,7 @@ import { z } from "zod";
 import { Plus, Loader2, Trash2, Car, MapPin, Calendar } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useTaxSummary } from "@/hooks/use-tax";
+import { useVehicles } from "@/hooks/use-vehicles";
 
 const formSchema = insertMileageLogSchema.extend({
   totalMiles: z.coerce.number().positive("Miles must be positive"),
@@ -218,6 +219,7 @@ function MileageLogRow({ log }: { log: MileageLog }) {
 
 function MileageLogForm({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const createMutation = useCreateMileageLog();
+  const { data: vehicles } = useVehicles();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -227,6 +229,7 @@ function MileageLogForm({ open, onOpenChange }: { open: boolean; onOpenChange: (
       totalMiles: "" as any,
       startOdometer: null,
       endOdometer: null,
+      vehicleId: null,
     },
   });
 
@@ -293,6 +296,37 @@ function MileageLogForm({ open, onOpenChange }: { open: boolean; onOpenChange: (
                 </FormItem>
               )}
             />
+
+            {vehicles && vehicles.length > 0 && (
+              <FormField
+                control={form.control}
+                name="vehicleId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vehicle</FormLabel>
+                    <Select
+                      onValueChange={(val) => field.onChange(val === "none" ? null : Number(val))}
+                      defaultValue={field.value ? String(field.value) : "none"}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-mileage-vehicle">
+                          <SelectValue placeholder="Select vehicle" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">No vehicle assigned</SelectItem>
+                        {vehicles.map((v) => (
+                          <SelectItem key={v.id} value={String(v.id)}>
+                            {v.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

@@ -4,6 +4,15 @@
 A tax tracking app for rideshare and cab drivers in the US. Tracks income, expenses, miles driven, and platform fees. Calculates Schedule C profit using real 2026 IRS rates.
 
 ## Recent Changes
+- Added Vehicle Management module (/vehicles) with multi-vehicle support
+  - Vehicles table: name, year, make, model, mileageMethod (standard/actual)
+  - Full CRUD: add, edit, delete vehicles with ownership checks
+  - vehicleId FK on expenses and mileage_logs (nullable for backward compat)
+  - Vehicle selector in ExpenseForm and MileagePage form (shown when vehicles exist)
+  - Anti-double-dipping: Standard Mileage vehicles exclude "Car and Truck Expenses" from deductions per IRS rules
+  - Delete vehicle nullifies vehicleId on associated records (no data loss)
+- Fixed SE tax calculation: Net Profit x 92.35% x 15.3% (was Net Profit x 15.3%)
+  - Added SE_TAXABLE_BASE constant (0.9235), seTaxableBase and seDeduction fields to TaxSummary
 - Added dedicated Mileage Tracker page (/mileage) with IRS Publication 463-compliant contemporaneous mileage log
   - Form with date, business purpose, total miles, optional start/end odometer readings
   - Stats cards showing logged miles, mileage deduction at $0.725/mi, and entry count
@@ -87,6 +96,8 @@ A tax tracking app for rideshare and cab drivers in the US. Tracks income, expen
 - `client/src/pages/UpgradePage.tsx` — Pro upgrade marketing page with IRS audit pitch
 - `client/src/pages/SupportPage.tsx` — Legal & Privacy Support form with inquiry type dropdown
 - `client/src/pages/MileagePage.tsx` — Mileage Tracker with IRS Publication 463-compliant log form and entries
+- `client/src/pages/VehiclesPage.tsx` — Vehicle Management with CRUD and mileage method selection
+- `client/src/hooks/use-vehicles.ts` — Frontend CRUD hooks for vehicle API
 - `client/src/hooks/use-mileage-logs.ts` — Frontend CRUD hooks for mileage log API
 - `client/src/components/TermsAcceptanceDialog.tsx` — Legal consent modal (blocks app until accepted)
 - `server/resend.ts` — Resend email client (uses Replit connector for API key)

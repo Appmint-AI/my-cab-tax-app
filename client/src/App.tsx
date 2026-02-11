@@ -17,6 +17,7 @@ import Legal from "@/pages/Legal";
 import UpgradePage from "@/pages/UpgradePage";
 import SupportPage from "@/pages/SupportPage";
 import MileagePage from "@/pages/MileagePage";
+import VehiclesPage from "@/pages/VehiclesPage";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -50,6 +51,10 @@ function Router() {
       
       <Route path="/mileage">
         <ProtectedRoute component={MileagePage} />
+      </Route>
+
+      <Route path="/vehicles">
+        <ProtectedRoute component={VehiclesPage} />
       </Route>
 
       <Route path="/expenses">

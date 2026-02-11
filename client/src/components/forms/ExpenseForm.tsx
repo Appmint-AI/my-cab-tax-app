@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertExpenseSchema, type InsertExpense } from "@shared/schema";
 import { useCreateExpense, useUpdateExpense } from "@/hooks/use-expenses";
+import { useVehicles } from "@/hooks/use-vehicles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -36,7 +37,7 @@ const formSchema = insertExpenseSchema.extend({
 });
 
 interface ExpenseFormProps {
-  initialData?: InsertExpense & { id: number };
+  initialData?: { id: number; amount: string | number; category: string; date: string; description?: string | null; receiptUrl?: string | null; vehicleId?: number | null };
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   trigger?: React.ReactNode;
@@ -49,27 +50,30 @@ export function ExpenseForm({ initialData, open: controlledOpen, onOpenChange: s
 
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense();
+  const { data: vehicles } = useVehicles();
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      amount: initialData?.amount ?? "" as any,
+      amount: initialData?.amount ? Number(initialData.amount) : ("" as any),
       category: initialData?.category ?? "Car and Truck Expenses",
       date: initialData?.date ? new Date(initialData.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       description: initialData?.description ?? "",
       receiptUrl: initialData?.receiptUrl ?? "",
+      vehicleId: initialData?.vehicleId ?? null,
     },
   });
 
   useEffect(() => {
     if (initialData) {
       form.reset({
-        amount: initialData.amount,
+        amount: Number(initialData.amount),
         category: initialData.category,
         date: new Date(initialData.date).toISOString().split('T')[0],
         description: initialData.description ?? "",
         receiptUrl: initialData.receiptUrl ?? "",
+        vehicleId: initialData.vehicleId ?? null,
       });
     }
   }, [initialData, form]);
@@ -163,6 +167,37 @@ export function ExpenseForm({ initialData, open: controlledOpen, onOpenChange: s
                 </FormItem>
               )}
             />
+
+            {vehicles && vehicles.length > 0 && (
+              <FormField
+                control={form.control}
+                name="vehicleId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vehicle</FormLabel>
+                    <Select
+                      onValueChange={(val) => field.onChange(val === "none" ? null : Number(val))}
+                      defaultValue={field.value ? String(field.value) : "none"}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-expense-vehicle">
+                          <SelectValue placeholder="Select vehicle" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">No vehicle assigned</SelectItem>
+                        {vehicles.map((v) => (
+                          <SelectItem key={v.id} value={String(v.id)}>
+                            {v.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

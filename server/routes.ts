@@ -17,6 +17,68 @@ export async function registerRoutes(
   // Protected Routes Middleware - apply to all /api routes except auth
   // Note: auth routes are already registered above
   
+  // Vehicles Routes
+  app.get(api.vehicles.list.path, isAuthenticated, async (req, res) => {
+    const userId = (req.user as any).claims.sub;
+    const vehicleList = await storage.getVehicles(userId);
+    res.json(vehicleList);
+  });
+
+  app.post(api.vehicles.create.path, isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const input = api.vehicles.create.input.parse(req.body);
+      const vehicle = await storage.createVehicle({ ...input, userId });
+      res.status(201).json(vehicle);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      throw err;
+    }
+  });
+
+  app.get(api.vehicles.get.path, isAuthenticated, async (req, res) => {
+    const vehicle = await storage.getVehicle(Number(req.params.id));
+    if (!vehicle) {
+      return res.status(404).json({ message: 'Vehicle not found' });
+    }
+    const userId = (req.user as any).claims.sub;
+    if (vehicle.userId !== userId) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    res.json(vehicle);
+  });
+
+  app.put(api.vehicles.update.path, isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const input = api.vehicles.update.input.parse(req.body);
+      const updated = await storage.updateVehicle(userId, Number(req.params.id), input);
+      if (!updated) {
+        return res.status(404).json({ message: 'Vehicle not found' });
+      }
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      throw err;
+    }
+  });
+
+  app.delete(api.vehicles.delete.path, isAuthenticated, async (req, res) => {
+    const userId = (req.user as any).claims.sub;
+    await storage.deleteVehicle(userId, Number(req.params.id));
+    res.sendStatus(204);
+  });
+
   // Expenses Routes
   app.get(api.expenses.list.path, isAuthenticated, async (req, res) => {
     const userId = (req.user as any).claims.sub;
