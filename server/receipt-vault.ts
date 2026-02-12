@@ -27,7 +27,8 @@ export async function uploadToVault(
   const privateDir = objectStorage.getPrivateObjectDir();
   const ext = mimeType === "image/png" ? ".png" : mimeType === "image/webp" ? ".webp" : ".jpg";
   const objectId = randomUUID();
-  const fullPath = `${privateDir}/receipts/${userId}/${objectId}${ext}`;
+  const year = new Date().getFullYear().toString();
+  const fullPath = `${privateDir}/receipts/${userId}/${year}/${objectId}${ext}`;
 
   const { bucketName, objectName } = parseObjectPath(fullPath);
   const bucket = objectStorageClient.bucket(bucketName);
@@ -52,7 +53,7 @@ export async function uploadToVault(
     visibility: "private",
   });
 
-  return `/objects/receipts/${userId}/${objectId}${ext}`;
+  return `/objects/receipts/${userId}/${year}/${objectId}${ext}`;
 }
 
 export async function getReceiptSignedUrl(objectPath: string): Promise<string> {
