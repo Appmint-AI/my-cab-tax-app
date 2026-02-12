@@ -5,6 +5,7 @@ import { relations } from "drizzle-orm";
 import { users } from "./models/auth";
 
 export * from "./models/auth";
+export * from "./models/chat";
 
 // 2026 IRS Constants
 export const IRS_MILEAGE_RATE = 0.725;
