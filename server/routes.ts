@@ -8,21 +8,13 @@ import Stripe from "stripe";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { uploadToVault, getReceiptSignedUrl, deleteFromVault, getReceiptBuffer } from "./receipt-vault";
+import { scanReceiptWithAI } from "./receipt-ocr";
 
 const UPLOADS_DIR = path.join(process.cwd(), "uploads", "receipts");
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
 
 const receiptUpload = multer({
-  storage: multer.diskStorage({
-    destination: UPLOADS_DIR,
-    filename: (_req, file, cb) => {
-      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-      const ext = path.extname(file.originalname) || ".jpg";
-      cb(null, `receipt-${uniqueSuffix}${ext}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = ["image/jpeg", "image/png", "image/webp", "image/heic"];
@@ -304,7 +296,7 @@ export async function registerRoutes(
 
   app.get("/uploads/receipts/:filename", isAuthenticated, async (req, res) => {
     const userId = (req.user as any).claims.sub;
-    const filename = path.basename(req.params.filename);
+    const filename = path.basename(String(req.params.filename));
     const imageUrl = `/uploads/receipts/${filename}`;
 
     const receipt = await storage.getReceiptByImageUrl(userId, imageUrl);
@@ -319,11 +311,49 @@ export async function registerRoutes(
     res.sendFile(filePath);
   });
 
+  app.get("/api/receipts/signed-url/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const receipt = await storage.getReceipt(Number(req.params.id));
+      if (!receipt) {
+        return res.status(404).json({ message: "Receipt not found" });
+      }
+      if (receipt.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      if (receipt.imageUrl.startsWith("/objects/")) {
+        const signedUrl = await getReceiptSignedUrl(receipt.imageUrl);
+        return res.json({ url: signedUrl });
+      }
+
+      return res.json({ url: receipt.imageUrl });
+    } catch (err: any) {
+      console.error("Signed URL error:", err);
+      res.status(500).json({ message: "Failed to get image URL" });
+    }
+  });
+
   // Receipt Routes
   app.get("/api/receipts", isAuthenticated, async (req, res) => {
     const userId = (req.user as any).claims.sub;
     const receiptList = await storage.getReceipts(userId);
-    res.json(receiptList);
+
+    const receiptsWithUrls = await Promise.all(
+      receiptList.map(async (r) => {
+        if (r.imageUrl.startsWith("/objects/")) {
+          try {
+            const signedUrl = await getReceiptSignedUrl(r.imageUrl);
+            return { ...r, signedImageUrl: signedUrl };
+          } catch {
+            return { ...r, signedImageUrl: null };
+          }
+        }
+        return { ...r, signedImageUrl: r.imageUrl };
+      })
+    );
+
+    res.json(receiptsWithUrls);
   });
 
   const receiptMetadataSchema = z.object({
@@ -357,13 +387,11 @@ export async function registerRoutes(
       }
 
       if (file.size < 50 * 1024) {
-        fs.unlinkSync(file.path);
         return res.status(400).json({ message: "File too small. Minimum 50KB required for IRS-quality receipt images." });
       }
 
       const parsed = receiptMetadataSchema.safeParse(req.body);
       if (!parsed.success) {
-        fs.unlinkSync(file.path);
         return res.status(400).json({ message: "Invalid receipt metadata", errors: parsed.error.flatten() });
       }
       const meta = parsed.data;
@@ -379,7 +407,7 @@ export async function registerRoutes(
         expiresAt.setDate(expiresAt.getDate() + 90);
       }
 
-      const imageUrl = `/uploads/receipts/${file.filename}`;
+      const imageUrl = await uploadToVault(file.buffer, userId, file.mimetype, retentionPolicy);
 
       let ocrData = null;
       if (meta.ocrData) {
@@ -400,13 +428,36 @@ export async function registerRoutes(
         expenseId: meta.expenseId ?? null,
       });
 
-      res.status(201).json(receipt);
+      const signedUrl = await getReceiptSignedUrl(imageUrl);
+      res.status(201).json({ ...receipt, signedImageUrl: signedUrl });
     } catch (err: any) {
-      if (req.file) {
-        try { fs.unlinkSync(req.file.path); } catch {}
-      }
       console.error("Receipt upload error:", err);
       res.status(500).json({ message: err.message || "Upload failed" });
+    }
+  });
+
+  app.patch("/api/receipts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const receipt = await storage.getReceipt(Number(req.params.id));
+      if (!receipt) {
+        return res.status(404).json({ message: "Receipt not found" });
+      }
+      if (receipt.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const updateData: any = {};
+      if (req.body.expenseId !== undefined) updateData.expenseId = req.body.expenseId;
+      if (req.body.merchantName !== undefined) updateData.merchantName = req.body.merchantName;
+      if (req.body.receiptDate !== undefined) updateData.receiptDate = req.body.receiptDate;
+      if (req.body.totalAmount !== undefined) updateData.totalAmount = req.body.totalAmount;
+
+      const updated = await storage.updateReceipt(userId, receipt.id, updateData);
+      res.json(updated);
+    } catch (err: any) {
+      console.error("Receipt update error:", err);
+      res.status(500).json({ message: err.message || "Update failed" });
     }
   });
 
@@ -420,13 +471,75 @@ export async function registerRoutes(
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    const filePath = path.join(UPLOADS_DIR, path.basename(receipt.imageUrl));
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    if (receipt.imageUrl.startsWith("/objects/")) {
+      try { await deleteFromVault(receipt.imageUrl); } catch (e) { console.error("GCS delete error:", e); }
+    } else {
+      const filePath = path.join(UPLOADS_DIR, path.basename(receipt.imageUrl));
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
 
     await storage.deleteReceipt(userId, receipt.id);
     res.sendStatus(204);
+  });
+
+  app.post("/api/scan-receipt", isAuthenticated, receiptUpload.single("receipt"), async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ message: "No image uploaded" });
+      }
+
+      if (file.size < 50 * 1024) {
+        return res.status(400).json({ message: "File too small. Minimum 50KB required for IRS-quality receipt images." });
+      }
+
+      const user = await storage.getUser(userId);
+      const isPro = user?.subscriptionStatus === "pro";
+
+      if (!isPro) {
+        return res.status(403).json({ message: "AI Receipt Scanner requires a Pro subscription. Upgrade to unlock this feature." });
+      }
+
+      const retentionPolicy = "pro";
+
+      const ocrResult = await scanReceiptWithAI(file.buffer, file.mimetype);
+
+      const expiresAt = new Date();
+      if (isPro) {
+        expiresAt.setFullYear(expiresAt.getFullYear() + 7);
+      } else {
+        expiresAt.setDate(expiresAt.getDate() + 90);
+      }
+
+      const imageUrl = await uploadToVault(file.buffer, userId, file.mimetype, retentionPolicy);
+
+      const receipt = await storage.createReceipt({
+        userId,
+        imageUrl,
+        originalFilename: file.originalname || `receipt-${Date.now()}.jpg`,
+        merchantName: ocrResult.merchantName || null,
+        receiptDate: ocrResult.date || null,
+        totalAmount: ocrResult.totalAmount,
+        ocrData: { rawText: ocrResult.rawText, items: ocrResult.items },
+        ocrConfidence: ocrResult.confidence,
+        retentionPolicy,
+        expiresAt,
+        expenseId: null,
+      });
+
+      const signedUrl = await getReceiptSignedUrl(imageUrl);
+
+      res.json({
+        receipt: { ...receipt, signedImageUrl: signedUrl },
+        ocr: ocrResult,
+      });
+    } catch (err: any) {
+      console.error("Scan receipt error:", err);
+      res.status(500).json({ message: err.message || "Receipt scanning failed" });
+    }
   });
 
   // Accept Terms

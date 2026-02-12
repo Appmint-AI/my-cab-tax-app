@@ -45,6 +45,7 @@ export interface IStorage {
   getReceipt(id: number): Promise<Receipt | undefined>;
   getReceiptByImageUrl(userId: string, imageUrl: string): Promise<Receipt | undefined>;
   createReceipt(receipt: InsertReceipt & { userId: string }): Promise<Receipt>;
+  updateReceipt(userId: string, id: number, data: Partial<InsertReceipt>): Promise<Receipt | undefined>;
   deleteReceipt(userId: string, id: number): Promise<void>;
   deleteExpiredReceipts(): Promise<number>;
 
@@ -199,6 +200,14 @@ export class DatabaseStorage implements IStorage {
   async createReceipt(insertReceipt: InsertReceipt & { userId: string }): Promise<Receipt> {
     const [receipt] = await db.insert(receipts).values(insertReceipt).returning();
     return receipt;
+  }
+
+  async updateReceipt(userId: string, id: number, data: Partial<InsertReceipt>): Promise<Receipt | undefined> {
+    const [updated] = await db.update(receipts)
+      .set(data as any)
+      .where(and(eq(receipts.id, id), eq(receipts.userId, userId)))
+      .returning();
+    return updated;
   }
 
   async deleteReceipt(userId: string, id: number): Promise<void> {

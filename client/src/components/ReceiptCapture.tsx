@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,9 +19,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useUploadReceipt } from "@/hooks/use-receipts";
+import { useUploadReceipt, useScanReceipt } from "@/hooks/use-receipts";
 import { useSubscription, useCreateCheckoutSession } from "@/hooks/use-subscription";
-import { Loader2, Camera, Upload, ScanLine, Lock, Crown, ImageIcon, AlertTriangle, Check } from "lucide-react";
+import { useLocation } from "wouter";
+import { Loader2, Camera, Upload, ScanLine, Lock, Crown, AlertTriangle, Check } from "lucide-react";
 
 interface OcrResult {
   merchantName: string;
@@ -72,90 +73,6 @@ function checkImageQuality(file: File): Promise<{ valid: boolean; reason?: strin
   });
 }
 
-function extractReceiptData(text: string): OcrResult {
-  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-
-  let merchantName = "";
-  if (lines.length > 0) {
-    for (const line of lines.slice(0, 5)) {
-      const cleaned = line.replace(/[^a-zA-Z0-9\s&'-]/g, "").trim();
-      if (cleaned.length > 2 && !/^\d+$/.test(cleaned)) {
-        merchantName = cleaned;
-        break;
-      }
-    }
-  }
-
-  let date = "";
-  const datePatterns = [
-    /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/,
-    /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
-    /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+(\d{1,2}),?\s*(\d{2,4})/i,
-  ];
-  for (const line of lines) {
-    for (const pattern of datePatterns) {
-      const match = line.match(pattern);
-      if (match) {
-        try {
-          const parsed = new Date(match[0]);
-          if (!isNaN(parsed.getTime())) {
-            date = parsed.toISOString().split("T")[0];
-            break;
-          }
-        } catch {}
-        if (!date) {
-          date = match[0];
-        }
-        break;
-      }
-    }
-    if (date) break;
-  }
-
-  let totalAmount: number | null = null;
-  const totalPatterns = [
-    /total[:\s]*\$?\s*(\d+[,.]?\d*)/i,
-    /amount[:\s]*\$?\s*(\d+[,.]?\d*)/i,
-    /due[:\s]*\$?\s*(\d+[,.]?\d*)/i,
-    /balance[:\s]*\$?\s*(\d+[,.]?\d*)/i,
-  ];
-
-  for (const line of [...lines].reverse()) {
-    for (const pattern of totalPatterns) {
-      const match = line.match(pattern);
-      if (match) {
-        totalAmount = parseFloat(match[1].replace(",", ""));
-        break;
-      }
-    }
-    if (totalAmount !== null) break;
-  }
-
-  if (totalAmount === null) {
-    const dollarAmounts: number[] = [];
-    for (const line of lines) {
-      const matches = line.match(/\$\s*(\d+[,.]?\d{0,2})/g);
-      if (matches) {
-        for (const m of matches) {
-          const val = parseFloat(m.replace(/[$,\s]/g, ""));
-          if (!isNaN(val) && val > 0) dollarAmounts.push(val);
-        }
-      }
-    }
-    if (dollarAmounts.length > 0) {
-      totalAmount = Math.max(...dollarAmounts);
-    }
-  }
-
-  return {
-    merchantName,
-    date,
-    totalAmount,
-    confidence: merchantName && totalAmount ? 70 : merchantName || totalAmount ? 40 : 10,
-    rawText: text,
-  };
-}
-
 export function ReceiptCapture({ onOcrResult, trigger }: ReceiptCaptureProps) {
   const [open, setOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -163,62 +80,14 @@ export function ReceiptCapture({ onOcrResult, trigger }: ReceiptCaptureProps) {
   const [qualityError, setQualityError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
-  const [cameraActive, setCameraActive] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [, setLocation] = useLocation();
 
   const { data: subscription } = useSubscription();
   const checkoutMutation = useCreateCheckoutSession();
   const uploadMutation = useUploadReceipt();
+  const scanMutation = useScanReceipt();
   const isPro = subscription?.tier === "pro";
-
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-    setCameraActive(false);
-    setCameraError(null);
-  }, []);
-
-  const startCamera = useCallback(async () => {
-    try {
-      setCameraError(null);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setCameraActive(true);
-    } catch (err: any) {
-      setCameraError("Camera access denied. Please allow camera permissions or use file upload instead.");
-      setCameraActive(false);
-    }
-  }, []);
-
-  const capturePhoto = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0);
-
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-      const file = new File([blob], `receipt-${Date.now()}.jpg`, { type: "image/jpeg" });
-      stopCamera();
-      await handleFileSelected(file);
-    }, "image/jpeg", 0.92);
-  }, [stopCamera]);
 
   const handleFileSelected = async (file: File) => {
     setQualityError(null);
@@ -235,31 +104,37 @@ export function ReceiptCapture({ onOcrResult, trigger }: ReceiptCaptureProps) {
     setPreview(url);
 
     if (isPro) {
-      await runOcr(file);
+      await runAiOcr(file);
     }
   };
 
-  const runOcr = async (file: File) => {
+  const runAiOcr = async (file: File) => {
     setIsProcessing(true);
     try {
-      const { createWorker } = await import("tesseract.js");
-      const worker = await createWorker("eng");
-      const { data } = await worker.recognize(file);
-      await worker.terminate();
+      const formData = new FormData();
+      formData.append("receipt", file);
 
-      const result = extractReceiptData(data.text);
-      setOcrResult(result);
+      const result = await scanMutation.mutateAsync(formData);
+
+      const ocrData: OcrResult = {
+        merchantName: result.ocr.merchantName,
+        date: result.ocr.date,
+        totalAmount: result.ocr.totalAmount,
+        confidence: result.ocr.confidence,
+        rawText: result.ocr.rawText,
+      };
+      setOcrResult(ocrData);
       if (onOcrResult) {
-        onOcrResult(result);
+        onOcrResult(ocrData);
       }
     } catch (err) {
-      console.error("OCR error:", err);
+      console.error("AI OCR error:", err);
       setOcrResult({
         merchantName: "",
         date: "",
         totalAmount: null,
         confidence: 0,
-        rawText: "OCR processing failed. You can enter the details manually.",
+        rawText: "AI scanning failed. You can enter the details manually.",
       });
     } finally {
       setIsProcessing(false);
@@ -269,17 +144,14 @@ export function ReceiptCapture({ onOcrResult, trigger }: ReceiptCaptureProps) {
   const handleUpload = async () => {
     if (!selectedFile) return;
 
+    if (ocrResult) {
+      resetState();
+      setOpen(false);
+      return;
+    }
+
     const formData = new FormData();
     formData.append("receipt", selectedFile);
-    if (ocrResult) {
-      formData.append("merchantName", ocrResult.merchantName);
-      formData.append("receiptDate", ocrResult.date);
-      if (ocrResult.totalAmount !== null) {
-        formData.append("totalAmount", String(ocrResult.totalAmount));
-      }
-      formData.append("ocrConfidence", String(ocrResult.confidence));
-      formData.append("ocrData", JSON.stringify({ rawText: ocrResult.rawText }));
-    }
 
     uploadMutation.mutate(formData, {
       onSuccess: () => {
@@ -291,11 +163,10 @@ export function ReceiptCapture({ onOcrResult, trigger }: ReceiptCaptureProps) {
 
   const resetState = () => {
     setSelectedFile(null);
+    if (preview) URL.revokeObjectURL(preview);
     setPreview(null);
     setQualityError(null);
     setOcrResult(null);
-    stopCamera();
-    if (preview) URL.revokeObjectURL(preview);
   };
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -325,14 +196,17 @@ export function ReceiptCapture({ onOcrResult, trigger }: ReceiptCaptureProps) {
           </DialogHeader>
 
           <div className="space-y-4">
-            {!selectedFile && !cameraActive && (
+            {!selectedFile && (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   {isPro ? (
                     <Button
                       variant="outline"
                       className="h-24 flex-col gap-2"
-                      onClick={startCamera}
+                      onClick={() => {
+                        setOpen(false);
+                        setLocation("/scan");
+                      }}
                       data-testid="button-camera-capture"
                     >
                       <Camera className="h-6 w-6" />
@@ -409,41 +283,6 @@ export function ReceiptCapture({ onOcrResult, trigger }: ReceiptCaptureProps) {
               </div>
             )}
 
-            {cameraActive && (
-              <div className="space-y-3">
-                <div className="relative rounded-md overflow-hidden bg-black">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full"
-                    data-testid="video-camera-feed"
-                  />
-                  <div className="absolute inset-0 border-2 border-dashed border-white/30 m-4 rounded pointer-events-none" />
-                </div>
-                <canvas ref={canvasRef} className="hidden" />
-                <div className="flex gap-2">
-                  <Button onClick={capturePhoto} className="flex-1" data-testid="button-take-photo">
-                    <Camera className="mr-2 h-4 w-4" />
-                    Take Photo
-                  </Button>
-                  <Button variant="outline" onClick={stopCamera} data-testid="button-cancel-camera">
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {cameraError && (
-              <Card className="border-destructive/30 bg-destructive/5">
-                <CardContent className="py-3 px-4 flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                  <p className="text-xs text-destructive" data-testid="text-camera-error">{cameraError}</p>
-                </CardContent>
-              </Card>
-            )}
-
             {preview && selectedFile && (
               <div className="space-y-3">
                 <div className="relative rounded-md overflow-hidden border">
@@ -517,7 +356,7 @@ export function ReceiptCapture({ onOcrResult, trigger }: ReceiptCaptureProps) {
                     ) : (
                       <Check className="mr-2 h-4 w-4" />
                     )}
-                    {onOcrResult && ocrResult ? "Save & Auto-Fill Expense" : "Save Receipt"}
+                    {ocrResult ? "Done" : "Save Receipt"}
                   </Button>
                   <Button
                     variant="outline"

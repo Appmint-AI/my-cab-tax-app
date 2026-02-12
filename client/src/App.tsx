@@ -19,6 +19,7 @@ import SupportPage from "@/pages/SupportPage";
 import MileagePage from "@/pages/MileagePage";
 import VehiclesPage from "@/pages/VehiclesPage";
 import ReceiptsPage from "@/pages/ReceiptsPage";
+import ScanPage from "@/pages/ScanPage";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -60,6 +61,10 @@ function Router() {
 
       <Route path="/receipts">
         <ProtectedRoute component={ReceiptsPage} />
+      </Route>
+
+      <Route path="/scan">
+        <ProtectedRoute component={ScanPage} />
       </Route>
 
       <Route path="/expenses">
