@@ -31,6 +31,8 @@ import {
   Zap,
   ScanLine,
   FlipHorizontal,
+  ShieldCheck,
+  DollarSign,
 } from "lucide-react";
 
 const IRS_CATEGORIES = [
@@ -219,31 +221,73 @@ export default function ScanPage() {
   };
 
   if (step === "done") {
+    const savedAmount = totalAmount ? Number(totalAmount) : 0;
+    const estimatedSETax = savedAmount * 0.153;
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
-          <CardContent className="py-8 flex flex-col items-center text-center gap-4">
+          <CardContent className="py-8 flex flex-col items-center text-center gap-5">
             <div className="h-16 w-16 rounded-full bg-green-500/10 flex items-center justify-center">
-              <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
+              <ShieldCheck className="h-8 w-8 text-green-600 dark:text-green-400" />
             </div>
+
             <div>
-              <h2 className="text-xl font-semibold" data-testid="text-scan-success">Receipt Processed</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Your receipt has been saved to the vault and the expense has been recorded.
-              </p>
+              <h2 className="text-2xl font-bold" data-testid="text-deduction-locked">
+                Deduction Locked!
+              </h2>
+              {merchantName && (
+                <p className="text-sm text-muted-foreground mt-1" data-testid="text-merchant-saved">
+                  {merchantName}
+                </p>
+              )}
             </div>
-            <div className="flex gap-3 flex-wrap justify-center">
-              <Button onClick={retake} data-testid="button-scan-another">
+
+            {savedAmount > 0 && (
+              <Card className="w-full bg-green-500/5 border-green-500/20">
+                <CardContent className="py-4 flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
+                    <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs text-muted-foreground">Estimated Self-Employment Tax Saved</p>
+                    <p className="text-lg font-bold text-green-600 dark:text-green-400" data-testid="text-tax-saved">
+                      ${estimatedSETax.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      15.3% SE tax on ${savedAmount.toFixed(2)} deduction
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {isPro && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="text-vault-status">
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                <span>Secured in your 7-year IRS Vault</span>
+              </div>
+            )}
+
+            {!isPro && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="text-vault-status-basic">
+                <ShieldCheck className="h-4 w-4" />
+                <span>Receipt saved (90-day retention)</span>
+              </div>
+            )}
+
+            <div className="flex gap-3 flex-wrap justify-center w-full pt-2">
+              <Button onClick={retake} className="flex-1 min-w-[140px]" data-testid="button-scan-another">
                 <ScanLine className="mr-2 h-4 w-4" />
                 Scan Another
               </Button>
-              <Button variant="outline" onClick={() => setLocation("/receipts")} data-testid="button-view-receipts">
+              <Button variant="outline" onClick={() => setLocation("/receipts")} className="flex-1 min-w-[140px]" data-testid="button-view-receipts">
                 View Receipts
               </Button>
-              <Button variant="outline" onClick={() => setLocation("/dashboard")} data-testid="button-go-dashboard">
-                Dashboard
-              </Button>
             </div>
+            <Button variant="ghost" onClick={() => setLocation("/dashboard")} className="w-full" data-testid="button-go-dashboard">
+              Back to Dashboard
+            </Button>
           </CardContent>
         </Card>
       </div>
