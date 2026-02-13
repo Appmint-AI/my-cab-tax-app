@@ -755,6 +755,33 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/verify-identity", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const verifySchema = z.object({
+        fullName: z.string().min(2),
+        driversLicenseState: z.string().length(2),
+        driversLicenseNumber: z.string().min(1),
+        address: z.object({
+          street: z.string().min(1),
+          city: z.string().min(1),
+          state: z.string().length(2),
+          zipCode: z.string().min(5).max(10),
+        }),
+        ssn4: z.string().min(1),
+      });
+
+      verifySchema.parse(req.body);
+      await storage.verifyUser(userId);
+      res.json({ success: true, message: "Identity verified successfully." });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
   // Get user subscription status
   app.get("/api/subscription/status", isAuthenticated, async (req, res) => {
     const userId = (req.user as any).claims.sub;

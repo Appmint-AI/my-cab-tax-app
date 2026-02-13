@@ -2,8 +2,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertIncomeSchema, type InsertIncome } from "@shared/schema";
 import { useCreateIncome, useUpdateIncome } from "@/hooks/use-incomes";
+import { useSubscription } from "@/hooks/use-subscription";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Form,
   FormControl,
@@ -27,8 +31,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Zap, Lock } from "lucide-react";
 import { z } from "zod";
+import { Link } from "wouter";
 
 const formSchema = insertIncomeSchema.extend({
   amount: z.coerce.number().positive("Amount must be positive"),
@@ -48,10 +53,19 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = controlledOpen ?? internalOpen;
   const setOpen = setControlledOpen ?? setInternalOpen;
+  const [autoGrossMode, setAutoGrossMode] = useState(false);
+  const [netPayout, setNetPayout] = useState<number>(0);
+  const [commissionRate, setCommissionRate] = useState(0.25);
+
+  const { data: subscription } = useSubscription();
+  const isPro = subscription?.tier === "pro";
 
   const createMutation = useCreateIncome();
   const updateMutation = useUpdateIncome();
   const isPending = createMutation.isPending || updateMutation.isPending;
+
+  const calculatedGross = netPayout > 0 ? netPayout / (1 - commissionRate) : 0;
+  const calculatedFee = calculatedGross - netPayout;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -64,6 +78,13 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
       platformFees: initialData?.platformFees ? Number(initialData.platformFees) : 0,
     },
   });
+
+  useEffect(() => {
+    if (autoGrossMode && netPayout > 0) {
+      form.setValue("amount", Math.round(calculatedGross * 100) / 100);
+      form.setValue("platformFees", Math.round(calculatedFee * 100) / 100);
+    }
+  }, [netPayout, commissionRate, autoGrossMode, calculatedGross, calculatedFee, form]);
 
   useEffect(() => {
     if (initialData) {
@@ -79,16 +100,23 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
   }, [initialData, form]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
+    const submitValues = { ...values };
+    if (autoGrossMode && netPayout > 0) {
+      submitValues.description = submitValues.description || `Auto-Grossed from $${netPayout.toFixed(2)} net payout`;
+    }
+
     if (initialData) {
       updateMutation.mutate(
-        { id: initialData.id, ...values },
+        { id: initialData.id, ...submitValues },
         { onSuccess: () => setOpen(false) }
       );
     } else {
-      createMutation.mutate(values, {
+      createMutation.mutate(submitValues, {
         onSuccess: () => {
           setOpen(false);
           form.reset();
+          setAutoGrossMode(false);
+          setNetPayout(0);
         },
       });
     }
@@ -113,28 +141,110 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
           <DialogTitle>{initialData ? "Edit Income" : "Add New Income"}</DialogTitle>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-            <FormField
-              control={form.control}
-              name="amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Gross Earnings ($)</FormLabel>
-                  <FormControl>
-                    <Input 
-                      data-testid="input-income-amount"
-                      type="number" 
-                      step="0.01" 
-                      placeholder="0.00" 
-                      className="text-lg font-medium" 
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+        {!initialData && (
+          <div className="flex items-center justify-between gap-2 p-3 rounded-md border border-border/60 bg-muted/30">
+            <div className="flex items-center gap-2">
+              {isPro ? (
+                <Zap className="h-4 w-4 text-primary" />
+              ) : (
+                <Lock className="h-4 w-4 text-muted-foreground" />
               )}
+              <span className="text-sm font-medium">Auto-Grossing</span>
+              {!isPro && (
+                <Link href="/upgrade">
+                  <Badge variant="secondary" className="text-xs cursor-pointer" data-testid="badge-auto-gross-pro">
+                    Pro
+                  </Badge>
+                </Link>
+              )}
+            </div>
+            <Switch
+              checked={autoGrossMode}
+              onCheckedChange={setAutoGrossMode}
+              disabled={!isPro}
+              data-testid="switch-auto-gross-toggle"
             />
+          </div>
+        )}
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2">
+            {autoGrossMode && isPro ? (
+              <>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium">Net Payout (Bank Deposit)</label>
+                    <p className="text-xs text-muted-foreground mb-1.5">The amount that hit your bank account</p>
+                    <Input
+                      data-testid="input-auto-gross-net-inline"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      className="text-lg font-medium"
+                      value={netPayout || ""}
+                      onChange={(e) => setNetPayout(Number(e.target.value) || 0)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Commission Rate</label>
+                    <Select
+                      value={String(commissionRate)}
+                      onValueChange={(v) => setCommissionRate(Number(v))}
+                    >
+                      <SelectTrigger data-testid="select-auto-gross-rate">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0.20">20% (Lyft typical)</SelectItem>
+                        <SelectItem value="0.25">25% (Uber typical)</SelectItem>
+                        <SelectItem value="0.30">30% (High commission)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {netPayout > 0 && (
+                    <Card className="border-primary/30 bg-primary/5">
+                      <CardContent className="py-3 px-4 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-muted-foreground">Gross (1099-K match)</span>
+                          <span className="text-sm font-bold text-primary" data-testid="text-auto-gross-preview">
+                            ${calculatedGross.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-muted-foreground">Fee deduction</span>
+                          <span className="text-xs font-medium" data-testid="text-auto-fee-preview">
+                            -${calculatedFee.toFixed(2)}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </>
+            ) : (
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Gross Earnings ($)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        data-testid="input-income-amount"
+                        type="number" 
+                        step="0.01" 
+                        placeholder="0.00" 
+                        className="text-lg font-medium" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
@@ -157,25 +267,27 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="platformFees"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Platform Fees ($)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        data-testid="input-income-fees"
-                        type="number" 
-                        step="0.01" 
-                        placeholder="0.00" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!autoGrossMode && (
+                <FormField
+                  control={form.control}
+                  name="platformFees"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Platform Fees ($)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          data-testid="input-income-fees"
+                          type="number" 
+                          step="0.01" 
+                          placeholder="0.00" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
             <FormField
@@ -224,7 +336,7 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
                 <FormItem>
                   <FormLabel>Description (Optional)</FormLabel>
                   <FormControl>
-                    <Input data-testid="input-income-description" placeholder="Trip details, etc." {...field} />
+                    <Input data-testid="input-income-description" placeholder="Trip details, etc." {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -233,7 +345,7 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
 
             <Button data-testid="button-submit-income" type="submit" className="w-full" disabled={isPending}>
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {initialData ? "Save Changes" : "Create Record"}
+              {autoGrossMode && isPro ? "Import & Gross-Up" : (initialData ? "Save Changes" : "Create Record")}
             </Button>
           </form>
         </Form>

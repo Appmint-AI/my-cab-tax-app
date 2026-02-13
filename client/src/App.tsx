@@ -20,6 +20,7 @@ import MileagePage from "@/pages/MileagePage";
 import VehiclesPage from "@/pages/VehiclesPage";
 import ReceiptsPage from "@/pages/ReceiptsPage";
 import ScanPage from "@/pages/ScanPage";
+import VerifyPage from "@/pages/VerifyPage";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -39,6 +40,28 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   return <Component />;
 }
 
+function VerifiedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect to="/" />;
+  }
+
+  if (user && !user.isVerified) {
+    return <Redirect to="/verify" />;
+  }
+
+  return <Component />;
+}
+
 function Router() {
   return (
     <Switch>
@@ -47,32 +70,36 @@ function Router() {
       <Route path="/upgrade" component={UpgradePage} />
       <Route path="/support" component={SupportPage} />
       
+      <Route path="/verify">
+        <ProtectedRoute component={VerifyPage} />
+      </Route>
+
       <Route path="/dashboard">
-        <ProtectedRoute component={Dashboard} />
+        <VerifiedRoute component={Dashboard} />
       </Route>
       
       <Route path="/mileage">
-        <ProtectedRoute component={MileagePage} />
+        <VerifiedRoute component={MileagePage} />
       </Route>
 
       <Route path="/vehicles">
-        <ProtectedRoute component={VehiclesPage} />
+        <VerifiedRoute component={VehiclesPage} />
       </Route>
 
       <Route path="/receipts">
-        <ProtectedRoute component={ReceiptsPage} />
+        <VerifiedRoute component={ReceiptsPage} />
       </Route>
 
       <Route path="/scan">
-        <ProtectedRoute component={ScanPage} />
+        <VerifiedRoute component={ScanPage} />
       </Route>
 
       <Route path="/expenses">
-        <ProtectedRoute component={ExpensesPage} />
+        <VerifiedRoute component={ExpensesPage} />
       </Route>
       
       <Route path="/incomes">
-        <ProtectedRoute component={IncomesPage} />
+        <VerifiedRoute component={IncomesPage} />
       </Route>
 
       <Route path="/settings">

@@ -310,9 +310,28 @@ function FreeRetentionAlert({ user }: { user: User | null | undefined }) {
 }
 
 function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageLogs: MileageLog[] }) {
-  const [certified, setCertified] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
+  const [scrolledToBottom, setScrolledToBottom] = useState(false);
+  const [ack1, setAck1] = useState(false);
+  const [ack2, setAck2] = useState(false);
+  const [ack3, setAck3] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  const allAcknowledged = ack1 && ack2 && ack3 && scrolledToBottom;
+
+  function resetDisclaimer() {
+    setScrolledToBottom(false);
+    setAck1(false);
+    setAck2(false);
+    setAck3(false);
+  }
+
+  function handleDisclaimerScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 30) {
+      setScrolledToBottom(true);
+    }
+  }
 
   async function handleExport() {
     setExporting(true);
@@ -416,6 +435,11 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
         "CERTIFICATION: I certify under penalty of perjury that the information provided is true and correct to the best of my knowledge.",
         "I acknowledge that My Cab Tax USA is a tool and not a tax professional.",
         "",
+        "IRS CIRCULAR 230 DISCLOSURE: To ensure compliance with requirements imposed by the IRS,",
+        "we inform you that any tax advice contained in this document was not intended or written to be used,",
+        "and cannot be used, for the purpose of (i) avoiding penalties under the Internal Revenue Code",
+        "or (ii) promoting, marketing, or recommending to another party any transaction or matter addressed herein.",
+        "",
         "DISCLAIMER: This is a bookkeeping summary only. It is NOT a tax return.",
         "Consult a qualified CPA or Tax Attorney before submitting any returns to the IRS.",
         "",
@@ -432,7 +456,7 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
       doc.setTextColor(200, 0, 0);
       doc.text("*** SELF-PREPARED / NOT AUDITED ***", pageWidth / 2, y + 4, { align: "center" });
 
-      zip.file("Summary.pdf", doc.output("arraybuffer"));
+      zip.file("Schedule_C_Summary.pdf", doc.output("arraybuffer"));
 
       const categoryCsvRows = [
         ["Category", "Amount"],
@@ -478,7 +502,29 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
       }
       zip.file("MileageLog.csv", mileageCsvRows.map(r => r.join(",")).join("\n"));
 
-      zip.folder("Receipts");
+      const receiptsFolder = zip.folder("Receipts");
+      try {
+        const receiptsRes = await fetch("/api/receipts", { credentials: "include" });
+        if (receiptsRes.ok) {
+          const receiptsList = await receiptsRes.json();
+          const imagePromises = receiptsList.map(async (r: any, idx: number) => {
+            try {
+              const imageUrl = r.signedImageUrl || r.imageUrl;
+              if (!imageUrl) return;
+              const imgRes = await fetch(imageUrl);
+              if (imgRes.ok) {
+                const imgBlob = await imgRes.blob();
+                const ext = r.originalFilename?.split(".").pop() || "jpg";
+                const safeDate = r.receiptDate || r.createdAt?.split("T")[0] || "unknown";
+                const safeMerchant = (r.merchantName || "receipt").replace(/[^a-zA-Z0-9]/g, "_").substring(0, 30);
+                const filename = `${safeDate}_${safeMerchant}_${idx + 1}.${ext}`;
+                receiptsFolder?.file(filename, imgBlob);
+              }
+            } catch {}
+          });
+          await Promise.allSettled(imagePromises);
+        }
+      } catch {}
 
       const blob = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(blob);
@@ -489,6 +535,8 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
       URL.revokeObjectURL(url);
     } finally {
       setExporting(false);
+      setDisclaimerOpen(false);
+      resetDisclaimer();
     }
   }
 
@@ -510,54 +558,120 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
           <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/5 border border-destructive/20">
             <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
             <p className="text-xs text-foreground/80 leading-relaxed">
-              This export is for your personal records only. It is not a tax return. Consult a qualified CPA or Tax Attorney before submitting any returns to the IRS.
+              This export is for your personal records only. It is not a tax return. You must review all figures with a qualified CPA or Tax Attorney before submitting any returns to the IRS.
             </p>
           </div>
 
-          <div className="flex items-start gap-3">
-            <Checkbox
-              id="certify-export"
-              checked={certified}
-              onCheckedChange={(checked) => setCertified(checked === true)}
-              data-testid="checkbox-certify-export"
-            />
-            <Label htmlFor="certify-export" className="text-sm leading-snug cursor-pointer">
-              I certify that these records are accurate and I understand My Cab Tax USA is not a licensed tax professional.
-            </Label>
-          </div>
+          <Button
+            onClick={() => { resetDisclaimer(); setDisclaimerOpen(true); }}
+            data-testid="button-export-summary"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export for IRS
+          </Button>
 
-          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-            <AlertDialogTrigger asChild>
-              <Button
-                disabled={!certified}
-                data-testid="button-export-summary"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export for IRS
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
+          <AlertDialog open={disclaimerOpen} onOpenChange={(open) => { if (!open) { setDisclaimerOpen(false); resetDisclaimer(); } }}>
+            <AlertDialogContent className="sm:max-w-xl" onPointerDownOutside={(e) => e.preventDefault()}>
               <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center gap-2" data-testid="text-export-confirm-title">
-                  <Shield className="h-5 w-5 text-primary" />
-                  Confirm Your Records
+                <AlertDialogTitle className="flex items-center gap-2" data-testid="text-export-disclaimer-title">
+                  <Shield className="h-5 w-5 text-destructive" />
+                  Mandatory Legal Disclaimer
                 </AlertDialogTitle>
-                <AlertDialogDescription asChild>
-                  <p className="text-sm leading-relaxed" data-testid="text-export-confirm-body">
-                    I acknowledge that I have reviewed these records for accuracy. I understand that My Cab Tax USA has not verified these figures with the IRS and that I am responsible for any tax submissions or audits.
-                  </p>
-                </AlertDialogDescription>
               </AlertDialogHeader>
+
+              <div
+                className="max-h-[300px] overflow-y-auto border rounded-md p-4 text-xs leading-relaxed text-foreground/80 space-y-3"
+                onScroll={handleDisclaimerScroll}
+                data-testid="container-disclaimer-scroll"
+              >
+                <p className="font-bold text-destructive text-sm">IRS CIRCULAR 230 DISCLOSURE</p>
+                <p>
+                  To ensure compliance with requirements imposed by the IRS, we inform you that any U.S. federal tax advice contained in this communication (including any attachments) was not intended or written to be used, and cannot be used, for the purpose of (i) avoiding penalties under the Internal Revenue Code or (ii) promoting, marketing, or recommending to another party any transaction or matter addressed herein.
+                </p>
+
+                <p className="font-bold text-sm pt-2">NOT TAX ADVICE</p>
+                <p>
+                  My Cab Tax USA is a bookkeeping tool, NOT a tax advisory service. We do not provide professional tax, legal, or accounting advice. This software is designed for informational and organizational purposes only. The calculations and estimates provided are approximate and should not be relied upon as a substitute for professional tax advice. You should consult with a qualified CPA or Tax Attorney before submitting any returns to the IRS.
+                </p>
+
+                <p className="font-bold text-sm pt-2">LIMITATION OF LIABILITY</p>
+                <p>
+                  The Service is provided "as is" and "as available." To the maximum extent permitted by law, My Cab Tax USA disclaims all warranties, express or implied. In no event shall My Cab Tax USA be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues, arising out of or related to your use of the Service.
+                </p>
+
+                <p className="font-bold text-sm pt-2">SELF-PREPARED RECORDS</p>
+                <p>
+                  This export has NOT been reviewed, verified, or audited by the IRS or any licensed tax professional. All figures are self-reported by the user. You are solely responsible for the accuracy of all data entered. Any errors, omissions, or discrepancies in your tax records are your responsibility.
+                </p>
+
+                <p className="font-bold text-sm pt-2">DATA RETENTION & JURISDICTION</p>
+                <p>
+                  This service operates under the jurisdiction of the State of Delaware, USA. All disputes shall be resolved through binding arbitration in accordance with our Terms of Service. Data retention policies apply based on your subscription tier.
+                </p>
+
+                <p className="font-bold text-sm pt-2">CERTIFICATION REQUIREMENT</p>
+                <p>
+                  By proceeding with this export, you certify under penalty of perjury that the information you have entered into My Cab Tax USA is true, correct, and complete to the best of your knowledge and belief. You acknowledge that this certification is being made voluntarily and that you understand the consequences of filing false or misleading information with the IRS.
+                </p>
+              </div>
+
+              {!scrolledToBottom && (
+                <p className="text-xs text-muted-foreground text-center" data-testid="text-scroll-hint">
+                  Scroll to the bottom to continue
+                </p>
+              )}
+
+              <div className="space-y-3 pt-2">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="ack-1"
+                    checked={ack1}
+                    onCheckedChange={(c) => setAck1(c === true)}
+                    disabled={!scrolledToBottom}
+                    data-testid="checkbox-ack-not-tax-advice"
+                  />
+                  <Label htmlFor="ack-1" className="text-xs leading-snug cursor-pointer">
+                    I understand this is NOT tax advice and My Cab Tax USA is NOT a licensed tax professional.
+                  </Label>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="ack-2"
+                    checked={ack2}
+                    onCheckedChange={(c) => setAck2(c === true)}
+                    disabled={!scrolledToBottom}
+                    data-testid="checkbox-ack-self-prepared"
+                  />
+                  <Label htmlFor="ack-2" className="text-xs leading-snug cursor-pointer">
+                    I certify under penalty of perjury that all records are accurate and self-prepared.
+                  </Label>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="ack-3"
+                    checked={ack3}
+                    onCheckedChange={(c) => setAck3(c === true)}
+                    disabled={!scrolledToBottom}
+                    data-testid="checkbox-ack-circular-230"
+                  />
+                  <Label htmlFor="ack-3" className="text-xs leading-snug cursor-pointer">
+                    I have read and acknowledge the IRS Circular 230 Disclosure above.
+                  </Label>
+                </div>
+              </div>
+
               <AlertDialogFooter>
-                <AlertDialogCancel data-testid="button-export-cancel">Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => { handleExport(); setConfirmOpen(false); }}
-                  disabled={exporting}
+                <AlertDialogCancel onClick={() => { setDisclaimerOpen(false); resetDisclaimer(); }} data-testid="button-export-cancel">
+                  Cancel
+                </AlertDialogCancel>
+                <Button
+                  onClick={handleExport}
+                  disabled={!allAcknowledged || exporting}
                   data-testid="button-export-proceed"
                 >
                   {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-                  {exporting ? "Exporting..." : "Proceed to Export"}
-                </AlertDialogAction>
+                  {exporting ? "Exporting..." : "I Agree - Download Export"}
+                </Button>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>

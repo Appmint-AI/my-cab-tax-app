@@ -63,6 +63,7 @@ export interface IStorage {
     dataRetentionUntil?: Date | null;
   }): Promise<void>;
   getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined>;
+  verifyUser(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -365,6 +366,14 @@ export class DatabaseStorage implements IStorage {
   async getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, stripeCustomerId));
     return user;
+  }
+
+  async verifyUser(userId: string): Promise<void> {
+    await db.update(users).set({
+      isVerified: true,
+      verificationStatus: "verified",
+      updatedAt: new Date(),
+    }).where(eq(users.id, userId));
   }
 }
 
