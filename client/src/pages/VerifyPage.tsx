@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -17,8 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
-import { ShieldCheck, User, MapPin, FileText, Loader2, CheckCircle, AlertTriangle, CreditCard, Home, Lock, Car, Gauge, Upload, Info } from "lucide-react";
+import { ShieldCheck, User, MapPin, FileText, Loader2, CheckCircle, AlertTriangle, CreditCard, Home, Lock, Car, Gauge, Upload, Info, Building, Globe, Users } from "lucide-react";
 
 const US_STATES = [
   "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
@@ -28,12 +29,50 @@ const US_STATES = [
   "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC",
 ];
 
+const STATE_NAMES: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
+  MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+  OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
+  SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
+  VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+  DC: "Washington D.C.",
+};
+
+const NO_INCOME_TAX_STATES = ["AK", "FL", "NV", "NH", "SD", "TN", "TX", "WA", "WY"];
+
+const LOCAL_TAX_STATES = ["NY", "PA", "OH"];
+
+const LOCAL_JURISDICTIONS: Record<string, { code: string; name: string; rate: number }[]> = {
+  NY: [
+    { code: "NYC", name: "New York City", rate: 3.876 },
+    { code: "YONK", name: "City of Yonkers", rate: 1.9575 },
+  ],
+  PA: [
+    { code: "PHL", name: "City of Philadelphia", rate: 3.75 },
+    { code: "PIT", name: "City of Pittsburgh", rate: 3.0 },
+    { code: "KEYSTONE_PA", name: "Keystone Collections (PA Local EIT)", rate: 1.0 },
+  ],
+  OH: [
+    { code: "CLV", name: "City of Cleveland", rate: 2.5 },
+    { code: "COL", name: "City of Columbus", rate: 2.5 },
+    { code: "CIN", name: "City of Cincinnati", rate: 1.8 },
+  ],
+};
+
+const TOTAL_STEPS = 8;
+
 export default function VerifyPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
 
   const [step, setStep] = useState(1);
+
   const [fullName, setFullName] = useState(
     `${user?.firstName || ""} ${user?.lastName || ""}`.trim()
   );
@@ -45,6 +84,13 @@ export default function VerifyPage() {
   const [zipCode, setZipCode] = useState("");
   const [ssn4, setSsn4] = useState("");
   const [attestation, setAttestation] = useState(false);
+
+  const [taxState, setTaxState] = useState(user?.stateCode || "");
+  const [stateSearch, setStateSearch] = useState("");
+  const [localTaxEnabled, setLocalTaxEnabled] = useState(false);
+  const [localTaxJurisdiction, setLocalTaxJurisdiction] = useState("");
+  const [partialYearResident, setPartialYearResident] = useState(false);
+  const [partialYearStates, setPartialYearStates] = useState<string[]>([]);
 
   const [vehicleName, setVehicleName] = useState("");
   const [vehicleYear, setVehicleYear] = useState("");
@@ -66,6 +112,21 @@ export default function VerifyPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       setStep(4);
+    },
+  });
+
+  const taxProfileMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("PATCH", "/api/jurisdiction", {
+        stateCode: taxState || null,
+        localTaxEnabled,
+        localTaxJurisdiction: localTaxEnabled ? (localTaxJurisdiction || null) : null,
+        partialYearResident,
+        partialYearStates: partialYearResident ? partialYearStates : [],
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jurisdiction"] });
+      setStep(7);
     },
   });
 
@@ -100,9 +161,18 @@ export default function VerifyPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
-      setStep(5);
+      setStep(8);
     },
   });
+
+  const isNoTaxState = taxState ? NO_INCOME_TAX_STATES.includes(taxState) : false;
+  const hasLocalTax = taxState ? LOCAL_TAX_STATES.includes(taxState) : false;
+  const filteredStates = stateSearch
+    ? US_STATES.filter(s =>
+        s.toLowerCase().includes(stateSearch.toLowerCase()) ||
+        (STATE_NAMES[s] || "").toLowerCase().includes(stateSearch.toLowerCase())
+      )
+    : US_STATES;
 
   if (user?.isVerified) {
     return (
@@ -120,7 +190,7 @@ export default function VerifyPage() {
     );
   }
 
-  if (step === 5) {
+  if (step === 8) {
     return (
       <Layout>
         <div className="max-w-lg mx-auto py-12 text-center space-y-4">
@@ -129,7 +199,7 @@ export default function VerifyPage() {
             You're All Set
           </h1>
           <p className="text-muted-foreground">
-            Identity verified, vehicle registered, and odometer anchored. You're ready to start tracking.
+            Identity verified, tax profile configured, vehicle registered, and odometer anchored. You're ready to start tracking.
           </p>
           <Button onClick={() => navigate("/dashboard")} data-testid="button-go-to-dashboard">
             Go to Dashboard
@@ -139,7 +209,7 @@ export default function VerifyPage() {
     );
   }
 
-  if (step === 4) {
+  if (step === 7) {
     return (
       <Layout>
         <div className="max-w-2xl mx-auto space-y-6">
@@ -151,6 +221,7 @@ export default function VerifyPage() {
             <p className="text-muted-foreground max-w-md mx-auto">
               Before you log your first trip, let's anchor your starting mileage. This creates the legal foundation for all future deductions.
             </p>
+            <StepIndicator current={7} total={TOTAL_STEPS} />
           </div>
 
           <Card className="border-primary/20 bg-primary/5">
@@ -280,7 +351,7 @@ export default function VerifyPage() {
               <div className="flex gap-2">
                 <Button
                   variant="ghost"
-                  onClick={() => setStep(5)}
+                  onClick={() => setStep(8)}
                   data-testid="button-skip-vehicle"
                 >
                   Skip for now
@@ -315,64 +386,66 @@ export default function VerifyPage() {
   return (
     <Layout>
       <div className="max-w-2xl mx-auto space-y-6">
-        <div className="text-center space-y-2">
-          <ShieldCheck className="h-10 w-10 text-primary mx-auto" />
-          <h1 className="text-3xl font-display font-bold" data-testid="text-verify-title">
-            Welcome to the Vault. Let's get you verified.
-          </h1>
-          <p className="text-muted-foreground max-w-md mx-auto">
-            To protect your data and ensure IRS compliance, we need to verify your identity. Please have the following ready:
-          </p>
-        </div>
+        {step <= 3 && (
+          <>
+            <div className="text-center space-y-2">
+              <ShieldCheck className="h-10 w-10 text-primary mx-auto" />
+              <h1 className="text-3xl font-display font-bold" data-testid="text-verify-title">
+                Welcome to the Vault. Let's get you verified.
+              </h1>
+              <p className="text-muted-foreground max-w-md mx-auto">
+                To protect your data and ensure IRS compliance, we need to verify your identity. Please have the following ready:
+              </p>
+            </div>
 
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="py-4 space-y-3">
-            <div className="flex items-start gap-3">
-              <CreditCard className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Photo ID</p>
-                <p className="text-xs text-muted-foreground">A valid US Driver's License.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <Home className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Business Address</p>
-                <p className="text-xs text-muted-foreground">A utility bill or bank statement from the last 60 days.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <Lock className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Tax ID</p>
-                <p className="text-xs text-muted-foreground">Your SSN or EIN (this is encrypted and never shared).</p>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground pt-1">
-              Verification typically takes less than 2 minutes using our AI scanner.
-            </p>
-          </CardContent>
-        </Card>
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="py-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <CreditCard className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Photo ID</p>
+                    <p className="text-xs text-muted-foreground">A valid US Driver's License.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Home className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Business Address</p>
+                    <p className="text-xs text-muted-foreground">A utility bill or bank statement from the last 60 days.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Lock className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Tax ID</p>
+                    <p className="text-xs text-muted-foreground">Your SSN or EIN (this is encrypted and never shared).</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground pt-1">
+                  Verification typically takes less than 2 minutes using our AI scanner.
+                </p>
+              </CardContent>
+            </Card>
 
-        <div className="flex items-center justify-center gap-2">
-          {[1, 2, 3].map((s) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  s === step
-                    ? "bg-primary text-primary-foreground"
-                    : s < step
-                    ? "bg-green-600 text-white"
-                    : "bg-muted text-muted-foreground"
-                }`}
-                data-testid={`step-indicator-${s}`}
-              >
-                {s < step ? <CheckCircle className="h-4 w-4" /> : s}
-              </div>
-              {s < 3 && <div className={`w-12 h-0.5 ${s < step ? "bg-green-600" : "bg-muted"}`} />}
+            <StepIndicator current={step} total={TOTAL_STEPS} />
+          </>
+        )}
+
+        {step >= 4 && step <= 6 && (
+          <>
+            <div className="text-center space-y-2">
+              <Globe className="h-10 w-10 text-primary mx-auto" />
+              <h1 className="text-3xl font-display font-bold" data-testid="text-tax-profile-title">
+                Tax Profile Setup
+              </h1>
+              <p className="text-muted-foreground max-w-md mx-auto">
+                We're personalizing your filing experience based on where you drive. This ensures your $50 covers Federal + State + Local.
+              </p>
             </div>
-          ))}
-        </div>
+
+            <StepIndicator current={step} total={TOTAL_STEPS} />
+          </>
+        )}
 
         {step === 1 && (
           <Card>
@@ -579,12 +652,293 @@ export default function VerifyPage() {
           </Card>
         )}
 
-        <div className="text-center">
-          <p className="text-xs text-muted-foreground max-w-md mx-auto">
-            Your personal information is encrypted and never shared with third parties. We comply with CCPA and federal data protection regulations.
-          </p>
-        </div>
+        {step === 4 && (
+          <GlassCard>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Step 1: Primary Location
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Where do you primarily drive? This determines your state tax obligations and CF/SF eligibility.
+              </p>
+
+              <div>
+                <Label htmlFor="stateSearch">Search State</Label>
+                <Input
+                  id="stateSearch"
+                  data-testid="input-state-search"
+                  value={stateSearch}
+                  onChange={(e) => setStateSearch(e.target.value)}
+                  placeholder="Type to search (e.g. California, TX...)"
+                />
+              </div>
+
+              <div>
+                <Label>Filing State</Label>
+                <Select value={taxState} onValueChange={(v) => { setTaxState(v); setLocalTaxJurisdiction(""); setLocalTaxEnabled(false); }}>
+                  <SelectTrigger data-testid="select-tax-state">
+                    <SelectValue placeholder="Select your state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredStates.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s} - {STATE_NAMES[s]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {taxState && (
+                <div className="space-y-2">
+                  {isNoTaxState ? (
+                    <div className="flex items-center gap-2 p-3 rounded-md border border-border/60 bg-muted/30">
+                      <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium">No State Income Tax</p>
+                        <p className="text-xs text-muted-foreground">{STATE_NAMES[taxState]} does not have a state income tax. The state filing step will be removed from your checklist.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 p-3 rounded-md border border-border/60 bg-muted/30">
+                      <CheckCircle className="h-4 w-4 text-primary shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium">CF/SF Eligible</p>
+                        <p className="text-xs text-muted-foreground">Your federal return data will be auto-forwarded to {STATE_NAMES[taxState]} via the IRS Combined Federal/State Filing Program.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setStep(3)} data-testid="button-tax-back-4">
+                  Back
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={!taxState}
+                  onClick={() => setStep(hasLocalTax ? 5 : 6)}
+                  data-testid="button-tax-next-4"
+                >
+                  Continue
+                </Button>
+              </div>
+            </CardContent>
+          </GlassCard>
+        )}
+
+        {step === 5 && (
+          <GlassCard>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building className="h-5 w-5" />
+                Step 2: Local Tax Context
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {taxState === "PA" && "Pennsylvania has mandatory electronic local tax filing through Keystone Collections. Let's make sure you're covered."}
+                {taxState === "NY" && "New York City and Yonkers have additional local income taxes. Do you drive in one of these areas?"}
+                {taxState === "OH" && "Ohio cities like Cleveland, Columbus, and Cincinnati have local earned income taxes. Select your city below."}
+              </p>
+
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <Label htmlFor="localToggle" className="cursor-pointer">
+                    Does your city require local tax filing?
+                  </Label>
+                </div>
+                <Switch
+                  id="localToggle"
+                  checked={localTaxEnabled}
+                  onCheckedChange={setLocalTaxEnabled}
+                  data-testid="switch-onboard-local-tax"
+                />
+              </div>
+
+              {localTaxEnabled && LOCAL_JURISDICTIONS[taxState] && (
+                <div>
+                  <Label>Which city or township?</Label>
+                  <Select value={localTaxJurisdiction} onValueChange={setLocalTaxJurisdiction}>
+                    <SelectTrigger data-testid="select-onboard-local-jurisdiction">
+                      <SelectValue placeholder="Select your jurisdiction" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LOCAL_JURISDICTIONS[taxState].map((j) => (
+                        <SelectItem key={j.code} value={j.code}>
+                          {j.name} ({j.rate}%)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {localTaxEnabled && localTaxJurisdiction && (
+                <div className="p-3 rounded-md border border-border/60 bg-muted/30">
+                  <p className="text-xs text-muted-foreground">
+                    A Local EIT Statement will be generated for you to upload to your city's tax portal. This is included in your $50 filing fee.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setStep(4)} data-testid="button-tax-back-5">
+                  Back
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => setStep(6)}
+                  data-testid="button-tax-next-5"
+                >
+                  Continue
+                </Button>
+              </div>
+            </CardContent>
+          </GlassCard>
+        )}
+
+        {step === 6 && (
+          <GlassCard>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Step 3: Residency Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Did you live in more than one state during 2026? This affects how your income is reported.
+              </p>
+
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <Label htmlFor="partialYear" className="cursor-pointer">
+                    I lived in multiple states during 2026 (Partial-Year Resident)
+                  </Label>
+                </div>
+                <Switch
+                  id="partialYear"
+                  checked={partialYearResident}
+                  onCheckedChange={(v) => { setPartialYearResident(v); if (!v) setPartialYearStates([]); }}
+                  data-testid="switch-partial-year"
+                />
+              </div>
+
+              {partialYearResident && (
+                <div className="space-y-3">
+                  <Label>Which other state(s) did you live in?</Label>
+                  <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                    {US_STATES.filter(s => s !== taxState).map((s) => (
+                      <div key={s} className="flex items-center gap-1.5">
+                        <Checkbox
+                          id={`partial-${s}`}
+                          checked={partialYearStates.includes(s)}
+                          onCheckedChange={(c) => {
+                            if (c) setPartialYearStates(prev => [...prev, s]);
+                            else setPartialYearStates(prev => prev.filter(x => x !== s));
+                          }}
+                          data-testid={`checkbox-partial-state-${s}`}
+                        />
+                        <Label htmlFor={`partial-${s}`} className="text-xs cursor-pointer">{s}</Label>
+                      </div>
+                    ))}
+                  </div>
+                  {partialYearStates.length > 0 && (
+                    <div className="p-3 rounded-md bg-destructive/5 border border-destructive/20">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                        <p className="text-xs text-foreground/80">
+                          Multi-state residency may require income apportionment. We'll flag this during your pre-flight review. Consider consulting a tax professional for complex multi-state situations.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setStep(hasLocalTax ? 5 : 4)} data-testid="button-tax-back-6">
+                  Back
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={taxProfileMutation.isPending}
+                  onClick={() => taxProfileMutation.mutate()}
+                  data-testid="button-tax-save-profile"
+                >
+                  {taxProfileMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                  )}
+                  Save Tax Profile & Continue
+                </Button>
+              </div>
+
+              {taxProfileMutation.isError && (
+                <p className="text-sm text-destructive" data-testid="text-tax-profile-error">
+                  Failed to save tax profile. Please try again.
+                </p>
+              )}
+            </CardContent>
+          </GlassCard>
+        )}
+
+        {step <= 3 && (
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              Your personal information is encrypted and never shared with third parties. We comply with CCPA and federal data protection regulations.
+            </p>
+          </div>
+        )}
       </div>
     </Layout>
+  );
+}
+
+function StepIndicator({ current, total }: { current: number; total: number }) {
+  const phases = [
+    { label: "Identity", steps: [1, 2, 3] },
+    { label: "Tax Profile", steps: [4, 5, 6] },
+    { label: "Vehicle", steps: [7] },
+  ];
+  return (
+    <div className="flex items-center justify-center gap-2 flex-wrap">
+      {phases.map((phase, i) => {
+        const isActive = phase.steps.includes(current);
+        const isComplete = phase.steps.every(s => s < current);
+        return (
+          <div key={phase.label} className="flex items-center gap-2">
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                isActive
+                  ? "bg-primary text-primary-foreground"
+                  : isComplete
+                  ? "bg-green-600/10 text-green-600 dark:bg-green-500/10 dark:text-green-500"
+                  : "bg-muted text-muted-foreground"
+              }`}
+              data-testid={`phase-${phase.label.toLowerCase().replace(" ", "-")}`}
+            >
+              {isComplete ? <CheckCircle className="h-3 w-3" /> : null}
+              {phase.label}
+            </div>
+            {i < phases.length - 1 && <div className={`w-8 h-0.5 ${isComplete ? "bg-green-600" : "bg-muted"}`} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function GlassCard({ children }: { children: React.ReactNode }) {
+  return (
+    <Card className="border border-border/40 bg-card/80 backdrop-blur-sm shadow-lg">
+      {children}
+    </Card>
   );
 }

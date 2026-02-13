@@ -232,8 +232,159 @@ export default function Dashboard() {
       </div>
 
       <ExportSection summary={summary} mileageLogs={mileageData || []} />
+      <SubmissionReadinessChecklist />
       <FinalizeSubmissionSection summary={summary} />
     </Layout>
+  );
+}
+
+function SubmissionReadinessChecklist() {
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ["/api/submission-readiness"],
+  });
+
+  if (isLoading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.55 }}
+        className="mt-6"
+      >
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Gauge className="h-4 w-4" />
+              Filing Readiness
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-24 w-full" />
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  }
+
+  if (!data) return null;
+
+  const checklist: Array<{ label: string; included: boolean; description?: string }> = data.checklist || [];
+  const readyCount = checklist.filter((c: any) => c.included).length;
+  const totalCount = checklist.length;
+  const pct = totalCount > 0 ? Math.round((readyCount / totalCount) * 100) : 0;
+
+  const stateRules: Array<{ code: string; message: string; severity: string }> = data.stateRules || [];
+  const tipAdj = data.tipAdjustments || {};
+  const stateTax = data.stateTaxEstimate || {};
+  const filingComponents: string[] = data.filingComponents || [];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.55 }}
+      className="mt-6"
+    >
+      <Card data-testid="card-submission-readiness">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Gauge className="h-4 w-4" />
+            Filing Readiness
+          </CardTitle>
+          <Badge
+            variant={pct === 100 ? "default" : "secondary"}
+            data-testid="badge-readiness-score"
+          >
+            {pct}%
+          </Badge>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Progress value={pct} className="h-2" data-testid="progress-readiness" />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {checklist.map((item: any, i: number) => (
+              <div
+                key={i}
+                className="flex items-start gap-2 text-sm"
+                data-testid={`readiness-item-${i}`}
+              >
+                {item.included ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                )}
+                <div className="min-w-0">
+                  <span className={item.included ? "text-foreground" : "text-muted-foreground"}>
+                    {item.label}
+                  </span>
+                  {item.description && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {filingComponents.length > 0 && (
+            <div className="pt-2 border-t">
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Filing Bundle Includes:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {filingComponents.map((comp: string, i: number) => (
+                  <Badge key={i} variant="outline" className="text-xs" data-testid={`filing-component-${i}`}>
+                    {comp}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tipAdj.noTaxOnTipsApplied && (
+            <div className="flex items-start gap-2 p-2 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" data-testid="tip-adjustment-info">
+              <Info className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+              <div className="text-xs">
+                <p className="font-medium text-green-800 dark:text-green-300">No Tax on Tips (2026 OBBBA)</p>
+                <p className="text-green-700/80 dark:text-green-400/70 mt-0.5">
+                  Federal tip income exemption applied.
+                  {tipAdj.stateDecoupled && " Your state has decoupled — state taxes still apply on tip income."}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {stateTax.rate != null && stateTax.estimate != null && (
+            <div className="flex items-center justify-between text-sm pt-2 border-t" data-testid="state-tax-estimate">
+              <span className="text-muted-foreground">Est. State Tax ({stateTax.rate}%)</span>
+              <span className="font-medium">${Number(stateTax.estimate).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+            </div>
+          )}
+
+          {stateRules.length > 0 && (
+            <div className="space-y-1.5 pt-2 border-t">
+              {stateRules.map((rule: any, i: number) => (
+                <div
+                  key={i}
+                  className={`flex items-start gap-2 text-xs p-2 rounded-md ${
+                    rule.severity === "action"
+                      ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
+                      : rule.severity === "warning"
+                        ? "bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800"
+                        : "bg-muted/50"
+                  }`}
+                  data-testid={`state-rule-${i}`}
+                >
+                  {rule.severity === "action" ? (
+                    <Info className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
+                  )}
+                  <span>{rule.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }
 

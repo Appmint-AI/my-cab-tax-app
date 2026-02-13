@@ -69,6 +69,9 @@ export class SubmissionService {
         stateCode: user?.stateCode || null,
         localTaxEnabled: user?.localTaxEnabled || false,
         localTaxJurisdiction: user?.localTaxJurisdiction || null,
+        partialYearResident: user?.partialYearResident || false,
+        partialYearStates: (user?.partialYearStates as string[]) || [],
+        tipIncomeAmount: user?.tipIncomeAmount || null,
       },
     };
   }

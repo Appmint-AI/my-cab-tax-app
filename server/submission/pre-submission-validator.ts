@@ -1,5 +1,6 @@
 import type { SubmissionData } from "./types";
 import type { User } from "@shared/models/auth";
+import { analyzeJurisdiction } from "./jurisdiction-rules";
 
 export interface ValidationError {
   code: string;
@@ -201,7 +202,8 @@ export function validatePreSubmission(data: SubmissionData, user?: User): Valida
     });
   }
 
-  const hasStateCode = !!(data as any).jurisdiction?.stateCode;
+  const jurisdictionData = (data as any).jurisdiction;
+  const hasStateCode = !!jurisdictionData?.stateCode;
   preflightChecks.push({ label: "Filing State Set", passed: hasStateCode, required: false });
   if (!hasStateCode) {
     warnings.push({
@@ -212,8 +214,8 @@ export function validatePreSubmission(data: SubmissionData, user?: User): Valida
     });
   }
 
-  const localTaxEnabled = !!(data as any).jurisdiction?.localTaxEnabled;
-  const localJurisdiction = (data as any).jurisdiction?.localTaxJurisdiction;
+  const localTaxEnabled = !!jurisdictionData?.localTaxEnabled;
+  const localJurisdiction = jurisdictionData?.localTaxJurisdiction;
   if (localTaxEnabled && !localJurisdiction) {
     warnings.push({
       code: "LOCAL_TAX_NO_JURISDICTION",
@@ -221,6 +223,30 @@ export function validatePreSubmission(data: SubmissionData, user?: User): Valida
       message: "Local tax filing is enabled but no local jurisdiction is selected. Select a jurisdiction in Settings to generate your Local EIT Statement.",
       severity: "warning",
     });
+  }
+
+  if (hasStateCode) {
+    const analysis = analyzeJurisdiction({
+      stateCode: jurisdictionData.stateCode,
+      localTaxEnabled,
+      localTaxJurisdiction: localJurisdiction || null,
+      partialYearResident: jurisdictionData?.partialYearResident || false,
+      partialYearStates: (jurisdictionData?.partialYearStates as string[]) || [],
+      netProfit: data.summary.netProfit,
+      grossIncome: data.summary.grossIncome,
+      tipIncomeAmount: jurisdictionData?.tipIncomeAmount ? Number(jurisdictionData.tipIncomeAmount) : 0,
+    });
+
+    for (const rule of analysis.stateRules) {
+      if (rule.severity === "warning" || rule.severity === "action") {
+        warnings.push({
+          code: rule.code,
+          field: "jurisdiction",
+          message: rule.message,
+          severity: "warning",
+        });
+      }
+    }
   }
 
   const totalChecks = preflightChecks.length;

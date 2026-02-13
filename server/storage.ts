@@ -72,6 +72,9 @@ export interface IStorage {
     stateCode?: string | null;
     localTaxEnabled?: boolean;
     localTaxJurisdiction?: string | null;
+    partialYearResident?: boolean;
+    partialYearStates?: string[];
+    tipIncomeAmount?: string | null;
   }): Promise<void>;
 
   createAuditLog(data: {
@@ -433,6 +436,9 @@ export class DatabaseStorage implements IStorage {
     stateCode?: string | null;
     localTaxEnabled?: boolean;
     localTaxJurisdiction?: string | null;
+    partialYearResident?: boolean;
+    partialYearStates?: string[];
+    tipIncomeAmount?: string | null;
   }): Promise<void> {
     await db.update(users).set({
       ...data,

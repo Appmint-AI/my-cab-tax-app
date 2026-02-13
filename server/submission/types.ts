@@ -23,6 +23,9 @@ export interface SubmissionData {
     stateCode: string | null;
     localTaxEnabled: boolean;
     localTaxJurisdiction: string | null;
+    partialYearResident?: boolean;
+    partialYearStates?: string[] | unknown;
+    tipIncomeAmount?: string | null;
   };
 }
 

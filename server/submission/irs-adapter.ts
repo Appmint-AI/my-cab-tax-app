@@ -1,5 +1,6 @@
 import type { SubmissionProvider, SubmissionData, SubmissionResult } from "./types";
 import crypto from "crypto";
+import { analyzeJurisdiction, STATE_TAX_RATES_2026, NO_TAX_ON_TIPS_DECOUPLED_STATES } from "./jurisdiction-rules";
 
 export const NO_INCOME_TAX_STATES = ["AK", "FL", "NV", "NH", "SD", "TN", "TX", "WA", "WY"];
 
@@ -89,6 +90,22 @@ export interface IRSScheduleCPayload {
   };
   incomeBySource: Record<string, number>;
   dataFingerprint: string;
+  stateSpecificRules: {
+    code: string;
+    label: string;
+    severity: string;
+    message: string;
+  }[];
+  tipIncomeAdjustments: {
+    federalTipExemption: number;
+    stateTipInclusion: number;
+    noTaxOnTipsApplied: boolean;
+    stateDecoupled: boolean;
+  };
+  stateTaxEstimate: {
+    rate: number | null;
+    estimate: number | null;
+  };
 }
 
 export class InternalIRSAdapter implements SubmissionProvider {
@@ -169,6 +186,17 @@ export class InternalIRSAdapter implements SubmissionProvider {
     const localTaxRate = localJurisdiction?.rate || null;
     const localTaxEstimate = localTaxRate ? round2(summary.netProfit * (localTaxRate / 100)) : null;
 
+    const jurisdictionAnalysis = analyzeJurisdiction({
+      stateCode,
+      localTaxEnabled,
+      localTaxJurisdiction: localJurisdictionCode,
+      partialYearResident: data.jurisdiction?.partialYearResident || false,
+      partialYearStates: (data.jurisdiction?.partialYearStates as string[]) || [],
+      netProfit: summary.netProfit,
+      grossIncome: summary.grossIncome,
+      tipIncomeAmount: data.jurisdiction?.tipIncomeAmount ? Number(data.jurisdiction.tipIncomeAmount) : 0,
+    });
+
     return {
       version: "3.0.0",
       generatedAt: data.generatedAt.toISOString(),
@@ -244,6 +272,24 @@ export class InternalIRSAdapter implements SubmissionProvider {
         Object.entries(summary.incomeBySource).map(([k, v]) => [k, round2(v)])
       ),
       dataFingerprint,
+      stateSpecificRules: jurisdictionAnalysis.stateRules.map(r => ({
+        code: r.code,
+        label: r.label,
+        severity: r.severity,
+        message: r.message,
+      })),
+      tipIncomeAdjustments: {
+        federalTipExemption: jurisdictionAnalysis.federalTipExemption,
+        stateTipInclusion: jurisdictionAnalysis.stateTipInclusion,
+        noTaxOnTipsApplied: jurisdictionAnalysis.noTaxOnTipsEligible,
+        stateDecoupled: jurisdictionAnalysis.tipsDecoupled,
+      },
+      stateTaxEstimate: {
+        rate: jurisdictionAnalysis.stateTaxRate,
+        estimate: jurisdictionAnalysis.stateTaxRate
+          ? round2(summary.netProfit * (jurisdictionAnalysis.stateTaxRate / 100))
+          : null,
+      },
     };
   }
 }

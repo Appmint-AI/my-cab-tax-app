@@ -1216,6 +1216,9 @@ export async function registerRoutes(
       stateCode: user.stateCode || null,
       localTaxEnabled: user.localTaxEnabled || false,
       localTaxJurisdiction: user.localTaxJurisdiction || null,
+      partialYearResident: user.partialYearResident || false,
+      partialYearStates: (user.partialYearStates as string[]) || [],
+      tipIncomeAmount: user.tipIncomeAmount || null,
       noIncomeTaxStates: NO_INCOME_TAX_STATES,
       localJurisdictions: HIGH_LOCAL_TAX_JURISDICTIONS,
     });
@@ -1236,6 +1239,9 @@ export async function registerRoutes(
       stateCode: z.string().refine(s => VALID_STATES.includes(s), { message: "Invalid state code" }).nullable(),
       localTaxEnabled: z.boolean(),
       localTaxJurisdiction: z.string().refine(s => s in HIGH_LOCAL_TAX_JURISDICTIONS, { message: "Invalid local jurisdiction" }).nullable(),
+      partialYearResident: z.boolean().optional(),
+      partialYearStates: z.array(z.string().refine(s => VALID_STATES.includes(s))).optional(),
+      tipIncomeAmount: z.string().nullable().optional(),
     });
 
     const parsed = jurisdictionSchema.safeParse(req.body);
@@ -1247,6 +1253,9 @@ export async function registerRoutes(
       stateCode: parsed.data.stateCode ?? undefined,
       localTaxEnabled: parsed.data.localTaxEnabled,
       localTaxJurisdiction: parsed.data.localTaxJurisdiction ?? undefined,
+      partialYearResident: parsed.data.partialYearResident,
+      partialYearStates: parsed.data.partialYearStates,
+      tipIncomeAmount: parsed.data.tipIncomeAmount ?? undefined,
     });
     res.json({ success: true });
   });
@@ -1284,6 +1293,52 @@ export async function registerRoutes(
       res.send(pdfBuffer);
     } catch (err: any) {
       res.status(500).json({ message: err.message || "Failed to generate local tax PDF" });
+    }
+  });
+
+  app.get("/api/submission-readiness", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const { analyzeJurisdiction, getSubmissionReadinessChecklist } = await import("./submission/jurisdiction-rules");
+      const { submissionService } = await import("./submission/index");
+      const data = await submissionService.buildSubmissionData(userId);
+
+      const analysis = analyzeJurisdiction({
+        stateCode: user.stateCode || null,
+        localTaxEnabled: user.localTaxEnabled || false,
+        localTaxJurisdiction: user.localTaxJurisdiction || null,
+        partialYearResident: user.partialYearResident || false,
+        partialYearStates: (user.partialYearStates as string[]) || [],
+        netProfit: data.summary.netProfit,
+        grossIncome: data.summary.grossIncome,
+        tipIncomeAmount: user.tipIncomeAmount ? Number(user.tipIncomeAmount) : 0,
+      });
+
+      const checklist = getSubmissionReadinessChecklist(analysis);
+
+      res.json({
+        checklist,
+        stateRules: analysis.stateRules,
+        filingComponents: analysis.filingComponents,
+        tipAdjustments: {
+          federalTipExemption: analysis.federalTipExemption,
+          stateTipInclusion: analysis.stateTipInclusion,
+          noTaxOnTipsApplied: analysis.noTaxOnTipsEligible,
+          stateDecoupled: analysis.tipsDecoupled,
+        },
+        stateTaxEstimate: {
+          rate: analysis.stateTaxRate,
+          estimate: analysis.stateTaxRate
+            ? Math.round(data.summary.netProfit * (analysis.stateTaxRate / 100) * 100) / 100
+            : null,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to generate readiness check" });
     }
   });
 
