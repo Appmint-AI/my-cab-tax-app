@@ -32,6 +32,9 @@ Key features and implementations include:
 - **Legal & Compliance**: Includes features like legal consent logging, IRS Circular 230 Disclosure, state privacy rights (CCPA/VCDPA) compliance, and a dedicated support form for legal inquiries. Data deletion is handled via a soft-delete mechanism with a 30-day grace period.
 - **Inactivity Management**: A background cleanup worker manages user data based on inactivity, sending reminders and eventually purging data for inactive free users.
 - **Transactional Emails**: Utilizes Resend for sending transactional emails, such as inactivity warnings and support confirmations.
+- **Audit Defense Center (Pro)**: `/audit-center` route with Certificate of Protection display, "Panic Button" for IRS letter uploads, automatic evidence dossier PDF generation (bundles Schedule C summary, income/expense records, mileage logs with IRC 274(d) certificates, receipt inventory, gross-up math, 1099-K reconciliation), and IRS notice upload portal with vault storage. Pro-gated with upgrade prompts for Basic users.
+- **Onboarding Vehicle & Odometer Setup**: Step 4 in the 5-step verification flow. Captures vehicle profile, initial odometer reading (legal anchor for mileage deductions), and optional odometer photo verification stored in vault. Includes education section about 3 types of deductible miles (Online, En Route, On Trip) vs. non-deductible commuting.
+- **Quarterly Odometer Check-In**: Dashboard reminder prompts users to record current odometer reading each quarter to maintain IRS-compliant contemporaneous mileage records per IRC Sec. 274(d). `odometer_checkins` table stores check-in history. `audit_notices` table stores uploaded IRS notices.
 
 ## External Dependencies
 - **Auth0**: For OpenID Connect (OIDC) authentication, multi-factor authentication (MFA), and biometric login.

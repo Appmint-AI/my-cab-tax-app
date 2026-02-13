@@ -1,11 +1,14 @@
 import { 
   expenses, incomes, users, legalConsentLogs, mileageLogs, vehicles, receipts, auditLogs, submissionReceipts,
+  odometerCheckins, auditNotices,
   type Expense, type InsertExpense, 
   type Income, type InsertIncome,
   type MileageLog, type InsertMileageLog,
   type Vehicle, type InsertVehicle,
   type Receipt, type InsertReceipt,
   type SubmissionReceipt,
+  type OdometerCheckin, type InsertOdometerCheckin,
+  type AuditNotice, type InsertAuditNotice,
   type UpdateExpenseRequest, type UpdateIncomeRequest, type UpdateMileageLogRequest, type UpdateVehicleRequest,
   type TaxSummary,
   IRS_MILEAGE_RATE, SE_TAX_RATE, SE_TAXABLE_BASE, QUARTERLY_DEADLINES,
@@ -77,6 +80,13 @@ export interface IStorage {
   getLockedTaxYears(userId: string): Promise<number[]>;
   lockTaxYear(userId: string, taxYear: number): Promise<void>;
   isTaxYearLocked(userId: string, taxYear: number): Promise<boolean>;
+
+  getOdometerCheckins(userId: string, vehicleId?: number): Promise<OdometerCheckin[]>;
+  createOdometerCheckin(data: InsertOdometerCheckin & { userId: string }): Promise<OdometerCheckin>;
+
+  getAuditNotices(userId: string): Promise<AuditNotice[]>;
+  createAuditNotice(data: InsertAuditNotice & { userId: string }): Promise<AuditNotice>;
+  deleteAuditNotice(userId: string, id: number): Promise<void>;
 
   createSubmissionReceipt(data: {
     userId: string;
@@ -451,6 +461,33 @@ export class DatabaseStorage implements IStorage {
   async isTaxYearLocked(userId: string, taxYear: number): Promise<boolean> {
     const locked = await this.getLockedTaxYears(userId);
     return locked.includes(taxYear);
+  }
+
+  async getOdometerCheckins(userId: string, vehicleId?: number): Promise<OdometerCheckin[]> {
+    if (vehicleId) {
+      return await db.select().from(odometerCheckins).where(
+        and(eq(odometerCheckins.userId, userId), eq(odometerCheckins.vehicleId, vehicleId))
+      );
+    }
+    return await db.select().from(odometerCheckins).where(eq(odometerCheckins.userId, userId));
+  }
+
+  async createOdometerCheckin(data: InsertOdometerCheckin & { userId: string }): Promise<OdometerCheckin> {
+    const [checkin] = await db.insert(odometerCheckins).values(data).returning();
+    return checkin;
+  }
+
+  async getAuditNotices(userId: string): Promise<AuditNotice[]> {
+    return await db.select().from(auditNotices).where(eq(auditNotices.userId, userId));
+  }
+
+  async createAuditNotice(data: InsertAuditNotice & { userId: string }): Promise<AuditNotice> {
+    const [notice] = await db.insert(auditNotices).values(data).returning();
+    return notice;
+  }
+
+  async deleteAuditNotice(userId: string, id: number): Promise<void> {
+    await db.delete(auditNotices).where(and(eq(auditNotices.id, id), eq(auditNotices.userId, userId)));
   }
 
   async createSubmissionReceipt(data: {

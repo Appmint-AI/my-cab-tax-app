@@ -56,6 +56,30 @@ export const vehicles = pgTable("vehicles", {
   make: text("make"),
   model: text("model"),
   mileageMethod: text("mileage_method").notNull().default("standard"),
+  initialOdometer: numeric("initial_odometer"),
+  odometerPhotoUrl: text("odometer_photo_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Odometer check-ins - quarterly verification records
+export const odometerCheckins = pgTable("odometer_checkins", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  vehicleId: integer("vehicle_id").notNull().references(() => vehicles.id),
+  reading: numeric("reading").notNull(),
+  photoUrl: text("photo_url"),
+  readingDate: date("reading_date").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Audit notices - IRS letters uploaded by users
+export const auditNotices = pgTable("audit_notices", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  imageUrl: text("image_url").notNull(),
+  originalFilename: text("original_filename"),
+  noticeType: text("notice_type"),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -174,6 +198,25 @@ export const vehiclesRelations = relations(vehicles, ({ one, many }) => ({
   }),
   expenses: many(expenses),
   mileageLogs: many(mileageLogs),
+  odometerCheckins: many(odometerCheckins),
+}));
+
+export const odometerCheckinsRelations = relations(odometerCheckins, ({ one }) => ({
+  user: one(users, {
+    fields: [odometerCheckins.userId],
+    references: [users.id],
+  }),
+  vehicle: one(vehicles, {
+    fields: [odometerCheckins.vehicleId],
+    references: [vehicles.id],
+  }),
+}));
+
+export const auditNoticesRelations = relations(auditNotices, ({ one }) => ({
+  user: one(users, {
+    fields: [auditNotices.userId],
+    references: [users.id],
+  }),
 }));
 
 export const mileageLogsRelations = relations(mileageLogs, ({ one }) => ({
@@ -247,6 +290,23 @@ export const insertVehicleSchema = createInsertSchema(vehicles).omit({
   name: z.string().min(1, "Vehicle name is required"),
   year: z.coerce.number().min(1900).max(2100).optional().nullable(),
   mileageMethod: z.enum(MILEAGE_METHODS).default("standard"),
+  initialOdometer: z.coerce.number().min(0).optional().nullable(),
+  odometerPhotoUrl: z.string().optional().nullable(),
+});
+
+export const insertOdometerCheckinSchema = createInsertSchema(odometerCheckins).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+}).extend({
+  reading: z.coerce.number().min(0, "Odometer reading must be positive"),
+  vehicleId: z.coerce.number(),
+});
+
+export const insertAuditNoticeSchema = createInsertSchema(auditNotices).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
 });
 
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ 
@@ -302,6 +362,10 @@ export type MileageLog = typeof mileageLogs.$inferSelect;
 export type InsertMileageLog = z.infer<typeof insertMileageLogSchema>;
 
 export type SubmissionReceipt = typeof submissionReceipts.$inferSelect;
+export type OdometerCheckin = typeof odometerCheckins.$inferSelect;
+export type InsertOdometerCheckin = z.infer<typeof insertOdometerCheckinSchema>;
+export type AuditNotice = typeof auditNotices.$inferSelect;
+export type InsertAuditNotice = z.infer<typeof insertAuditNoticeSchema>;
 
 export type CreateExpenseRequest = InsertExpense;
 export type CreateIncomeRequest = InsertIncome;

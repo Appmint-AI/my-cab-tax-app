@@ -1204,6 +1204,128 @@ export async function registerRoutes(
     res.json({ received: true });
   });
 
+  // ========== AUDIT CENTER ROUTES ==========
+
+  app.get("/api/audit-notices", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const notices = await storage.getAuditNotices(userId);
+    res.json(notices);
+  });
+
+  app.post("/api/audit-notices/upload", isAuthenticated, receiptUpload.single("file"), async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const user = await storage.getUser(userId);
+    if (!user || user.subscriptionStatus !== "pro") {
+      return res.status(403).json({ message: "Audit Center is a Pro feature. Upgrade to access." });
+    }
+    const file = req.file;
+    if (!file) return res.status(400).json({ message: "No file uploaded" });
+
+    const imageUrl = await uploadToVault(file.buffer, userId, file.mimetype, "pro");
+    const notice = await storage.createAuditNotice({
+      userId,
+      imageUrl,
+      originalFilename: file.originalname,
+      noticeType: (req.body?.noticeType as string) || null,
+      notes: (req.body?.notes as string) || null,
+    });
+
+    await storage.createAuditLog({
+      userId,
+      action: "audit_notice_uploaded",
+      ipAddress: req.ip || null,
+      userAgent: req.headers["user-agent"] || null,
+      metadata: { noticeId: notice.id, filename: file.originalname },
+    });
+
+    res.json(notice);
+  });
+
+  app.post("/api/audit-dossier/generate", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const user = await storage.getUser(userId);
+    if (!user || user.subscriptionStatus !== "pro") {
+      return res.status(403).json({ message: "Audit Dossier is a Pro feature. Upgrade to access." });
+    }
+
+    const { generateAuditDossierPDF } = await import("./submission/audit-dossier");
+
+    const [expensesList, incomesList, mileageLogsList, receiptsList] = await Promise.all([
+      storage.getExpenses(userId),
+      storage.getIncomes(userId),
+      storage.getMileageLogs(userId),
+      storage.getReceipts(userId),
+    ]);
+
+    const summary = await storage.getTaxSummary(userId);
+    const taxYear = new Date().getFullYear();
+
+    const submissionData = {
+      userId,
+      taxYear,
+      generatedAt: new Date(),
+      summary,
+      expenses: expensesList,
+      incomes: incomesList,
+      mileageLogs: mileageLogsList,
+      receipts: receiptsList,
+    };
+
+    const pdfBuffer = generateAuditDossierPDF(submissionData);
+    const vaultPath = await uploadToVault(pdfBuffer, userId, "application/pdf", "pro");
+
+    await storage.createAuditLog({
+      userId,
+      action: "audit_dossier_generated",
+      ipAddress: req.ip || null,
+      userAgent: req.headers["user-agent"] || null,
+      metadata: {
+        taxYear,
+        expenseCount: expensesList.length,
+        incomeCount: incomesList.length,
+        mileageLogCount: mileageLogsList.length,
+        receiptCount: receiptsList.length,
+        vaultPath,
+      },
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="MCTUSA_Audit_Dossier_${taxYear}.pdf"`);
+    res.send(pdfBuffer);
+  });
+
+  // ========== ODOMETER ROUTES ==========
+
+  app.post("/api/odometer/upload-photo", isAuthenticated, receiptUpload.single("file"), async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const file = req.file;
+    if (!file) return res.status(400).json({ message: "No file uploaded" });
+    const imageUrl = await uploadToVault(file.buffer, userId, file.mimetype, "pro");
+    res.json({ imageUrl });
+  });
+
+  app.get("/api/odometer-checkins", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const vehicleId = req.query.vehicleId ? Number(req.query.vehicleId) : undefined;
+    const checkins = await storage.getOdometerCheckins(userId, vehicleId);
+    res.json(checkins);
+  });
+
+  app.post("/api/odometer-checkins", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const { insertOdometerCheckinSchema } = await import("@shared/schema");
+    const parsed = insertOdometerCheckinSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const checkin = await storage.createOdometerCheckin({ ...parsed.data, userId });
+    res.json(checkin);
+  });
+
   return httpServer;
 }
 

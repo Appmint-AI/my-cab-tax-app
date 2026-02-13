@@ -29,11 +29,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info, Send, CheckCircle2, XCircle, Lock } from "lucide-react";
+import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info, Send, CheckCircle2, XCircle, Lock, Gauge } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { Link } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import JSZip from "jszip";
 import { jsPDF } from "jspdf";
@@ -114,6 +114,8 @@ export default function Dashboard() {
       </div>
 
       {isFreeUser && <FreeRetentionAlert user={user} />}
+
+      <QuarterlyOdometerReminder />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, i) => (
@@ -1049,5 +1051,44 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
         </CardContent>
       </Card>
     </motion.div>
+  );
+}
+
+function QuarterlyOdometerReminder() {
+  const { data: vehicleList, isLoading: vehiclesLoading } = useQuery<any[]>({
+    queryKey: ["/api/vehicles"],
+  });
+  const { data: checkins, isLoading: checkinsLoading } = useQuery<any[]>({
+    queryKey: ["/api/odometer-checkins"],
+  });
+
+  if (vehiclesLoading || checkinsLoading) return null;
+  if (!vehicleList || vehicleList.length === 0) return null;
+
+  const now = new Date();
+  const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
+  const currentYear = now.getFullYear();
+
+  const hasCheckinThisQuarter = checkins?.some((c: any) => {
+    const d = new Date(c.checkinDate);
+    return Math.floor(d.getMonth() / 3) + 1 === currentQuarter && d.getFullYear() === currentYear;
+  });
+
+  if (hasCheckinThisQuarter) return null;
+
+  return (
+    <Alert className="mb-4 border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20" data-testid="alert-odometer-reminder">
+      <Gauge className="h-4 w-4 text-amber-600" />
+      <AlertTitle className="text-sm font-medium">Quarterly Odometer Check-In Due</AlertTitle>
+      <AlertDescription className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+        <span>Record your current odometer reading to maintain IRS-compliant mileage records (IRC Sec. 274(d)).</span>
+        <Link href="/mileage">
+          <Button size="sm" variant="outline" data-testid="button-odometer-checkin">
+            <Gauge className="mr-1 h-3 w-3" />
+            Check In Now
+          </Button>
+        </Link>
+      </AlertDescription>
+    </Alert>
   );
 }

@@ -21,6 +21,7 @@ import VehiclesPage from "@/pages/VehiclesPage";
 import ReceiptsPage from "@/pages/ReceiptsPage";
 import ScanPage from "@/pages/ScanPage";
 import VerifyPage from "@/pages/VerifyPage";
+import AuditCenterPage from "@/pages/AuditCenterPage";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -100,6 +101,10 @@ function Router() {
       
       <Route path="/incomes">
         <VerifiedRoute component={IncomesPage} />
+      </Route>
+
+      <Route path="/audit-center">
+        <VerifiedRoute component={AuditCenterPage} />
       </Route>
 
       <Route path="/settings">
