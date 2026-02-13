@@ -2,8 +2,10 @@ import { storage } from "../storage";
 import type { SubmissionProvider, SubmissionData, SubmissionResult } from "./types";
 import { VaultPDFProvider } from "./vault-pdf-provider";
 import { EFileProvider } from "./efile-provider";
+import { InternalIRSAdapter } from "./irs-adapter";
 
 export type { SubmissionData, SubmissionResult, SubmissionProvider } from "./types";
+export { InternalIRSAdapter } from "./irs-adapter";
 
 /**
  * SubmissionService — Orchestrator for all submission providers.
@@ -31,6 +33,7 @@ export class SubmissionService {
   constructor() {
     this.registerProvider(new VaultPDFProvider());
     this.registerProvider(new EFileProvider());
+    this.registerProvider(new InternalIRSAdapter());
   }
 
   registerProvider(provider: SubmissionProvider): void {

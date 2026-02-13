@@ -72,6 +72,10 @@ export interface IStorage {
     userAgent?: string | null;
     metadata?: Record<string, unknown> | null;
   }): Promise<void>;
+
+  getLockedTaxYears(userId: string): Promise<number[]>;
+  lockTaxYear(userId: string, taxYear: number): Promise<void>;
+  isTaxYearLocked(userId: string, taxYear: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -398,6 +402,29 @@ export class DatabaseStorage implements IStorage {
       userAgent: data.userAgent || null,
       metadata: data.metadata || null,
     });
+  }
+
+  async getLockedTaxYears(userId: string): Promise<number[]> {
+    const user = await this.getUser(userId);
+    if (!user) return [];
+    const locked = user.lockedTaxYears;
+    if (Array.isArray(locked)) return locked as number[];
+    return [];
+  }
+
+  async lockTaxYear(userId: string, taxYear: number): Promise<void> {
+    const current = await this.getLockedTaxYears(userId);
+    if (current.includes(taxYear)) return;
+    const updated = [...current, taxYear];
+    await db.update(users).set({
+      lockedTaxYears: updated,
+      updatedAt: new Date(),
+    }).where(eq(users.id, userId));
+  }
+
+  async isTaxYearLocked(userId: string, taxYear: number): Promise<boolean> {
+    const locked = await this.getLockedTaxYears(userId);
+    return locked.includes(taxYear);
   }
 }
 

@@ -228,6 +228,7 @@ export default function Dashboard() {
       </div>
 
       <ExportSection summary={summary} mileageLogs={mileageData || []} />
+      <FinalizeSubmissionSection summary={summary} />
     </Layout>
   );
 }
@@ -308,6 +309,239 @@ function FreeRetentionAlert({ user }: { user: User | null | undefined }) {
         </div>
       </AlertDescription>
     </Alert>
+  );
+}
+
+function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [fAck1, setFAck1] = useState(false);
+  const [fAck2, setFAck2] = useState(false);
+  const [fAck3, setFAck3] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const [validationResult, setValidationResult] = useState<any>(null);
+  const [finalizeResult, setFinalizeResult] = useState<any>(null);
+  const [finalizeError, setFinalizeError] = useState<string | null>(null);
+
+  const allChecked = fAck1 && fAck2 && fAck3;
+  const taxYear = new Date().getFullYear();
+
+  function resetModal() {
+    setFAck1(false);
+    setFAck2(false);
+    setFAck3(false);
+    setValidationResult(null);
+    setFinalizeResult(null);
+    setFinalizeError(null);
+  }
+
+  async function handleOpenModal() {
+    resetModal();
+    setModalOpen(true);
+    setValidating(true);
+    try {
+      const res = await apiRequest("POST", "/api/submissions/validate");
+      const data = await res.json();
+      setValidationResult(data);
+    } catch {
+      setValidationResult({ valid: false, errors: [{ message: "Could not validate. Try again." }], warnings: [] });
+    } finally {
+      setValidating(false);
+    }
+  }
+
+  async function handleFinalize() {
+    setFinalizing(true);
+    setFinalizeError(null);
+    try {
+      const res = await apiRequest("POST", "/api/submissions/finalize", {
+        taxYear,
+        ack_bookkeeping_tool: fAck1,
+        ack_income_verified: fAck2,
+        ack_vault_authorization: fAck3,
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        setFinalizeError(errData.message || "Finalization failed.");
+        return;
+      }
+      const data = await res.json();
+      setFinalizeResult(data);
+    } catch {
+      setFinalizeError("An unexpected error occurred during finalization.");
+    } finally {
+      setFinalizing(false);
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.6 }}
+      className="mt-4"
+    >
+      <Card className="border-primary/30 shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Finalize & Lock Submission
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-2 p-3 rounded-md bg-primary/5 border border-primary/20">
+            <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <p className="text-xs text-foreground/80 leading-relaxed">
+              Finalizing your submission will run pre-submission validation, generate your IRS-ready documents, and permanently lock this tax year's records in your 7-year vault. Locked records cannot be edited or deleted.
+            </p>
+          </div>
+
+          <Button
+            onClick={handleOpenModal}
+            data-testid="button-finalize-submission"
+          >
+            <Shield className="h-4 w-4 mr-2" />
+            Finalize Submission
+          </Button>
+
+          {modalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" data-testid="modal-finalize-submission">
+              <div className="bg-background border border-border rounded-md w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto shadow-lg">
+                <div className="p-6 space-y-5">
+                  <div className="text-center space-y-2">
+                    <Shield className="h-8 w-8 text-primary mx-auto" />
+                    <h2 className="text-xl font-bold" data-testid="text-finalize-title">
+                      Finalize Submission — Tax Year {taxYear}
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      This action is permanent. Once finalized, your records for {taxYear} will be locked and stored in your 7-year vault.
+                    </p>
+                  </div>
+
+                  {validating && (
+                    <div className="flex items-center justify-center gap-2 py-4">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Running pre-submission validation...</span>
+                    </div>
+                  )}
+
+                  {validationResult && (
+                    <div className="space-y-2">
+                      {validationResult.errors?.length > 0 && (
+                        <div className="p-3 rounded-md bg-destructive/10 border border-destructive/30 space-y-1">
+                          <p className="text-sm font-medium text-destructive" data-testid="text-validation-errors-title">Validation Errors (must fix before finalizing)</p>
+                          {validationResult.errors.map((e: any, i: number) => (
+                            <p key={i} className="text-xs text-destructive/80" data-testid={`text-validation-error-${i}`}>
+                              {e.message}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {validationResult.warnings?.length > 0 && (
+                        <div className="p-3 rounded-md bg-yellow-500/10 border border-yellow-500/30 space-y-1">
+                          <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">Warnings (review recommended)</p>
+                          {validationResult.warnings.map((w: any, i: number) => (
+                            <p key={i} className="text-xs text-yellow-600 dark:text-yellow-300" data-testid={`text-validation-warning-${i}`}>
+                              {w.message}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {validationResult.valid && validationResult.errors?.length === 0 && (
+                        <div className="p-3 rounded-md bg-green-500/10 border border-green-500/30">
+                          <p className="text-sm font-medium text-green-700 dark:text-green-400" data-testid="text-validation-passed">
+                            Pre-submission validation passed. No IRS kickback errors detected.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-4 pt-2">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="finalize-ack-1"
+                        checked={fAck1}
+                        onCheckedChange={(c) => setFAck1(c === true)}
+                        disabled={!validationResult?.valid}
+                        data-testid="checkbox-finalize-bookkeeping"
+                      />
+                      <Label htmlFor="finalize-ack-1" className="text-xs leading-snug cursor-pointer">
+                        I understand that MCTUSA is a bookkeeping tool and I am the sole person responsible for the accuracy of this data.
+                      </Label>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="finalize-ack-2"
+                        checked={fAck2}
+                        onCheckedChange={(c) => setFAck2(c === true)}
+                        disabled={!validationResult?.valid}
+                        data-testid="checkbox-finalize-income-verified"
+                      />
+                      <Label htmlFor="finalize-ack-2" className="text-xs leading-snug cursor-pointer">
+                        I have verified that my Gross Income matches my 1099-K records (or my manual auto-grossing estimates).
+                      </Label>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="finalize-ack-3"
+                        checked={fAck3}
+                        onCheckedChange={(c) => setFAck3(c === true)}
+                        disabled={!validationResult?.valid}
+                        data-testid="checkbox-finalize-vault-auth"
+                      />
+                      <Label htmlFor="finalize-ack-3" className="text-xs leading-snug cursor-pointer">
+                        I authorize the digital generation of my tax records for my 7-year vault.
+                      </Label>
+                    </div>
+                  </div>
+
+                  {finalizeError && (
+                    <div className="p-3 rounded-md bg-destructive/10 border border-destructive/30">
+                      <p className="text-xs text-destructive" data-testid="text-finalize-error">{finalizeError}</p>
+                    </div>
+                  )}
+
+                  {finalizeResult && (
+                    <div className="p-4 rounded-md bg-green-500/10 border border-green-500/30 space-y-2">
+                      <p className="text-sm font-medium text-green-700 dark:text-green-400" data-testid="text-finalize-success">
+                        Tax year {finalizeResult.taxYear} has been finalized and locked.
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Submission Hash: <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded" data-testid="text-submission-hash">{finalizeResult.submissionHash}</code>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Your records are now permanently stored in your 7-year IRS vault. They cannot be edited or deleted.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => { setModalOpen(false); resetModal(); }}
+                      data-testid="button-finalize-cancel"
+                    >
+                      {finalizeResult ? "Close" : "Cancel"}
+                    </Button>
+                    {!finalizeResult && (
+                      <Button
+                        onClick={handleFinalize}
+                        disabled={!allChecked || finalizing || !validationResult?.valid}
+                        data-testid="button-finalize-confirm"
+                      >
+                        {finalizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Shield className="h-4 w-4 mr-2" />}
+                        {finalizing ? "Finalizing..." : "Finalize & Lock Records"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }
 

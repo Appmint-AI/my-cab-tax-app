@@ -26,6 +26,21 @@ const receiptUpload = multer({
   },
 });
 
+function getTaxYearFromDate(dateStr: string): number {
+  const d = new Date(dateStr);
+  return d.getFullYear();
+}
+
+async function checkYearLock(userId: string, dateStr: string | undefined): Promise<string | null> {
+  if (!dateStr) return null;
+  const taxYear = getTaxYearFromDate(dateStr);
+  const locked = await storage.isTaxYearLocked(userId, taxYear);
+  if (locked) {
+    return `Tax year ${taxYear} is finalized and locked. Records for this year cannot be created, edited, or deleted.`;
+  }
+  return null;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -111,6 +126,8 @@ export async function registerRoutes(
     try {
       const userId = (req.user as any).claims.sub;
       const input = api.expenses.create.input.parse(req.body);
+      const lockMsg = await checkYearLock(userId, input.date);
+      if (lockMsg) return res.status(403).json({ message: lockMsg, locked: true });
       const expense = await storage.createExpense({ ...input, userId });
       res.status(201).json(expense);
     } catch (err) {
@@ -140,7 +157,16 @@ export async function registerRoutes(
   app.put(api.expenses.update.path, isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
+      const existing = await storage.getExpense(Number(req.params.id));
+      if (existing) {
+        const lockMsg = await checkYearLock(userId, existing.date);
+        if (lockMsg) return res.status(403).json({ message: lockMsg, locked: true });
+      }
       const input = api.expenses.update.input.parse(req.body);
+      if (input.date) {
+        const lockMsg2 = await checkYearLock(userId, input.date);
+        if (lockMsg2) return res.status(403).json({ message: lockMsg2, locked: true });
+      }
       const updated = await storage.updateExpense(userId, Number(req.params.id), input);
       if (!updated) {
         return res.status(404).json({ message: 'Expense not found' });
@@ -159,6 +185,11 @@ export async function registerRoutes(
 
   app.delete(api.expenses.delete.path, isAuthenticated, async (req, res) => {
     const userId = (req.user as any).claims.sub;
+    const existing = await storage.getExpense(Number(req.params.id));
+    if (existing) {
+      const lockMsg = await checkYearLock(userId, existing.date);
+      if (lockMsg) return res.status(403).json({ message: lockMsg, locked: true });
+    }
     await storage.deleteExpense(userId, Number(req.params.id));
     res.sendStatus(204);
   });
@@ -174,6 +205,8 @@ export async function registerRoutes(
     try {
       const userId = (req.user as any).claims.sub;
       const input = api.incomes.create.input.parse(req.body);
+      const lockMsg = await checkYearLock(userId, input.date);
+      if (lockMsg) return res.status(403).json({ message: lockMsg, locked: true });
       const income = await storage.createIncome({ ...input, userId });
       res.status(201).json(income);
     } catch (err) {
@@ -202,7 +235,16 @@ export async function registerRoutes(
   app.put(api.incomes.update.path, isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
+      const existing = await storage.getIncome(Number(req.params.id));
+      if (existing) {
+        const lockMsg = await checkYearLock(userId, existing.date);
+        if (lockMsg) return res.status(403).json({ message: lockMsg, locked: true });
+      }
       const input = api.incomes.update.input.parse(req.body);
+      if (input.date) {
+        const lockMsg2 = await checkYearLock(userId, input.date);
+        if (lockMsg2) return res.status(403).json({ message: lockMsg2, locked: true });
+      }
       const updated = await storage.updateIncome(userId, Number(req.params.id), input);
       if (!updated) {
         return res.status(404).json({ message: 'Income not found' });
@@ -221,6 +263,11 @@ export async function registerRoutes(
 
   app.delete(api.incomes.delete.path, isAuthenticated, async (req, res) => {
     const userId = (req.user as any).claims.sub;
+    const existing = await storage.getIncome(Number(req.params.id));
+    if (existing) {
+      const lockMsg = await checkYearLock(userId, existing.date);
+      if (lockMsg) return res.status(403).json({ message: lockMsg, locked: true });
+    }
     await storage.deleteIncome(userId, Number(req.params.id));
     res.sendStatus(204);
   });
@@ -236,6 +283,8 @@ export async function registerRoutes(
     try {
       const userId = (req.user as any).claims.sub;
       const input = api.mileageLogs.create.input.parse(req.body);
+      const lockMsg = await checkYearLock(userId, input.date);
+      if (lockMsg) return res.status(403).json({ message: lockMsg, locked: true });
       const log = await storage.createMileageLog({ ...input, userId });
       res.status(201).json(log);
     } catch (err) {
@@ -264,7 +313,16 @@ export async function registerRoutes(
   app.put(api.mileageLogs.update.path, isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
+      const existing = await storage.getMileageLog(Number(req.params.id));
+      if (existing) {
+        const lockMsg = await checkYearLock(userId, existing.date);
+        if (lockMsg) return res.status(403).json({ message: lockMsg, locked: true });
+      }
       const input = api.mileageLogs.update.input.parse(req.body);
+      if (input.date) {
+        const lockMsg2 = await checkYearLock(userId, input.date);
+        if (lockMsg2) return res.status(403).json({ message: lockMsg2, locked: true });
+      }
       const updated = await storage.updateMileageLog(userId, Number(req.params.id), input);
       if (!updated) {
         return res.status(404).json({ message: 'Mileage log not found' });
@@ -283,6 +341,11 @@ export async function registerRoutes(
 
   app.delete(api.mileageLogs.delete.path, isAuthenticated, async (req, res) => {
     const userId = (req.user as any).claims.sub;
+    const existing = await storage.getMileageLog(Number(req.params.id));
+    if (existing) {
+      const lockMsg = await checkYearLock(userId, existing.date);
+      if (lockMsg) return res.status(403).json({ message: lockMsg, locked: true });
+    }
     await storage.deleteMileageLog(userId, Number(req.params.id));
     res.sendStatus(204);
   });
@@ -819,7 +882,7 @@ export async function registerRoutes(
       const userAgent = req.headers["user-agent"] || null;
 
       const submitSchema = z.object({
-        provider: z.enum(["vault_pdf", "efile_irs"]).default("vault_pdf"),
+        provider: z.enum(["vault_pdf", "efile_irs", "irs_json"]).default("vault_pdf"),
       });
 
       const parsed = submitSchema.parse(req.body || {});
@@ -843,6 +906,118 @@ export async function registerRoutes(
       console.error("Submission error:", err);
       res.status(500).json({ message: err.message || "Submission failed" });
     }
+  });
+
+  app.post("/api/submissions/validate", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { submissionService } = await import("./submission");
+      const { validatePreSubmission } = await import("./submission/pre-submission-validator");
+
+      const data = await submissionService.buildSubmissionData(userId);
+      const user = await storage.getUser(userId);
+      const result = validatePreSubmission(data, user);
+
+      res.json(result);
+    } catch (err: any) {
+      console.error("Validation error:", err);
+      res.status(500).json({ message: err.message || "Validation failed" });
+    }
+  });
+
+  app.post("/api/submissions/finalize", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const ipAddress = req.headers["x-forwarded-for"]?.toString()?.split(",")[0]?.trim() || req.socket.remoteAddress || null;
+      const userAgent = req.headers["user-agent"] || null;
+
+      const finalizeSchema = z.object({
+        taxYear: z.coerce.number().min(2020).max(new Date().getFullYear() + 1),
+        ack_bookkeeping_tool: z.literal(true, { errorMap: () => ({ message: "You must acknowledge this is a bookkeeping tool" }) }),
+        ack_income_verified: z.literal(true, { errorMap: () => ({ message: "You must verify income matches 1099-K records" }) }),
+        ack_vault_authorization: z.literal(true, { errorMap: () => ({ message: "You must authorize digital record generation" }) }),
+      });
+
+      const parsed = finalizeSchema.parse(req.body);
+
+      const isLocked = await storage.isTaxYearLocked(userId, parsed.taxYear);
+      if (isLocked) {
+        return res.status(409).json({
+          message: `Tax year ${parsed.taxYear} is already finalized and locked. Records cannot be modified.`,
+          locked: true,
+        });
+      }
+
+      const { submissionService } = await import("./submission");
+      const { validatePreSubmission } = await import("./submission/pre-submission-validator");
+
+      const data = await submissionService.buildSubmissionData(userId);
+      const user = await storage.getUser(userId);
+      const validation = validatePreSubmission(data, user);
+
+      if (!validation.valid) {
+        return res.status(422).json({
+          message: "Pre-submission validation failed. Please fix errors before finalizing.",
+          validation,
+        });
+      }
+
+      const irsResult = await submissionService.submitTo("irs_json", userId, {
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
+      });
+
+      const vaultResult = await submissionService.submitTo("vault_pdf", userId, {
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
+      });
+
+      const submissionHash = (irsResult.metadata as any)?.submissionHash || "unknown";
+
+      await storage.lockTaxYear(userId, parsed.taxYear);
+
+      await storage.createAuditLog({
+        userId,
+        action: "submission.finalized",
+        ipAddress,
+        userAgent,
+        metadata: {
+          taxYear: parsed.taxYear,
+          submissionHash,
+          ack_bookkeeping_tool: true,
+          ack_income_verified: true,
+          ack_vault_authorization: true,
+          irsJsonSuccess: irsResult.success,
+          vaultPdfSuccess: vaultResult.success,
+          vaultPath: vaultResult.vaultPath || null,
+          grossIncome: data.summary.grossIncome,
+          netProfit: data.summary.netProfit,
+          totalDeductions: data.summary.totalDeductions,
+          finalizedAt: new Date().toISOString(),
+        },
+      });
+
+      res.json({
+        success: true,
+        submissionHash,
+        taxYear: parsed.taxYear,
+        locked: true,
+        vaultPath: vaultResult.vaultPath,
+        validation,
+      });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, errors: err.errors });
+      }
+      console.error("Finalize error:", err);
+      res.status(500).json({ message: err.message || "Finalization failed" });
+    }
+  });
+
+  app.get("/api/locked-tax-years", isAuthenticated, async (req, res) => {
+    const userId = (req.user as any).claims.sub;
+    const locked = await storage.getLockedTaxYears(userId);
+    res.json({ lockedTaxYears: locked });
   });
 
   // Get user subscription status
