@@ -3,6 +3,7 @@ import type { SubmissionProvider, SubmissionData, SubmissionResult } from "./typ
 import { VaultPDFProvider } from "./vault-pdf-provider";
 import { EFileProvider } from "./efile-provider";
 import { InternalIRSAdapter } from "./irs-adapter";
+import { LocalTaxProvider } from "./local-tax-provider";
 
 export type { SubmissionData, SubmissionResult, SubmissionProvider } from "./types";
 export { InternalIRSAdapter } from "./irs-adapter";
@@ -34,6 +35,7 @@ export class SubmissionService {
     this.registerProvider(new VaultPDFProvider());
     this.registerProvider(new EFileProvider());
     this.registerProvider(new InternalIRSAdapter());
+    this.registerProvider(new LocalTaxProvider());
   }
 
   registerProvider(provider: SubmissionProvider): void {
@@ -45,12 +47,13 @@ export class SubmissionService {
   }
 
   async buildSubmissionData(userId: string): Promise<SubmissionData> {
-    const [summary, expenses, incomes, mileageLogs, receipts] = await Promise.all([
+    const [summary, expenses, incomes, mileageLogs, receipts, user] = await Promise.all([
       storage.getTaxSummary(userId),
       storage.getExpenses(userId),
       storage.getIncomes(userId),
       storage.getMileageLogs(userId),
       storage.getReceipts(userId),
+      storage.getUser(userId),
     ]);
 
     return {
@@ -62,6 +65,11 @@ export class SubmissionService {
       expenses,
       incomes,
       receipts,
+      jurisdiction: {
+        stateCode: user?.stateCode || null,
+        localTaxEnabled: user?.localTaxEnabled || false,
+        localTaxJurisdiction: user?.localTaxJurisdiction || null,
+      },
     };
   }
 

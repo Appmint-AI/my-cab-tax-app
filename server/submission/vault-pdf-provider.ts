@@ -2,7 +2,7 @@ import { jsPDF } from "jspdf";
 import { format, parseISO } from "date-fns";
 import { uploadToVault } from "../receipt-vault";
 import type { SubmissionProvider, SubmissionData, SubmissionResult } from "./types";
-import { InternalIRSAdapter } from "./irs-adapter";
+import { InternalIRSAdapter, NO_INCOME_TAX_STATES, HIGH_LOCAL_TAX_JURISDICTIONS } from "./irs-adapter";
 
 export class VaultPDFProvider implements SubmissionProvider {
   readonly name = "vault_pdf";
@@ -194,6 +194,39 @@ export class VaultPDFProvider implements SubmissionProvider {
     const certLines = doc.splitTextToSize(certStatement, pageWidth - lm * 2);
     doc.text(certLines, lm, y);
     y += certLines.length * 4 + 4;
+    addSep();
+
+    checkPageBreak(60);
+    addLine("MULTI-JURISDICTION FILING STATUS", 11, true);
+    const stateCode = data.jurisdiction?.stateCode || null;
+    const stateHasIncomeTax = stateCode ? !NO_INCOME_TAX_STATES.includes(stateCode) : false;
+    addRow("State:", stateCode || "Not specified");
+    addRow("State Income Tax:", stateHasIncomeTax ? "YES" : "NO (No state income tax)");
+    if (stateHasIncomeTax) {
+      addRow("CF/SF Program:", "ELIGIBLE - Federal data auto-forwarded to state");
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "italic");
+      doc.text("Combined Federal/State Filing (CF/SF) transmits your federal data to your state automatically.", lm, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+    } else if (stateCode) {
+      addRow("CF/SF Program:", "NOT REQUIRED - No state income tax in " + stateCode);
+    }
+
+    const localTaxEnabled = data.jurisdiction?.localTaxEnabled || false;
+    const localJurCode = data.jurisdiction?.localTaxJurisdiction || null;
+    const localJur = localJurCode ? HIGH_LOCAL_TAX_JURISDICTIONS[localJurCode] : null;
+    addRow("Local Tax Filing:", localTaxEnabled ? "YES" : "NO");
+    if (localTaxEnabled && localJur) {
+      addRow("Local Jurisdiction:", `${localJur.name} (${localJurCode})`);
+      addRow("Local Tax Rate:", `${localJur.rate}%`);
+      const localTax = Math.round(summary.netProfit * (localJur.rate / 100) * 100) / 100;
+      doc.setFont("helvetica", "bold");
+      addRow("Estimated Local Tax:", `$${localTax.toFixed(2)}`);
+      doc.setFont("helvetica", "normal");
+      addRow("Filing Portal:", localJur.portalUrl);
+    }
+    y += 2;
     addSep();
 
     checkPageBreak(80);

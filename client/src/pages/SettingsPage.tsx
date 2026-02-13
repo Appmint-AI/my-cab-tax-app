@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/use-auth";
@@ -10,6 +10,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,9 +30,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Trash2, User, FileText, AlertTriangle, XCircle, MessageSquare } from "lucide-react";
+import { Shield, Trash2, User, FileText, AlertTriangle, XCircle, MessageSquare, MapPin, Building, Download, Loader2, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "wouter";
+
+const US_STATES = [
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC",
+];
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -109,6 +125,8 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <TaxJurisdictionSettings />
 
       <Card>
         <CardHeader>
@@ -309,5 +327,223 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
     </Layout>
+  );
+}
+
+interface JurisdictionData {
+  stateCode: string | null;
+  localTaxEnabled: boolean;
+  localTaxJurisdiction: string | null;
+  noIncomeTaxStates: string[];
+  localJurisdictions: Record<string, { name: string; rate: number; portalUrl: string }>;
+}
+
+function TaxJurisdictionSettings() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: jurisdiction, isLoading } = useQuery<JurisdictionData>({
+    queryKey: ["/api/jurisdiction"],
+  });
+
+  const [stateCode, setStateCode] = useState<string>("");
+  const [localTaxEnabled, setLocalTaxEnabled] = useState(false);
+  const [localTaxJurisdiction, setLocalTaxJurisdiction] = useState<string>("");
+  const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    if (jurisdiction) {
+      setStateCode(jurisdiction.stateCode || "");
+      setLocalTaxEnabled(jurisdiction.localTaxEnabled);
+      setLocalTaxJurisdiction(jurisdiction.localTaxJurisdiction || "");
+    }
+  }, [jurisdiction]);
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("PATCH", "/api/jurisdiction", {
+        stateCode: stateCode || null,
+        localTaxEnabled,
+        localTaxJurisdiction: localTaxEnabled ? (localTaxJurisdiction || null) : null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jurisdiction"] });
+      toast({ title: "Saved", description: "Tax jurisdiction settings updated." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save jurisdiction settings.", variant: "destructive" });
+    },
+  });
+
+  const handleGenerateLocalPDF = async () => {
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/local-tax/generate", { method: "POST", credentials: "include" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to generate");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `MCTUSA_Local_Tax_${new Date().getFullYear()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Downloaded", description: "Local tax statement PDF has been downloaded." });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const noTaxStates = jurisdiction?.noIncomeTaxStates || [];
+  const isNoTaxState = stateCode ? noTaxStates.includes(stateCode) : false;
+  const localJurisdictions = jurisdiction?.localJurisdictions || {};
+  const selectedLocal = localTaxJurisdiction ? localJurisdictions[localTaxJurisdiction] : null;
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            Tax Filing Jurisdiction
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading jurisdiction settings...
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <MapPin className="h-5 w-5" />
+          Tax Filing Jurisdiction
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <p className="text-sm text-muted-foreground">
+          Configure your state and local tax filing settings. Your $50 filing fee covers Federal + State + Local — the complete bundle.
+        </p>
+
+        <div className="space-y-2">
+          <Label htmlFor="stateCode">Filing State</Label>
+          <Select value={stateCode} onValueChange={setStateCode}>
+            <SelectTrigger data-testid="select-jurisdiction-state">
+              <SelectValue placeholder="Select your state" />
+            </SelectTrigger>
+            <SelectContent>
+              {US_STATES.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {stateCode && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {isNoTaxState ? (
+                <Badge variant="secondary" className="no-default-active-elevate" data-testid="badge-no-state-tax">
+                  <CheckCircle className="mr-1 h-3 w-3" />
+                  No state income tax in {stateCode}
+                </Badge>
+              ) : (
+                <Badge variant="default" className="no-default-active-elevate" data-testid="badge-cfsf-eligible">
+                  <CheckCircle className="mr-1 h-3 w-3" />
+                  CF/SF Eligible — auto-forwarded to {stateCode}
+                </Badge>
+              )}
+            </div>
+          )}
+          {stateCode && !isNoTaxState && (
+            <p className="text-xs text-muted-foreground">
+              Your federal return data will be automatically forwarded to {stateCode} via the IRS Combined Federal/State Filing (CF/SF) Program. No separate state filing needed.
+            </p>
+          )}
+        </div>
+
+        <Separator />
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <Label htmlFor="localTaxToggle" className="flex items-center gap-2 cursor-pointer">
+                <Building className="h-4 w-4" />
+                Local Tax Filing
+              </Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Does your city or county require a separate local earned income tax (EIT) filing?
+              </p>
+            </div>
+            <Switch
+              id="localTaxToggle"
+              checked={localTaxEnabled}
+              onCheckedChange={setLocalTaxEnabled}
+              data-testid="switch-local-tax"
+            />
+          </div>
+
+          {localTaxEnabled && (
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="localJurisdiction">Local Jurisdiction</Label>
+                <Select value={localTaxJurisdiction} onValueChange={setLocalTaxJurisdiction}>
+                  <SelectTrigger data-testid="select-local-jurisdiction">
+                    <SelectValue placeholder="Select your jurisdiction" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(localJurisdictions).map(([code, info]) => (
+                      <SelectItem key={code} value={code}>
+                        {info.name} ({info.rate}%)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedLocal && (
+                <div className="p-3 rounded-lg border border-border/60 bg-muted/30 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium">{selectedLocal.name}</span>
+                    <Badge variant="outline" className="no-default-active-elevate text-xs">{selectedLocal.rate}% rate</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    As of 2026, {selectedLocal.name} may require electronic filing. MCTUSA will generate a Local EIT Statement PDF you can upload to the city portal.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleGenerateLocalPDF}
+                    disabled={generating}
+                    data-testid="button-generate-local-pdf"
+                  >
+                    {generating ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Download className="mr-1 h-3 w-3" />}
+                    Download Local Tax Statement
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <Button
+          onClick={() => saveMutation.mutate()}
+          disabled={saveMutation.isPending}
+          data-testid="button-save-jurisdiction"
+        >
+          {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+          Save Jurisdiction Settings
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

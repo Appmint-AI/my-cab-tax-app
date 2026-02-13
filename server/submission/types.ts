@@ -19,6 +19,11 @@ export interface SubmissionData {
   expenses: Expense[];
   incomes: Income[];
   receipts: Receipt[];
+  jurisdiction?: {
+    stateCode: string | null;
+    localTaxEnabled: boolean;
+    localTaxJurisdiction: string | null;
+  };
 }
 
 /**

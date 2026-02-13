@@ -201,6 +201,28 @@ export function validatePreSubmission(data: SubmissionData, user?: User): Valida
     });
   }
 
+  const hasStateCode = !!(data as any).jurisdiction?.stateCode;
+  preflightChecks.push({ label: "Filing State Set", passed: hasStateCode, required: false });
+  if (!hasStateCode) {
+    warnings.push({
+      code: "NO_STATE_SELECTED",
+      field: "jurisdiction.stateCode",
+      message: "No filing state selected. Without a state, CF/SF auto-forwarding cannot be configured. Set your state in Settings > Tax Filing Jurisdiction.",
+      severity: "warning",
+    });
+  }
+
+  const localTaxEnabled = !!(data as any).jurisdiction?.localTaxEnabled;
+  const localJurisdiction = (data as any).jurisdiction?.localTaxJurisdiction;
+  if (localTaxEnabled && !localJurisdiction) {
+    warnings.push({
+      code: "LOCAL_TAX_NO_JURISDICTION",
+      field: "jurisdiction.localTaxJurisdiction",
+      message: "Local tax filing is enabled but no local jurisdiction is selected. Select a jurisdiction in Settings to generate your Local EIT Statement.",
+      severity: "warning",
+    });
+  }
+
   const totalChecks = preflightChecks.length;
   const passedChecks = preflightChecks.filter(c => c.passed).length;
   const preflightScore = totalChecks > 0 ? Math.round((passedChecks / totalChecks) * 100) : 0;

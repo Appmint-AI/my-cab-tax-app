@@ -68,6 +68,11 @@ export interface IStorage {
   }): Promise<void>;
   getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined>;
   verifyUser(userId: string): Promise<void>;
+  updateUserJurisdiction(userId: string, data: {
+    stateCode?: string | null;
+    localTaxEnabled?: boolean;
+    localTaxJurisdiction?: string | null;
+  }): Promise<void>;
 
   createAuditLog(data: {
     userId: string;
@@ -420,6 +425,17 @@ export class DatabaseStorage implements IStorage {
     await db.update(users).set({
       isVerified: true,
       verificationStatus: "verified",
+      updatedAt: new Date(),
+    }).where(eq(users.id, userId));
+  }
+
+  async updateUserJurisdiction(userId: string, data: {
+    stateCode?: string | null;
+    localTaxEnabled?: boolean;
+    localTaxJurisdiction?: string | null;
+  }): Promise<void> {
+    await db.update(users).set({
+      ...data,
       updatedAt: new Date(),
     }).where(eq(users.id, userId));
   }

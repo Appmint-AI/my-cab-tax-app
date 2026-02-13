@@ -1,6 +1,23 @@
 import type { SubmissionProvider, SubmissionData, SubmissionResult } from "./types";
 import crypto from "crypto";
 
+export const NO_INCOME_TAX_STATES = ["AK", "FL", "NV", "NH", "SD", "TN", "TX", "WA", "WY"];
+
+export const HIGH_LOCAL_TAX_JURISDICTIONS: Record<string, { name: string; rate: number; portalUrl: string }> = {
+  "NYC": { name: "New York City", rate: 3.876, portalUrl: "https://www.nyc.gov/site/finance/taxes/business-unincorporated-business-tax-ubt.page" },
+  "PHL": { name: "City of Philadelphia", rate: 3.75, portalUrl: "https://www.phila.gov/services/payments-assistance-taxes/business-taxes/business-income-receipts-tax/" },
+  "DET": { name: "City of Detroit", rate: 2.4, portalUrl: "https://detroitmi.gov/departments/office-chief-financial-officer/ocfo-divisions/office-treasury/income-tax" },
+  "CLV": { name: "City of Cleveland", rate: 2.5, portalUrl: "https://www.clevelandohio.gov/city-hall/departments/finance/division-taxation" },
+  "COL": { name: "City of Columbus", rate: 2.5, portalUrl: "https://www.columbus.gov/incometax/" },
+  "CIN": { name: "City of Cincinnati", rate: 1.8, portalUrl: "https://www.cincinnati-oh.gov/finance/income-taxes/" },
+  "PIT": { name: "City of Pittsburgh", rate: 3.0, portalUrl: "https://pittsburghpa.gov/finance/tax-descriptions" },
+  "SL": { name: "City of St. Louis", rate: 1.0, portalUrl: "https://www.stlouis-mo.gov/government/departments/collector/" },
+  "KC": { name: "Kansas City, MO", rate: 1.0, portalUrl: "https://www.kcmo.gov/city-hall/departments/finance/earnings-tax" },
+  "WIL": { name: "City of Wilmington, DE", rate: 1.25, portalUrl: "https://www.wilmingtonde.gov/government/city-departments/department-of-finance/revenue" },
+  "YONK": { name: "City of Yonkers", rate: 1.9575, portalUrl: "https://www.yonkersny.gov" },
+  "KEYSTONE_PA": { name: "Keystone Collections (PA Local EIT)", rate: 1.0, portalUrl: "https://www.keystonecollects.com/" },
+};
+
 export interface IRSScheduleCPayload {
   version: string;
   generatedAt: string;
@@ -12,6 +29,15 @@ export interface IRSScheduleCPayload {
   taxpayer: {
     userId: string;
     taxYear: number;
+  };
+  jurisdiction: {
+    stateCode: string | null;
+    stateHasIncomeTax: boolean;
+    cfsfEligible: boolean;
+    localTaxEnabled: boolean;
+    localTaxJurisdiction: string | null;
+    localTaxRate: number | null;
+    localTaxEstimate: number | null;
   };
   scheduleC: {
     partI: {
@@ -134,8 +160,17 @@ export class InternalIRSAdapter implements SubmissionProvider {
     const totalEntries = data.mileageLogs.length;
     const contemporaneousCompliance = totalEntries > 0 && entriesWithTimestamps === totalEntries;
 
+    const stateCode = data.jurisdiction?.stateCode || null;
+    const stateHasIncomeTax = stateCode ? !NO_INCOME_TAX_STATES.includes(stateCode) : false;
+    const cfsfEligible = stateHasIncomeTax;
+    const localTaxEnabled = data.jurisdiction?.localTaxEnabled || false;
+    const localJurisdictionCode = data.jurisdiction?.localTaxJurisdiction || null;
+    const localJurisdiction = localJurisdictionCode ? HIGH_LOCAL_TAX_JURISDICTIONS[localJurisdictionCode] : null;
+    const localTaxRate = localJurisdiction?.rate || null;
+    const localTaxEstimate = localTaxRate ? round2(summary.netProfit * (localTaxRate / 100)) : null;
+
     return {
-      version: "2.0.0",
+      version: "3.0.0",
       generatedAt: data.generatedAt.toISOString(),
       filingId,
       submissionHash,
@@ -145,6 +180,15 @@ export class InternalIRSAdapter implements SubmissionProvider {
       taxpayer: {
         userId: data.userId,
         taxYear: data.taxYear,
+      },
+      jurisdiction: {
+        stateCode,
+        stateHasIncomeTax,
+        cfsfEligible,
+        localTaxEnabled,
+        localTaxJurisdiction: localJurisdictionCode,
+        localTaxRate,
+        localTaxEstimate,
       },
       scheduleC: {
         partI: {

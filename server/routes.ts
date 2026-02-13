@@ -1204,6 +1204,89 @@ export async function registerRoutes(
     res.json({ received: true });
   });
 
+  // ========== TAX JURISDICTION ROUTES ==========
+
+  app.get("/api/jurisdiction", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const user = await storage.getUser(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const { NO_INCOME_TAX_STATES, HIGH_LOCAL_TAX_JURISDICTIONS } = await import("./submission/irs-adapter");
+    res.json({
+      stateCode: user.stateCode || null,
+      localTaxEnabled: user.localTaxEnabled || false,
+      localTaxJurisdiction: user.localTaxJurisdiction || null,
+      noIncomeTaxStates: NO_INCOME_TAX_STATES,
+      localJurisdictions: HIGH_LOCAL_TAX_JURISDICTIONS,
+    });
+  });
+
+  app.patch("/api/jurisdiction", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+
+    const VALID_STATES = [
+      "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+      "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+      "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
+    ];
+    const { HIGH_LOCAL_TAX_JURISDICTIONS } = await import("./submission/irs-adapter");
+
+    const jurisdictionSchema = z.object({
+      stateCode: z.string().refine(s => VALID_STATES.includes(s), { message: "Invalid state code" }).nullable(),
+      localTaxEnabled: z.boolean(),
+      localTaxJurisdiction: z.string().refine(s => s in HIGH_LOCAL_TAX_JURISDICTIONS, { message: "Invalid local jurisdiction" }).nullable(),
+    });
+
+    const parsed = jurisdictionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid jurisdiction data", errors: parsed.error.flatten().fieldErrors });
+    }
+
+    await storage.updateUserJurisdiction(userId, {
+      stateCode: parsed.data.stateCode ?? undefined,
+      localTaxEnabled: parsed.data.localTaxEnabled,
+      localTaxJurisdiction: parsed.data.localTaxJurisdiction ?? undefined,
+    });
+    res.json({ success: true });
+  });
+
+  app.post("/api/local-tax/generate", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (!user.localTaxEnabled) {
+        return res.status(400).json({ message: "Local tax filing is not enabled. Enable it in Settings > Tax Filing Jurisdiction first." });
+      }
+      if (!user.localTaxJurisdiction) {
+        return res.status(400).json({ message: "No local jurisdiction selected. Select one in Settings > Tax Filing Jurisdiction first." });
+      }
+      const { HIGH_LOCAL_TAX_JURISDICTIONS } = await import("./submission/irs-adapter");
+      const jurisdictionInfo = HIGH_LOCAL_TAX_JURISDICTIONS[user.localTaxJurisdiction];
+      if (!jurisdictionInfo) {
+        return res.status(400).json({ message: `Invalid local jurisdiction: ${user.localTaxJurisdiction}` });
+      }
+
+      const { LocalTaxProvider } = await import("./submission/local-tax-provider");
+      const { submissionService } = await import("./submission/index");
+      const data = await submissionService.buildSubmissionData(userId);
+      const provider = new LocalTaxProvider();
+      const pdfBuffer = provider.generateLocalEITPDF(
+        data,
+        `MCTUSA-LOCAL-${data.taxYear}`,
+        jurisdictionInfo,
+        user.localTaxJurisdiction
+      );
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename=MCTUSA_Local_Tax_${data.taxYear}.pdf`);
+      res.send(pdfBuffer);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to generate local tax PDF" });
+    }
+  });
+
   // ========== AUDIT CENTER ROUTES ==========
 
   app.get("/api/audit-notices", isAuthenticated, async (req: Request, res: Response) => {
