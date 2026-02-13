@@ -28,6 +28,8 @@ export const users = pgTable("users", {
   accountDeleteConfirmation: varchar("account_delete_confirmation"),
   scheduledPurgeAt: timestamp("scheduled_purge_at"),
   isDeactivated: boolean("is_deactivated").default(false),
+  isVerified: boolean("is_verified").default(false),
+  verificationStatus: varchar("verification_status").default("pending"),
   subscriptionStatus: varchar("subscription_status").default("basic"),
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
