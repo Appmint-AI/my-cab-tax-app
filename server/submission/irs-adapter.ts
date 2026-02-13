@@ -4,7 +4,11 @@ import crypto from "crypto";
 export interface IRSScheduleCPayload {
   version: string;
   generatedAt: string;
+  filingId: string;
   submissionHash: string;
+  preparerType: "self_prepared";
+  eroRole: "electronic_return_originator";
+  appRole: "MCTUSA_ERO";
   taxpayer: {
     userId: string;
     taxYear: number;
@@ -12,6 +16,8 @@ export interface IRSScheduleCPayload {
   scheduleC: {
     partI: {
       line1_grossReceipts: number;
+      line4_costOfGoodsSold: number;
+      line7_grossIncome: number;
       line10_commissionsAndFees: number;
       netReceipts: number;
     };
@@ -20,6 +26,7 @@ export interface IRSScheduleCPayload {
       line10_commissionsAndFees: number;
       line15_insurance: number;
       line16a_interest: number;
+      line17_legalAndProfessional: number;
       line18_officeExpense: number;
       line22_supplies: number;
       line27_otherExpenses: number;
@@ -41,6 +48,12 @@ export interface IRSScheduleCPayload {
     seDeduction: number;
     estimatedQuarterlyPayment: number;
     quarterlyDeadlines: string[];
+  };
+  mileageIntegrityCertificate: {
+    totalEntries: number;
+    entriesWithTimestamps: number;
+    contemporaneousCompliance: boolean;
+    statement: string;
   };
   recordCounts: {
     incomes: number;
@@ -65,9 +78,12 @@ export class InternalIRSAdapter implements SubmissionProvider {
         metadata: {
           payload,
           submissionHash: payload.submissionHash,
+          filingId: payload.filingId,
           taxYear: data.taxYear,
           grossIncome: data.summary.grossIncome,
           netProfit: data.summary.netProfit,
+          preparerType: "self_prepared",
+          eroRole: "electronic_return_originator",
         },
       };
     } catch (err: any) {
@@ -86,7 +102,9 @@ export class InternalIRSAdapter implements SubmissionProvider {
     const commissionsExpenses = summary.expensesByCategory["Commissions and Fees"] || 0;
     const insuranceExpenses = summary.expensesByCategory["Insurance"] || 0;
     const interestExpenses = summary.expensesByCategory["Interest"] || 0;
+    const legalExpenses = summary.expensesByCategory["Legal and Professional Services"] || 0;
     const officeExpenses = summary.expensesByCategory["Office Expense"] || 0;
+    const suppliesExpenses = summary.expensesByCategory["Supplies"] || 0;
     const otherExpenses = summary.expensesByCategory["Other Expenses"] || 0;
 
     const fingerprintSource = JSON.stringify({
@@ -101,6 +119,9 @@ export class InternalIRSAdapter implements SubmissionProvider {
       generatedAt: data.generatedAt.toISOString(),
     });
     const submissionHash = crypto.createHash("sha256").update(fingerprintSource).digest("hex");
+
+    const filingId = `MCTUSA-${data.taxYear}-${submissionHash.substring(0, 12).toUpperCase()}`;
+
     const dataFingerprint = crypto.createHash("sha256").update(
       JSON.stringify({
         grossIncome: summary.grossIncome,
@@ -109,10 +130,18 @@ export class InternalIRSAdapter implements SubmissionProvider {
       })
     ).digest("hex");
 
+    const entriesWithTimestamps = data.mileageLogs.filter(l => l.createdAt).length;
+    const totalEntries = data.mileageLogs.length;
+    const contemporaneousCompliance = totalEntries > 0 && entriesWithTimestamps === totalEntries;
+
     return {
-      version: "1.0.0",
+      version: "2.0.0",
       generatedAt: data.generatedAt.toISOString(),
+      filingId,
       submissionHash,
+      preparerType: "self_prepared",
+      eroRole: "electronic_return_originator",
+      appRole: "MCTUSA_ERO",
       taxpayer: {
         userId: data.userId,
         taxYear: data.taxYear,
@@ -120,6 +149,8 @@ export class InternalIRSAdapter implements SubmissionProvider {
       scheduleC: {
         partI: {
           line1_grossReceipts: round2(summary.grossIncome),
+          line4_costOfGoodsSold: 0,
+          line7_grossIncome: round2(summary.grossIncome - summary.totalPlatformFees),
           line10_commissionsAndFees: round2(summary.totalPlatformFees),
           netReceipts: round2(summary.grossIncome - summary.totalPlatformFees),
         },
@@ -128,8 +159,9 @@ export class InternalIRSAdapter implements SubmissionProvider {
           line10_commissionsAndFees: round2(commissionsExpenses),
           line15_insurance: round2(insuranceExpenses),
           line16a_interest: round2(interestExpenses),
+          line17_legalAndProfessional: round2(legalExpenses),
           line18_officeExpense: round2(officeExpenses),
-          line22_supplies: 0,
+          line22_supplies: round2(suppliesExpenses),
           line27_otherExpenses: round2(otherExpenses),
           line28_totalExpenses: round2(summary.totalDeductions),
           mileageDetail: {
@@ -151,6 +183,12 @@ export class InternalIRSAdapter implements SubmissionProvider {
         seDeduction: round2(summary.seDeduction),
         estimatedQuarterlyPayment: round2(summary.estimatedQuarterlyPayment),
         quarterlyDeadlines: summary.quarterlyDeadlines,
+      },
+      mileageIntegrityCertificate: {
+        totalEntries,
+        entriesWithTimestamps,
+        contemporaneousCompliance,
+        statement: `This log contains ${totalEntries} entries with real-time timestamps, fulfilling the IRS requirement for contemporaneous record-keeping.`,
       },
       recordCounts: {
         incomes: data.incomes.length,

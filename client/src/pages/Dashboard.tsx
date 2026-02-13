@@ -27,7 +27,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info, Send } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info, Send, CheckCircle2, XCircle, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { Link } from "wouter";
@@ -314,22 +316,31 @@ function FreeRetentionAlert({ user }: { user: User | null | undefined }) {
 
 function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
   const [modalOpen, setModalOpen] = useState(false);
-  const [fAck1, setFAck1] = useState(false);
-  const [fAck2, setFAck2] = useState(false);
-  const [fAck3, setFAck3] = useState(false);
+  const [ack1099k, setAck1099k] = useState(false);
+  const [ackFigures, setAckFigures] = useState(false);
+  const [ackBookkeeping, setAckBookkeeping] = useState(false);
+  const [perjuryAccepted, setPerjuryAccepted] = useState(false);
+  const [selfSelectPin, setSelfSelectPin] = useState("");
   const [validating, setValidating] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [validationResult, setValidationResult] = useState<any>(null);
   const [finalizeResult, setFinalizeResult] = useState<any>(null);
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
 
-  const allChecked = fAck1 && fAck2 && fAck3;
+  const allChecked = ack1099k && ackFigures && ackBookkeeping && perjuryAccepted;
+  const pinValid = /^\d{5}$/.test(selfSelectPin);
+  const canSubmit = allChecked && pinValid && validationResult?.valid && !finalizing;
   const taxYear = new Date().getFullYear();
 
+  const preflightChecks = validationResult?.preflightChecks || [];
+  const preflightScore = validationResult?.preflightScore || 0;
+
   function resetModal() {
-    setFAck1(false);
-    setFAck2(false);
-    setFAck3(false);
+    setAck1099k(false);
+    setAckFigures(false);
+    setAckBookkeeping(false);
+    setPerjuryAccepted(false);
+    setSelfSelectPin("");
     setValidationResult(null);
     setFinalizeResult(null);
     setFinalizeError(null);
@@ -344,7 +355,7 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
       const data = await res.json();
       setValidationResult(data);
     } catch {
-      setValidationResult({ valid: false, errors: [{ message: "Could not validate. Try again." }], warnings: [] });
+      setValidationResult({ valid: false, errors: [{ message: "Could not validate. Try again." }], warnings: [], preflightScore: 0, preflightChecks: [] });
     } finally {
       setValidating(false);
     }
@@ -356,9 +367,11 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
     try {
       const res = await apiRequest("POST", "/api/submissions/finalize", {
         taxYear,
-        ack_bookkeeping_tool: fAck1,
-        ack_income_verified: fAck2,
-        ack_vault_authorization: fAck3,
+        selfSelectPin,
+        ack_1099k_verified: ack1099k,
+        ack_figures_reviewed: ackFigures,
+        ack_bookkeeping_tool: ackBookkeeping,
+        perjury_accepted: perjuryAccepted,
       });
       if (!res.ok) {
         const errData = await res.json();
@@ -392,7 +405,7 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
           <div className="flex items-start gap-2 p-3 rounded-md bg-primary/5 border border-primary/20">
             <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <p className="text-xs text-foreground/80 leading-relaxed">
-              Finalizing your submission will run pre-submission validation, generate your IRS-ready documents, and permanently lock this tax year's records in your 7-year vault. Locked records cannot be edited or deleted.
+              Finalizing runs a Pre-Flight Check, requires your e-signature (5-digit PIN), and permanently locks this tax year. Your return will be marked as "Self-Prepared" with MCTUSA as Electronic Return Originator (ERO).
             </p>
           </div>
 
@@ -401,35 +414,59 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
             data-testid="button-finalize-submission"
           >
             <Shield className="h-4 w-4 mr-2" />
-            Finalize Submission
+            Begin Pre-Flight Check
           </Button>
 
           {modalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" data-testid="modal-finalize-submission">
-              <div className="bg-background border border-border rounded-md w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto shadow-lg">
+              <div className="bg-background border border-border rounded-md w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto shadow-lg">
                 <div className="p-6 space-y-5">
                   <div className="text-center space-y-2">
                     <Shield className="h-8 w-8 text-primary mx-auto" />
                     <h2 className="text-xl font-bold" data-testid="text-finalize-title">
-                      Finalize Submission — Tax Year {taxYear}
+                      Pre-Flight Check — Tax Year {taxYear}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      This action is permanent. Once finalized, your records for {taxYear} will be locked and stored in your 7-year vault.
+                      Self-Prepared Return | MCTUSA as Electronic Return Originator (ERO)
                     </p>
                   </div>
 
                   {validating && (
                     <div className="flex items-center justify-center gap-2 py-4">
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      <span className="text-sm text-muted-foreground">Running pre-submission validation...</span>
+                      <span className="text-sm text-muted-foreground">Running pre-flight validation...</span>
                     </div>
                   )}
 
-                  {validationResult && (
-                    <div className="space-y-2">
+                  {validationResult && !finalizeResult && (
+                    <>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium">Pre-Flight Progress</span>
+                          <span className="text-sm font-bold" data-testid="text-preflight-score">{preflightScore}%</span>
+                        </div>
+                        <Progress value={preflightScore} className="h-2" data-testid="progress-preflight" />
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {preflightChecks.map((check: any, i: number) => (
+                            <div key={i} className="flex items-center gap-2 p-2 rounded-md border border-border/60">
+                              {check.passed ? (
+                                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-destructive shrink-0" />
+                              )}
+                              <span className="text-xs" data-testid={`text-preflight-check-${i}`}>{check.label}</span>
+                              {check.required && !check.passed && (
+                                <Badge variant="destructive" className="ml-auto text-[10px]">Required</Badge>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
                       {validationResult.errors?.length > 0 && (
                         <div className="p-3 rounded-md bg-destructive/10 border border-destructive/30 space-y-1">
-                          <p className="text-sm font-medium text-destructive" data-testid="text-validation-errors-title">Validation Errors (must fix before finalizing)</p>
+                          <p className="text-sm font-medium text-destructive" data-testid="text-validation-errors-title">Blocking Errors (must fix)</p>
                           {validationResult.errors.map((e: any, i: number) => (
                             <p key={i} className="text-xs text-destructive/80" data-testid={`text-validation-error-${i}`}>
                               {e.message}
@@ -450,51 +487,94 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
                       {validationResult.valid && validationResult.errors?.length === 0 && (
                         <div className="p-3 rounded-md bg-green-500/10 border border-green-500/30">
                           <p className="text-sm font-medium text-green-700 dark:text-green-400" data-testid="text-validation-passed">
-                            Pre-submission validation passed. No IRS kickback errors detected.
+                            All pre-flight checks passed. Ready to sign and submit.
                           </p>
                         </div>
                       )}
-                    </div>
-                  )}
 
-                  <div className="space-y-4 pt-2">
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        id="finalize-ack-1"
-                        checked={fAck1}
-                        onCheckedChange={(c) => setFAck1(c === true)}
-                        disabled={!validationResult?.valid}
-                        data-testid="checkbox-finalize-bookkeeping"
-                      />
-                      <Label htmlFor="finalize-ack-1" className="text-xs leading-snug cursor-pointer">
-                        I understand that MCTUSA is a bookkeeping tool and I am the sole person responsible for the accuracy of this data.
-                      </Label>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        id="finalize-ack-2"
-                        checked={fAck2}
-                        onCheckedChange={(c) => setFAck2(c === true)}
-                        disabled={!validationResult?.valid}
-                        data-testid="checkbox-finalize-income-verified"
-                      />
-                      <Label htmlFor="finalize-ack-2" className="text-xs leading-snug cursor-pointer">
-                        I have verified that my Gross Income matches my 1099-K records (or my manual auto-grossing estimates).
-                      </Label>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        id="finalize-ack-3"
-                        checked={fAck3}
-                        onCheckedChange={(c) => setFAck3(c === true)}
-                        disabled={!validationResult?.valid}
-                        data-testid="checkbox-finalize-vault-auth"
-                      />
-                      <Label htmlFor="finalize-ack-3" className="text-xs leading-snug cursor-pointer">
-                        I authorize the digital generation of my tax records for my 7-year vault.
-                      </Label>
-                    </div>
-                  </div>
+                      {validationResult.valid && (
+                        <>
+                          <div className="p-4 rounded-md bg-muted/50 border border-border space-y-1">
+                            <p className="text-sm font-semibold" data-testid="text-perjury-statement-label">Legal Statement</p>
+                            <p className="text-xs text-foreground/80 leading-relaxed italic" data-testid="text-perjury-statement">
+                              Under penalties of perjury, I declare that I have examined this return and accompanying schedules and statements, and to the best of my knowledge and belief, they are true, correct, and complete.
+                            </p>
+                          </div>
+
+                          <div className="space-y-4 pt-2">
+                            <div className="flex items-start gap-3">
+                              <Checkbox
+                                id="finalize-ack-1099k"
+                                checked={ack1099k}
+                                onCheckedChange={(c) => setAck1099k(c === true)}
+                                data-testid="checkbox-finalize-1099k"
+                              />
+                              <Label htmlFor="finalize-ack-1099k" className="text-xs leading-snug cursor-pointer">
+                                I have verified my 1099-K Gross Income matches my platform records.
+                              </Label>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <Checkbox
+                                id="finalize-ack-figures"
+                                checked={ackFigures}
+                                onCheckedChange={(c) => setAckFigures(c === true)}
+                                data-testid="checkbox-finalize-figures"
+                              />
+                              <Label htmlFor="finalize-ack-figures" className="text-xs leading-snug cursor-pointer">
+                                I have reviewed all auto-calculated figures and confirm they are accurate.
+                              </Label>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <Checkbox
+                                id="finalize-ack-bookkeeping"
+                                checked={ackBookkeeping}
+                                onCheckedChange={(c) => setAckBookkeeping(c === true)}
+                                data-testid="checkbox-finalize-bookkeeping"
+                              />
+                              <Label htmlFor="finalize-ack-bookkeeping" className="text-xs leading-snug cursor-pointer">
+                                I understand that MCTUSA is a bookkeeping tool and I am the sole person responsible for this submission.
+                              </Label>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <Checkbox
+                                id="finalize-perjury"
+                                checked={perjuryAccepted}
+                                onCheckedChange={(c) => setPerjuryAccepted(c === true)}
+                                data-testid="checkbox-finalize-perjury"
+                              />
+                              <Label htmlFor="finalize-perjury" className="text-xs leading-snug cursor-pointer">
+                                I accept the perjury statement above and understand the legal implications.
+                              </Label>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 pt-2">
+                            <Label htmlFor="self-select-pin" className="text-sm font-medium flex items-center gap-2">
+                              <Lock className="h-4 w-4" />
+                              E-Signature: 5-Digit Self-Select PIN
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              Enter a 5-digit PIN to electronically sign this submission. This serves as your digital signature.
+                            </p>
+                            <Input
+                              id="self-select-pin"
+                              type="password"
+                              inputMode="numeric"
+                              maxLength={5}
+                              placeholder="Enter 5-digit PIN"
+                              value={selfSelectPin}
+                              onChange={(e) => setSelfSelectPin(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                              className="max-w-[200px] font-mono tracking-widest text-center"
+                              data-testid="input-self-select-pin"
+                            />
+                            {selfSelectPin.length > 0 && !pinValid && (
+                              <p className="text-xs text-destructive">PIN must be exactly 5 digits</p>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
 
                   {finalizeError && (
                     <div className="p-3 rounded-md bg-destructive/10 border border-destructive/30">
@@ -503,15 +583,26 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
                   )}
 
                   {finalizeResult && (
-                    <div className="p-4 rounded-md bg-green-500/10 border border-green-500/30 space-y-2">
-                      <p className="text-sm font-medium text-green-700 dark:text-green-400" data-testid="text-finalize-success">
-                        Tax year {finalizeResult.taxYear} has been finalized and locked.
-                      </p>
+                    <div className="p-4 rounded-md bg-green-500/10 border border-green-500/30 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        <p className="text-sm font-medium text-green-700 dark:text-green-400" data-testid="text-finalize-success">
+                          Tax year {finalizeResult.taxYear} has been finalized and locked.
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">
+                          Filing ID: <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded" data-testid="text-filing-id">{finalizeResult.filingId}</code>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Submission Hash: <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded" data-testid="text-submission-hash">{finalizeResult.submissionHash}</code>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Preparer Type: <span className="font-medium">Self-Prepared</span> | App Role: <span className="font-medium">ERO</span>
+                        </p>
+                      </div>
                       <p className="text-xs text-muted-foreground">
-                        Submission Hash: <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded" data-testid="text-submission-hash">{finalizeResult.submissionHash}</code>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Your records are now permanently stored in your 7-year IRS vault. They cannot be edited or deleted.
+                        Your records are permanently stored in your 7-year IRS vault. The Filing ID is watermarked on every page of your audit PDF. They cannot be edited or deleted.
                       </p>
                     </div>
                   )}
@@ -527,11 +618,11 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
                     {!finalizeResult && (
                       <Button
                         onClick={handleFinalize}
-                        disabled={!allChecked || finalizing || !validationResult?.valid}
+                        disabled={!canSubmit}
                         data-testid="button-finalize-confirm"
                       >
-                        {finalizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Shield className="h-4 w-4 mr-2" />}
-                        {finalizing ? "Finalizing..." : "Finalize & Lock Records"}
+                        {finalizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                        {finalizing ? "Signing & Submitting..." : "Submit and Pay"}
                       </Button>
                     )}
                   </div>

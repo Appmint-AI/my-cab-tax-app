@@ -12,13 +12,24 @@ export interface ValidationResult {
   valid: boolean;
   errors: ValidationError[];
   warnings: ValidationError[];
+  preflightScore: number;
+  preflightChecks: PreflightCheck[];
+}
+
+export interface PreflightCheck {
+  label: string;
+  passed: boolean;
+  required: boolean;
 }
 
 export function validatePreSubmission(data: SubmissionData, user?: User): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationError[] = [];
+  const preflightChecks: PreflightCheck[] = [];
 
-  if (!user?.isVerified) {
+  const idVerified = !!user?.isVerified;
+  preflightChecks.push({ label: "Identity Verified", passed: idVerified, required: true });
+  if (!idVerified) {
     errors.push({
       code: "IDENTITY_NOT_VERIFIED",
       field: "user.isVerified",
@@ -27,11 +38,58 @@ export function validatePreSubmission(data: SubmissionData, user?: User): Valida
     });
   }
 
-  if (data.summary.grossIncome <= 0 && data.incomes.length === 0) {
+  const hasIncome = data.incomes.length > 0 && data.summary.grossIncome > 0;
+  preflightChecks.push({ label: "Income Recorded", passed: hasIncome, required: true });
+  if (!hasIncome) {
     errors.push({
       code: "NO_INCOME_RECORDS",
       field: "incomes",
       message: "No income records found. You must have at least one income entry to file.",
+      severity: "error",
+    });
+  }
+
+  const grossReceipts = data.summary.grossIncome;
+  const grossIncome = grossReceipts - data.summary.totalPlatformFees;
+  const netProfit = data.summary.netProfit;
+
+  const nonZeroPassed = grossReceipts !== 0 && grossIncome !== 0 && netProfit !== 0;
+  preflightChecks.push({ label: "Non-Zero Integrity (Lines 1, 7, 31)", passed: nonZeroPassed, required: true });
+  if (grossReceipts === 0) {
+    errors.push({
+      code: "LINE1_ZERO",
+      field: "summary.grossIncome",
+      message: "Line 1 (Gross Receipts) is $0.00. The IRS MeF system will reject a return with zero gross receipts for a driver.",
+      severity: "error",
+    });
+  }
+  if (grossIncome === 0 && grossReceipts > 0) {
+    warnings.push({
+      code: "LINE7_ZERO",
+      field: "summary.grossIncome",
+      message: "Line 7 (Gross Income) is $0.00 after fees. Verify your platform fees are not consuming 100% of your gross receipts.",
+      severity: "warning",
+    });
+  }
+  if (netProfit === 0 && grossReceipts > 0) {
+    warnings.push({
+      code: "LINE31_ZERO",
+      field: "summary.netProfit",
+      message: "Line 31 (Net Profit) is $0.00. While possible, the IRS may flag a return with exactly zero net profit.",
+      severity: "warning",
+    });
+  }
+
+  const form1099KEntries = data.incomes.filter(i => i.source === "1099-K" || i.source?.includes("1099"));
+  const total1099K = form1099KEntries.reduce((sum, i) => sum + Number(i.amount), 0);
+  const has1099K = form1099KEntries.length > 0;
+  const mismatch1099K = has1099K && grossReceipts < total1099K;
+  preflightChecks.push({ label: "1099-K Cross-Check", passed: !mismatch1099K, required: has1099K });
+  if (mismatch1099K) {
+    errors.push({
+      code: "1099K_MISMATCH",
+      field: "summary.grossIncome",
+      message: `Your reported Gross Receipts ($${grossReceipts.toFixed(2)}) are lower than your 1099-K total ($${total1099K.toFixed(2)}). This is an automatic audit trigger. Did you account for all platform fees and gross-ups?`,
       severity: "error",
     });
   }
@@ -51,12 +109,14 @@ export function validatePreSubmission(data: SubmissionData, user?: User): Valida
     errors.push({
       code: "GROSS_NET_MISMATCH",
       field: "summary.netProfit",
-      message: `Gross-to-Net math error: Gross ($${data.summary.grossIncome.toFixed(2)}) minus Deductions ($${data.summary.totalDeductions.toFixed(2)}) = $${computedNet.toFixed(2)}, but Net Profit shows $${data.summary.netProfit.toFixed(2)}. Difference: $${netDiff.toFixed(2)}.`,
+      message: `Gross-to-Net math error: Gross ($${data.summary.grossIncome.toFixed(2)}) minus Deductions ($${data.summary.totalDeductions.toFixed(2)}) = $${computedNet.toFixed(2)}, but Net Profit shows $${data.summary.netProfit.toFixed(2)}.`,
       severity: "error",
     });
   }
 
-  if (data.summary.totalMiles > 0 && data.mileageLogs.length === 0) {
+  const hasMileageLogs = data.mileageLogs.length > 0;
+  preflightChecks.push({ label: "Mileage Log Complete", passed: hasMileageLogs || data.summary.totalMiles === 0, required: false });
+  if (data.summary.totalMiles > 0 && !hasMileageLogs) {
     warnings.push({
       code: "MILEAGE_NO_LOGS",
       field: "mileageLogs",
@@ -100,11 +160,13 @@ export function validatePreSubmission(data: SubmissionData, user?: User): Valida
   const expensesOver75WithoutReceipts = data.expenses.filter(
     e => Number(e.amount) >= 75 && !receiptExpenseIds.has(e.id)
   );
+  const hasReceiptsFor75 = expensesOver75WithoutReceipts.length === 0;
+  preflightChecks.push({ label: "Receipts for $75+ Expenses", passed: hasReceiptsFor75, required: false });
   if (expensesOver75WithoutReceipts.length > 0) {
     warnings.push({
       code: "MISSING_RECEIPTS_OVER_75",
       field: "receipts",
-      message: `${expensesOver75WithoutReceipts.length} expense(s) over $75 are missing receipt documentation. The IRS requires receipts for expenses $75 and above. Consider scanning your receipts.`,
+      message: `${expensesOver75WithoutReceipts.length} expense(s) over $75 are missing receipt documentation. The IRS requires receipts for expenses $75 and above.`,
       severity: "warning",
     });
   }
@@ -139,10 +201,16 @@ export function validatePreSubmission(data: SubmissionData, user?: User): Valida
     });
   }
 
+  const totalChecks = preflightChecks.length;
+  const passedChecks = preflightChecks.filter(c => c.passed).length;
+  const preflightScore = totalChecks > 0 ? Math.round((passedChecks / totalChecks) * 100) : 0;
+
   return {
     valid: errors.length === 0,
     errors,
     warnings,
+    preflightScore,
+    preflightChecks,
   };
 }
 

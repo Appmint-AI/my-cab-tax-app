@@ -115,6 +115,35 @@ export const receipts = pgTable("receipts", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Submission receipts - signed submission snapshots for audit trail
+export const submissionReceipts = pgTable("submission_receipts", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  taxYear: integer("tax_year").notNull(),
+  filingId: text("filing_id").notNull(),
+  pinHash: text("pin_hash").notNull(),
+  submissionHash: text("submission_hash").notNull(),
+  preparerType: text("preparer_type").notNull().default("self_prepared"),
+  eroRole: text("ero_role").notNull().default("electronic_return_originator"),
+  snapshotData: jsonb("snapshot_data").notNull(),
+  grossIncome: numeric("gross_income").notNull(),
+  totalDeductions: numeric("total_deductions").notNull(),
+  netProfit: numeric("net_profit").notNull(),
+  selfEmploymentTax: numeric("self_employment_tax").notNull(),
+  totalMiles: numeric("total_miles").notNull(),
+  incomeCount: integer("income_count").notNull(),
+  expenseCount: integer("expense_count").notNull(),
+  mileageLogCount: integer("mileage_log_count").notNull(),
+  receiptCount: integer("receipt_count").notNull(),
+  ack1099kVerified: boolean("ack_1099k_verified").notNull(),
+  ackFiguresReviewed: boolean("ack_figures_reviewed").notNull(),
+  ackBookkeepingTool: boolean("ack_bookkeeping_tool").notNull(),
+  perjuryAccepted: boolean("perjury_accepted").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  signedAt: timestamp("signed_at").notNull().defaultNow(),
+});
+
 // Audit logs - tracks disclaimer acceptance, submissions, and other auditable actions
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
@@ -166,6 +195,13 @@ export const receiptsRelations = relations(receipts, ({ one }) => ({
   expense: one(expenses, {
     fields: [receipts.expenseId],
     references: [expenses.id],
+  }),
+}));
+
+export const submissionReceiptsRelations = relations(submissionReceipts, ({ one }) => ({
+  user: one(users, {
+    fields: [submissionReceipts.userId],
+    references: [users.id],
   }),
 }));
 
@@ -264,6 +300,8 @@ export type Income = typeof incomes.$inferSelect;
 export type InsertIncome = z.infer<typeof insertIncomeSchema>;
 export type MileageLog = typeof mileageLogs.$inferSelect;
 export type InsertMileageLog = z.infer<typeof insertMileageLogSchema>;
+
+export type SubmissionReceipt = typeof submissionReceipts.$inferSelect;
 
 export type CreateExpenseRequest = InsertExpense;
 export type CreateIncomeRequest = InsertIncome;

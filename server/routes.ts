@@ -933,9 +933,11 @@ export async function registerRoutes(
 
       const finalizeSchema = z.object({
         taxYear: z.coerce.number().min(2020).max(new Date().getFullYear() + 1),
-        ack_bookkeeping_tool: z.literal(true, { errorMap: () => ({ message: "You must acknowledge this is a bookkeeping tool" }) }),
-        ack_income_verified: z.literal(true, { errorMap: () => ({ message: "You must verify income matches 1099-K records" }) }),
-        ack_vault_authorization: z.literal(true, { errorMap: () => ({ message: "You must authorize digital record generation" }) }),
+        selfSelectPin: z.string().regex(/^\d{5}$/, "Self-Select PIN must be exactly 5 digits"),
+        ack_1099k_verified: z.literal(true, { errorMap: () => ({ message: "You must verify your 1099-K Gross Income matches your platform records" }) }),
+        ack_figures_reviewed: z.literal(true, { errorMap: () => ({ message: "You must confirm all auto-calculated figures are accurate" }) }),
+        ack_bookkeeping_tool: z.literal(true, { errorMap: () => ({ message: "You must acknowledge MCTUSA is a bookkeeping tool" }) }),
+        perjury_accepted: z.literal(true, { errorMap: () => ({ message: "You must accept the perjury statement" }) }),
       });
 
       const parsed = finalizeSchema.parse(req.body);
@@ -950,6 +952,7 @@ export async function registerRoutes(
 
       const { submissionService } = await import("./submission");
       const { validatePreSubmission } = await import("./submission/pre-submission-validator");
+      const crypto = await import("crypto");
 
       const data = await submissionService.buildSubmissionData(userId);
       const user = await storage.getUser(userId);
@@ -973,8 +976,51 @@ export async function registerRoutes(
       });
 
       const submissionHash = (irsResult.metadata as any)?.submissionHash || "unknown";
+      const filingId = (irsResult.metadata as any)?.filingId || `MCTUSA-${parsed.taxYear}-${submissionHash.substring(0, 12).toUpperCase()}`;
+
+      const pinHash = crypto.createHash("sha256").update(parsed.selfSelectPin + userId).digest("hex");
 
       await storage.lockTaxYear(userId, parsed.taxYear);
+
+      const snapshotData: Record<string, unknown> = {
+        grossIncome: data.summary.grossIncome,
+        totalPlatformFees: data.summary.totalPlatformFees,
+        totalDeductions: data.summary.totalDeductions,
+        netProfit: data.summary.netProfit,
+        selfEmploymentTax: data.summary.selfEmploymentTax,
+        totalMiles: data.summary.totalMiles,
+        mileageDeduction: data.summary.mileageDeduction,
+        mileageRate: data.summary.mileageRate,
+        expensesByCategory: data.summary.expensesByCategory,
+        incomeBySource: data.summary.incomeBySource,
+        seTaxableBase: data.summary.seTaxableBase,
+        seDeduction: data.summary.seDeduction,
+        estimatedQuarterlyPayment: data.summary.estimatedQuarterlyPayment,
+      };
+
+      await storage.createSubmissionReceipt({
+        userId,
+        taxYear: parsed.taxYear,
+        filingId,
+        pinHash,
+        submissionHash,
+        snapshotData,
+        grossIncome: data.summary.grossIncome.toFixed(2),
+        totalDeductions: data.summary.totalDeductions.toFixed(2),
+        netProfit: data.summary.netProfit.toFixed(2),
+        selfEmploymentTax: data.summary.selfEmploymentTax.toFixed(2),
+        totalMiles: data.summary.totalMiles.toFixed(2),
+        incomeCount: data.incomes.length,
+        expenseCount: data.expenses.length,
+        mileageLogCount: data.mileageLogs.length,
+        receiptCount: data.receipts.length,
+        ack1099kVerified: true,
+        ackFiguresReviewed: true,
+        ackBookkeepingTool: true,
+        perjuryAccepted: true,
+        ipAddress,
+        userAgent,
+      });
 
       await storage.createAuditLog({
         userId,
@@ -983,10 +1029,15 @@ export async function registerRoutes(
         userAgent,
         metadata: {
           taxYear: parsed.taxYear,
+          filingId,
           submissionHash,
+          pinHash,
+          preparerType: "self_prepared",
+          eroRole: "electronic_return_originator",
+          ack_1099k_verified: true,
+          ack_figures_reviewed: true,
           ack_bookkeeping_tool: true,
-          ack_income_verified: true,
-          ack_vault_authorization: true,
+          perjury_accepted: true,
           irsJsonSuccess: irsResult.success,
           vaultPdfSuccess: vaultResult.success,
           vaultPath: vaultResult.vaultPath || null,
@@ -999,11 +1050,13 @@ export async function registerRoutes(
 
       res.json({
         success: true,
+        filingId,
         submissionHash,
         taxYear: parsed.taxYear,
         locked: true,
         vaultPath: vaultResult.vaultPath,
         validation,
+        preparerType: "self_prepared",
       });
     } catch (err: any) {
       if (err instanceof z.ZodError) {

@@ -1,10 +1,11 @@
 import { 
-  expenses, incomes, users, legalConsentLogs, mileageLogs, vehicles, receipts, auditLogs,
+  expenses, incomes, users, legalConsentLogs, mileageLogs, vehicles, receipts, auditLogs, submissionReceipts,
   type Expense, type InsertExpense, 
   type Income, type InsertIncome,
   type MileageLog, type InsertMileageLog,
   type Vehicle, type InsertVehicle,
   type Receipt, type InsertReceipt,
+  type SubmissionReceipt,
   type UpdateExpenseRequest, type UpdateIncomeRequest, type UpdateMileageLogRequest, type UpdateVehicleRequest,
   type TaxSummary,
   IRS_MILEAGE_RATE, SE_TAX_RATE, SE_TAXABLE_BASE, QUARTERLY_DEADLINES,
@@ -76,6 +77,31 @@ export interface IStorage {
   getLockedTaxYears(userId: string): Promise<number[]>;
   lockTaxYear(userId: string, taxYear: number): Promise<void>;
   isTaxYearLocked(userId: string, taxYear: number): Promise<boolean>;
+
+  createSubmissionReceipt(data: {
+    userId: string;
+    taxYear: number;
+    filingId: string;
+    pinHash: string;
+    submissionHash: string;
+    snapshotData: Record<string, unknown>;
+    grossIncome: string;
+    totalDeductions: string;
+    netProfit: string;
+    selfEmploymentTax: string;
+    totalMiles: string;
+    incomeCount: number;
+    expenseCount: number;
+    mileageLogCount: number;
+    receiptCount: number;
+    ack1099kVerified: boolean;
+    ackFiguresReviewed: boolean;
+    ackBookkeepingTool: boolean;
+    perjuryAccepted: boolean;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  }): Promise<SubmissionReceipt>;
+  getSubmissionReceipts(userId: string): Promise<SubmissionReceipt[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -425,6 +451,59 @@ export class DatabaseStorage implements IStorage {
   async isTaxYearLocked(userId: string, taxYear: number): Promise<boolean> {
     const locked = await this.getLockedTaxYears(userId);
     return locked.includes(taxYear);
+  }
+
+  async createSubmissionReceipt(data: {
+    userId: string;
+    taxYear: number;
+    filingId: string;
+    pinHash: string;
+    submissionHash: string;
+    snapshotData: Record<string, unknown>;
+    grossIncome: string;
+    totalDeductions: string;
+    netProfit: string;
+    selfEmploymentTax: string;
+    totalMiles: string;
+    incomeCount: number;
+    expenseCount: number;
+    mileageLogCount: number;
+    receiptCount: number;
+    ack1099kVerified: boolean;
+    ackFiguresReviewed: boolean;
+    ackBookkeepingTool: boolean;
+    perjuryAccepted: boolean;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  }): Promise<SubmissionReceipt> {
+    const [receipt] = await db.insert(submissionReceipts).values({
+      userId: data.userId,
+      taxYear: data.taxYear,
+      filingId: data.filingId,
+      pinHash: data.pinHash,
+      submissionHash: data.submissionHash,
+      snapshotData: data.snapshotData,
+      grossIncome: data.grossIncome,
+      totalDeductions: data.totalDeductions,
+      netProfit: data.netProfit,
+      selfEmploymentTax: data.selfEmploymentTax,
+      totalMiles: data.totalMiles,
+      incomeCount: data.incomeCount,
+      expenseCount: data.expenseCount,
+      mileageLogCount: data.mileageLogCount,
+      receiptCount: data.receiptCount,
+      ack1099kVerified: data.ack1099kVerified,
+      ackFiguresReviewed: data.ackFiguresReviewed,
+      ackBookkeepingTool: data.ackBookkeepingTool,
+      perjuryAccepted: data.perjuryAccepted,
+      ipAddress: data.ipAddress || null,
+      userAgent: data.userAgent || null,
+    }).returning();
+    return receipt;
+  }
+
+  async getSubmissionReceipts(userId: string): Promise<SubmissionReceipt[]> {
+    return await db.select().from(submissionReceipts).where(eq(submissionReceipts.userId, userId));
   }
 }
 
