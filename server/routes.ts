@@ -782,6 +782,69 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/audit-log", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const ipAddress = req.headers["x-forwarded-for"]?.toString()?.split(",")[0]?.trim() || req.socket.remoteAddress || null;
+      const userAgent = req.headers["user-agent"] || null;
+
+      const auditLogSchema = z.object({
+        action: z.string().min(1, "Action is required"),
+        metadata: z.record(z.unknown()).optional(),
+      });
+
+      const parsed = auditLogSchema.parse(req.body);
+
+      await storage.createAuditLog({
+        userId,
+        action: parsed.action,
+        ipAddress,
+        userAgent,
+        metadata: parsed.metadata || null,
+      });
+
+      res.json({ success: true, timestamp: new Date().toISOString() });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
+  app.post("/api/submissions/generate", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const ipAddress = req.headers["x-forwarded-for"]?.toString()?.split(",")[0]?.trim() || req.socket.remoteAddress || null;
+      const userAgent = req.headers["user-agent"] || null;
+
+      const submitSchema = z.object({
+        provider: z.enum(["vault_pdf", "efile_irs"]).default("vault_pdf"),
+      });
+
+      const parsed = submitSchema.parse(req.body || {});
+
+      const { submissionService } = await import("./submission");
+      const result = await submissionService.submitTo(parsed.provider, userId, {
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
+      });
+
+      if (!result.success) {
+        return res.status(result.provider === "efile_irs" ? 501 : 500).json({
+          message: result.errorMessage,
+          provider: result.provider,
+          metadata: result.metadata,
+        });
+      }
+
+      res.json(result);
+    } catch (err: any) {
+      console.error("Submission error:", err);
+      res.status(500).json({ message: err.message || "Submission failed" });
+    }
+  });
+
   // Get user subscription status
   app.get("/api/subscription/status", isAuthenticated, async (req, res) => {
     const userId = (req.user as any).claims.sub;

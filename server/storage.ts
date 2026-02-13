@@ -1,5 +1,5 @@
 import { 
-  expenses, incomes, users, legalConsentLogs, mileageLogs, vehicles, receipts,
+  expenses, incomes, users, legalConsentLogs, mileageLogs, vehicles, receipts, auditLogs,
   type Expense, type InsertExpense, 
   type Income, type InsertIncome,
   type MileageLog, type InsertMileageLog,
@@ -64,6 +64,14 @@ export interface IStorage {
   }): Promise<void>;
   getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined>;
   verifyUser(userId: string): Promise<void>;
+
+  createAuditLog(data: {
+    userId: string;
+    action: string;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -374,6 +382,22 @@ export class DatabaseStorage implements IStorage {
       verificationStatus: "verified",
       updatedAt: new Date(),
     }).where(eq(users.id, userId));
+  }
+
+  async createAuditLog(data: {
+    userId: string;
+    action: string;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }): Promise<void> {
+    await db.insert(auditLogs).values({
+      userId: data.userId,
+      action: data.action,
+      ipAddress: data.ipAddress || null,
+      userAgent: data.userAgent || null,
+      metadata: data.metadata || null,
+    });
   }
 }
 

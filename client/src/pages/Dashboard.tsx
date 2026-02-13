@@ -27,10 +27,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info } from "lucide-react";
+import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info, Send } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { Link } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import JSZip from "jszip";
 import { jsPDF } from "jspdf";
 import { IRS_MILEAGE_RATE } from "@shared/schema";
@@ -316,6 +318,8 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
   const [ack2, setAck2] = useState(false);
   const [ack3, setAck3] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [submittingToVault, setSubmittingToVault] = useState(false);
+  const [vaultSuccess, setVaultSuccess] = useState(false);
 
   const allAcknowledged = ack1 && ack2 && ack3 && scrolledToBottom;
 
@@ -324,6 +328,7 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
     setAck1(false);
     setAck2(false);
     setAck3(false);
+    setVaultSuccess(false);
   }
 
   function handleDisclaimerScroll(e: React.UIEvent<HTMLDivElement>) {
@@ -333,9 +338,41 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
     }
   }
 
+  async function logDisclaimerAcceptance(action: string) {
+    try {
+      await apiRequest("POST", "/api/audit-log", {
+        action,
+        metadata: {
+          ack_not_tax_advice: true,
+          ack_self_prepared: true,
+          ack_circular_230: true,
+          scrolled_to_bottom: true,
+          grossIncome: summary.grossIncome,
+          netProfit: summary.netProfit,
+        },
+      });
+    } catch {}
+  }
+
+  async function handleSubmitToVault() {
+    setSubmittingToVault(true);
+    try {
+      await logDisclaimerAcceptance("submission.disclaimer_accepted");
+      const res = await apiRequest("POST", "/api/submissions/generate", { provider: "vault_pdf" });
+      const data = await res.json();
+      if (data.success) {
+        setVaultSuccess(true);
+      }
+    } catch {
+    } finally {
+      setSubmittingToVault(false);
+    }
+  }
+
   async function handleExport() {
     setExporting(true);
     try {
+      await logDisclaimerAcceptance("export.disclaimer_accepted");
       const now = new Date();
       const dateStr = format(now, "yyyy-MM-dd");
       const zip = new JSZip();
@@ -660,10 +697,19 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
                 </div>
               </div>
 
-              <AlertDialogFooter>
+              <AlertDialogFooter className="flex-col sm:flex-row gap-2">
                 <AlertDialogCancel onClick={() => { setDisclaimerOpen(false); resetDisclaimer(); }} data-testid="button-export-cancel">
                   Cancel
                 </AlertDialogCancel>
+                <Button
+                  variant="outline"
+                  onClick={handleSubmitToVault}
+                  disabled={!allAcknowledged || submittingToVault || vaultSuccess}
+                  data-testid="button-submit-vault"
+                >
+                  {submittingToVault ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : vaultSuccess ? <Shield className="h-4 w-4 mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                  {submittingToVault ? "Submitting..." : vaultSuccess ? "Saved to Vault" : "Confirm & Submit to Vault"}
+                </Button>
                 <Button
                   onClick={handleExport}
                   disabled={!allAcknowledged || exporting}

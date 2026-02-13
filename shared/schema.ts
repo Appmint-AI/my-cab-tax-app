@@ -115,6 +115,17 @@ export const receipts = pgTable("receipts", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Audit logs - tracks disclaimer acceptance, submissions, and other auditable actions
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  action: text("action").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Legal consent audit log
 export const legalConsentLogs = pgTable("legal_consent_logs", {
   id: serial("id").primaryKey(),
@@ -155,6 +166,13 @@ export const receiptsRelations = relations(receipts, ({ one }) => ({
   expense: one(expenses, {
     fields: [receipts.expenseId],
     references: [expenses.id],
+  }),
+}));
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
   }),
 }));
 
@@ -235,6 +253,7 @@ export const insertReceiptSchema = createInsertSchema(receipts).omit({
 });
 
 // Types
+export type AuditLog = typeof auditLogs.$inferSelect;
 export type Receipt = typeof receipts.$inferSelect;
 export type InsertReceipt = z.infer<typeof insertReceiptSchema>;
 export type Vehicle = typeof vehicles.$inferSelect;

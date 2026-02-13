@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ShieldCheck, User, MapPin, FileText, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
+import { ShieldCheck, User, MapPin, FileText, Loader2, CheckCircle, AlertTriangle, CreditCard, Home, Lock } from "lucide-react";
 
 const US_STATES = [
   "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
@@ -99,12 +99,41 @@ export default function VerifyPage() {
         <div className="text-center space-y-2">
           <ShieldCheck className="h-10 w-10 text-primary mx-auto" />
           <h1 className="text-3xl font-display font-bold" data-testid="text-verify-title">
-            Verify Your Identity
+            Welcome to the Vault. Let's get you verified.
           </h1>
           <p className="text-muted-foreground max-w-md mx-auto">
-            To protect your tax records and comply with IRS requirements, we need to verify your identity before you can access the dashboard.
+            To protect your data and ensure IRS compliance, we need to verify your identity. Please have the following ready:
           </p>
         </div>
+
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="py-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <CreditCard className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Photo ID</p>
+                <p className="text-xs text-muted-foreground">A valid US Driver's License.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Home className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Business Address</p>
+                <p className="text-xs text-muted-foreground">A utility bill or bank statement from the last 60 days.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Lock className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Tax ID</p>
+                <p className="text-xs text-muted-foreground">Your SSN or EIN (this is encrypted and never shared).</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground pt-1">
+              Verification typically takes less than 2 minutes using our AI scanner.
+            </p>
+          </CardContent>
+        </Card>
 
         <div className="flex items-center justify-center gap-2">
           {[1, 2, 3].map((s) => (
