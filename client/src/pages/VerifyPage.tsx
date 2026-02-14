@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
@@ -45,7 +45,7 @@ const STATE_NAMES: Record<string, string> = {
 
 const NO_INCOME_TAX_STATES = ["AK", "FL", "NV", "NH", "SD", "TN", "TX", "WA", "WY"];
 
-const LOCAL_TAX_STATES = ["NY", "PA", "OH"];
+const LOCAL_TAX_STATES = ["NY", "PA", "OH", "MI", "IN"];
 
 const LOCAL_JURISDICTIONS: Record<string, { code: string; name: string; rate: number }[]> = {
   NY: [
@@ -61,6 +61,16 @@ const LOCAL_JURISDICTIONS: Record<string, { code: string; name: string; rate: nu
     { code: "CLV", name: "City of Cleveland", rate: 2.5 },
     { code: "COL", name: "City of Columbus", rate: 2.5 },
     { code: "CIN", name: "City of Cincinnati", rate: 1.8 },
+  ],
+  MI: [
+    { code: "DET", name: "City of Detroit", rate: 2.4 },
+    { code: "GR", name: "City of Grand Rapids", rate: 1.5 },
+    { code: "LAN", name: "City of Lansing", rate: 1.0 },
+  ],
+  IN: [
+    { code: "MARION", name: "Marion County (Indianapolis)", rate: 2.02 },
+    { code: "LAKE", name: "Lake County", rate: 1.5 },
+    { code: "ST_JOSEPH", name: "St. Joseph County", rate: 1.75 },
   ],
 };
 
@@ -99,6 +109,19 @@ export default function VerifyPage() {
   const [initialOdometer, setInitialOdometer] = useState("");
   const [odometerPhoto, setOdometerPhoto] = useState<File | null>(null);
   const [odometerPhotoUploading, setOdometerPhotoUploading] = useState(false);
+
+  const [dlPhoto, setDlPhoto] = useState<File | null>(null);
+  const [dlPhotoUploading, setDlPhotoUploading] = useState(false);
+  const [dlOcrResult, setDlOcrResult] = useState<{ stateCode: string; stateName: string; fullName: string; confidence: number } | null>(null);
+  const [dlOcrError, setDlOcrError] = useState<string | null>(null);
+
+  const [residencyMismatch, setResidencyMismatch] = useState(false);
+  const [residencyChoice, setResidencyChoice] = useState<"confirmed" | "moved" | "">("");
+  const [movedFromState, setMovedFromState] = useState("");
+  const [movedToState, setMovedToState] = useState("");
+  const [movedDate, setMovedDate] = useState("");
+  const [utilityBillFile, setUtilityBillFile] = useState<File | null>(null);
+  const [utilityBillUploading, setUtilityBillUploading] = useState(false);
 
   const verifyMutation = useMutation({
     mutationFn: () =>
@@ -165,8 +188,70 @@ export default function VerifyPage() {
     },
   });
 
+  async function handleDlUpload(file: File) {
+    setDlPhotoUploading(true);
+    setDlOcrError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/dl/upload-scan", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setDlOcrError(data.message || "Failed to scan driver's license");
+        return;
+      }
+      const data = await res.json();
+      setDlOcrResult(data.ocrResult);
+      if (data.ocrResult.fullName && !fullName) {
+        setFullName(data.ocrResult.fullName);
+      }
+      if (data.ocrResult.stateCode) {
+        setDriversLicenseState(data.ocrResult.stateCode);
+      }
+    } catch {
+      setDlOcrError("Failed to scan driver's license. Please try again.");
+    } finally {
+      setDlPhotoUploading(false);
+    }
+  }
+
+  async function handleUtilityBillUpload(file: File) {
+    setUtilityBillUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/dl/utility-bill", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.imageUrl;
+      }
+    } catch {
+    } finally {
+      setUtilityBillUploading(false);
+    }
+    return null;
+  }
+
+  const { data: stateInfo } = useQuery({
+    queryKey: ["/api/state-info", taxState],
+    queryFn: async () => {
+      const res = await fetch(`/api/state-info/${taxState}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!taxState,
+  });
+
   const isNoTaxState = taxState ? NO_INCOME_TAX_STATES.includes(taxState) : false;
-  const hasLocalTax = taxState ? LOCAL_TAX_STATES.includes(taxState) : false;
+  const hasLocalTax = stateInfo?.hasLocalTax || (taxState ? LOCAL_TAX_STATES.includes(taxState) : false);
   const filteredStates = stateSearch
     ? US_STATES.filter(s =>
         s.toLowerCase().includes(stateSearch.toLowerCase()) ||
@@ -457,6 +542,52 @@ export default function VerifyPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
+                <Label htmlFor="dlPhotoUpload" className="flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  Scan Your Driver's License
+                </Label>
+                <p className="text-xs text-muted-foreground mb-1.5">
+                  Upload a photo of your Driver's License. Our AI will verify your state and auto-fill your name.
+                </p>
+                <Input
+                  id="dlPhotoUpload"
+                  data-testid="input-dl-photo"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={dlPhotoUploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setDlPhoto(file);
+                      handleDlUpload(file);
+                    }
+                  }}
+                />
+                {dlPhotoUploading && (
+                  <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Scanning driver's license...
+                  </div>
+                )}
+                {dlOcrResult && (
+                  <div className="mt-2 p-2 rounded-md border bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                    <div className="flex items-center gap-2 text-xs text-green-800 dark:text-green-300">
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      <span>
+                        ID verified: <strong>{dlOcrResult.stateName || dlOcrResult.stateCode}</strong>
+                        {dlOcrResult.confidence >= 80 ? " (High confidence)" : dlOcrResult.confidence >= 50 ? " (Medium confidence)" : " (Low confidence — please verify)"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {dlOcrError && (
+                  <p className="text-xs text-destructive mt-1">{dlOcrError}</p>
+                )}
+              </div>
+
+              <Separator />
+
+              <div>
                 <Label htmlFor="fullName">Legal Full Name</Label>
                 <Input
                   id="fullName"
@@ -476,7 +607,7 @@ export default function VerifyPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {US_STATES.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                        <SelectItem key={s} value={s}>{s} — {STATE_NAMES[s]}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -496,7 +627,7 @@ export default function VerifyPage() {
 
               <Button
                 className="w-full"
-                disabled={!fullName || !driversLicenseState || !driversLicenseNumber}
+                disabled={!fullName || !driversLicenseState || !driversLicenseNumber || dlPhotoUploading}
                 onClick={() => setStep(2)}
                 data-testid="button-verify-next-1"
               >
@@ -692,24 +823,203 @@ export default function VerifyPage() {
                 </Select>
               </div>
 
-              {taxState && (
-                <div className="space-y-2">
-                  {isNoTaxState ? (
-                    <div className="flex items-center gap-2 p-3 rounded-md border border-border/60 bg-muted/30">
-                      <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+              {taxState && stateInfo && (
+                <Card className={`border-l-0 border-r-0 border-t-0 border-b-0 ${
+                  stateInfo.bucketColor === "blue" ? "bg-blue-50 dark:bg-blue-900/20" :
+                  stateInfo.bucketColor === "green" ? "bg-green-50 dark:bg-green-900/20" :
+                  stateInfo.bucketColor === "yellow" ? "bg-yellow-50 dark:bg-yellow-900/20" :
+                  stateInfo.bucketColor === "red" ? "bg-red-50 dark:bg-red-900/20" : "bg-muted/30"
+                }`}>
+                  <CardContent className="py-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 shrink-0" />
+                        <span className="text-sm font-semibold">{stateInfo.stateName}</span>
+                      </div>
+                      <Badge variant={
+                        stateInfo.bucketColor === "blue" ? "secondary" :
+                        stateInfo.bucketColor === "red" ? "destructive" : "outline"
+                      } className="no-default-active-elevate text-xs" data-testid="badge-state-bucket">
+                        {stateInfo.taxType === "None" ? "No Income Tax" :
+                         stateInfo.taxType === "Flat" ? "Flat Tax" :
+                         stateInfo.taxType === "Graduated" ? "Graduated Tax" : "Decoupled"}
+                      </Badge>
+                    </div>
+
+                    {stateInfo.taxType === "None" ? (
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-muted-foreground">
+                          {stateInfo.stateName} does not have a state income tax. The state filing step will be removed from your checklist.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <p className="text-muted-foreground">Top Rate</p>
+                            <p className="font-semibold text-sm">{stateInfo.topRate}%</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Effective Rate (at $50k)</p>
+                            <p className="font-semibold text-sm">{stateInfo.effectiveRate}%</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                          <p className="text-xs text-muted-foreground">
+                            CF/SF Eligible — Your federal return data will be auto-forwarded to {stateInfo.stateName}.
+                          </p>
+                        </div>
+                        {stateInfo.hasLocalTax && (
+                          <div className="flex items-start gap-2">
+                            <Building className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
+                            <p className="text-xs text-muted-foreground">
+                              This state has cities with local income taxes. You'll configure this in the next step.
+                            </p>
+                          </div>
+                        )}
+                        {stateInfo.isDecoupled && (
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
+                            <div className="text-xs text-muted-foreground">
+                              <p className="font-medium text-red-600 dark:text-red-400">Decoupled State — Additional Requirements</p>
+                              {stateInfo.decoupledRules?.map((rule: string, i: number) => (
+                                <p key={i} className="mt-0.5">• {rule}</p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {taxState && driversLicenseState && taxState !== driversLicenseState && !residencyMismatch && (
+                <div className="p-3 rounded-md border bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 space-y-3" data-testid="state-mismatch-warning">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
+                    <div className="text-xs">
+                      <p className="font-medium text-yellow-800 dark:text-yellow-300">Residency Clarification Required</p>
+                      <p className="text-yellow-700/80 dark:text-yellow-400/70 mt-1">
+                        Your Driver's License was issued in <strong>{STATE_NAMES[driversLicenseState]} ({driversLicenseState})</strong>, but you selected <strong>{STATE_NAMES[taxState]} ({taxState})</strong> as your filing state.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 pl-6">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="residency-confirm"
+                        checked={residencyChoice === "confirmed"}
+                        onCheckedChange={(c) => { if (c) setResidencyChoice("confirmed"); else setResidencyChoice(""); }}
+                        data-testid="checkbox-residency-confirm"
+                      />
+                      <Label htmlFor="residency-confirm" className="text-xs leading-snug cursor-pointer">
+                        I currently reside in {STATE_NAMES[taxState]} and this is my correct filing state.
+                      </Label>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="residency-moved"
+                        checked={residencyChoice === "moved"}
+                        onCheckedChange={(c) => { if (c) setResidencyChoice("moved"); else setResidencyChoice(""); }}
+                        data-testid="checkbox-residency-moved"
+                      />
+                      <Label htmlFor="residency-moved" className="text-xs leading-snug cursor-pointer">
+                        I moved during the tax year and need to provide proof of new residence.
+                      </Label>
+                    </div>
+                  </div>
+
+                  {residencyChoice === "moved" && (
+                    <div className="space-y-3 pl-6 pt-2 border-t border-yellow-200 dark:border-yellow-700">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="movedFrom" className="text-xs">Moved From</Label>
+                          <Select value={movedFromState || driversLicenseState} onValueChange={setMovedFromState}>
+                            <SelectTrigger data-testid="select-moved-from">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {US_STATES.map((s) => (
+                                <SelectItem key={s} value={s}>{s} — {STATE_NAMES[s]}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="movedTo" className="text-xs">Moved To</Label>
+                          <Select value={movedToState || taxState} onValueChange={setMovedToState}>
+                            <SelectTrigger data-testid="select-moved-to">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {US_STATES.map((s) => (
+                                <SelectItem key={s} value={s}>{s} — {STATE_NAMES[s]}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                       <div>
-                        <p className="text-sm font-medium">No State Income Tax</p>
-                        <p className="text-xs text-muted-foreground">{STATE_NAMES[taxState]} does not have a state income tax. The state filing step will be removed from your checklist.</p>
+                        <Label htmlFor="movedDate" className="text-xs">Date of Move</Label>
+                        <Input
+                          id="movedDate"
+                          type="date"
+                          value={movedDate}
+                          onChange={(e) => setMovedDate(e.target.value)}
+                          data-testid="input-moved-date"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="utilityBill" className="text-xs flex items-center gap-2">
+                          <Upload className="h-3 w-3" />
+                          Utility Bill for New State (Required)
+                        </Label>
+                        <p className="text-xs text-muted-foreground mb-1">Upload a utility bill from your new address as proof of residence.</p>
+                        <Input
+                          id="utilityBill"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,application/pdf"
+                          disabled={utilityBillUploading}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setUtilityBillFile(file);
+                              handleUtilityBillUpload(file);
+                            }
+                          }}
+                          data-testid="input-utility-bill"
+                        />
+                        {utilityBillUploading && (
+                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Uploading...
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2 p-3 rounded-md border border-border/60 bg-muted/30">
-                      <CheckCircle className="h-4 w-4 text-primary shrink-0" />
-                      <div>
-                        <p className="text-sm font-medium">CF/SF Eligible</p>
-                        <p className="text-xs text-muted-foreground">Your federal return data will be auto-forwarded to {STATE_NAMES[taxState]} via the IRS Combined Federal/State Filing Program.</p>
-                      </div>
-                    </div>
+                  )}
+
+                  {(residencyChoice === "confirmed" || (residencyChoice === "moved" && movedDate && utilityBillFile)) && (
+                    <Button
+                      size="sm"
+                      className="ml-6"
+                      onClick={async () => {
+                        await apiRequest("PATCH", "/api/dl/residency", {
+                          residencyStatus: residencyChoice,
+                          movedDuringYear: residencyChoice === "moved",
+                          movedFromState: movedFromState || driversLicenseState,
+                          movedToState: movedToState || taxState,
+                          movedDate: movedDate || undefined,
+                        });
+                        setResidencyMismatch(true);
+                      }}
+                      data-testid="button-confirm-residency"
+                    >
+                      Confirm Residency
+                    </Button>
                   )}
                 </div>
               )}
@@ -720,7 +1030,7 @@ export default function VerifyPage() {
                 </Button>
                 <Button
                   className="flex-1"
-                  disabled={!taxState}
+                  disabled={!taxState || (taxState !== driversLicenseState && driversLicenseState && !residencyMismatch)}
                   onClick={() => setStep(hasLocalTax ? 5 : 6)}
                   data-testid="button-tax-next-4"
                 >
@@ -744,6 +1054,8 @@ export default function VerifyPage() {
                 {taxState === "PA" && "Pennsylvania has mandatory electronic local tax filing through Keystone Collections. Let's make sure you're covered."}
                 {taxState === "NY" && "New York City and Yonkers have additional local income taxes. Do you drive in one of these areas?"}
                 {taxState === "OH" && "Ohio cities like Cleveland, Columbus, and Cincinnati have local earned income taxes. Select your city below."}
+                {taxState === "MI" && "Michigan cities like Detroit, Grand Rapids, and Lansing have local income taxes. Do you drive in one of these areas?"}
+                {taxState === "IN" && "Indiana counties levy local income taxes (county tax). Select your primary county below."}
               </p>
 
               <div className="flex items-center justify-between gap-4 flex-wrap">

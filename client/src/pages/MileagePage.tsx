@@ -230,6 +230,7 @@ function MileageLogForm({ open, onOpenChange }: { open: boolean; onOpenChange: (
       startOdometer: null,
       endOdometer: null,
       vehicleId: null,
+      tripState: "",
     },
   });
 
@@ -392,6 +393,29 @@ function MileageLogForm({ open, onOpenChange }: { open: boolean; onOpenChange: (
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="tripState"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Trip State</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-mileage-trip-state">
+                        <SelectValue placeholder="State where trip occurred (optional)" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"].map((st) => (
+                        <SelectItem key={st} value={st}>{st}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <Button data-testid="button-submit-mileage" type="submit" className="w-full" disabled={createMutation.isPending}>
               {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

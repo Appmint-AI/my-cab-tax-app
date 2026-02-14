@@ -76,6 +76,7 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
       description: initialData?.description ?? "",
       miles: initialData?.miles ? Number(initialData.miles) : 0,
       platformFees: initialData?.platformFees ? Number(initialData.platformFees) : 0,
+      payeeState: (initialData as any)?.payeeState ?? "",
     },
   });
 
@@ -95,6 +96,7 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
         description: initialData.description ?? "",
         miles: initialData.miles ? Number(initialData.miles) : 0,
         platformFees: initialData.platformFees ? Number(initialData.platformFees) : 0,
+        payeeState: (initialData as any)?.payeeState ?? "",
       });
     }
   }, [initialData, form]);
@@ -307,6 +309,29 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
                         <SelectItem key={source} value={source}>
                           {source}
                         </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="payeeState"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>1099-K Payee State</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-income-payee-state">
+                        <SelectValue placeholder="State on 1099-K (optional)" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"].map((st) => (
+                        <SelectItem key={st} value={st}>{st}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

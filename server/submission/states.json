@@ -60,7 +60,7 @@
       ]
     },
     "FL": { "name": "Florida", "tax_type": "None", "rate_2026": 0 },
-    "GA": { "name": "Georgia", "tax_type": "Flat", "rate_2026": 5.49 },
+    "GA": { "name": "Georgia", "tax_type": "Flat", "rate_2026": 4.99 },
     "HI": { "name": "Hawaii", "tax_type": "Graduated", "rate_2026": 11.0,
       "brackets": [
         { "min": 0, "max": 2400, "rate": 1.4 },
@@ -79,7 +79,7 @@
     },
     "ID": { "name": "Idaho", "tax_type": "Flat", "rate_2026": 5.8 },
     "IL": { "name": "Illinois", "tax_type": "Flat", "rate_2026": 4.95 },
-    "IN": { "name": "Indiana", "tax_type": "Flat", "rate_2026": 2.95 },
+    "IN": { "name": "Indiana", "tax_type": "Flat", "rate_2026": 2.95, "has_local_tax": true },
     "IA": { "name": "Iowa", "tax_type": "Graduated", "rate_2026": 5.7,
       "brackets": [
         { "min": 0, "max": 6210, "rate": 4.4 },
@@ -131,7 +131,7 @@
         "no_tax_on_tips_decoupled"
       ]
     },
-    "MI": { "name": "Michigan", "tax_type": "Flat", "rate_2026": 4.25 },
+    "MI": { "name": "Michigan", "tax_type": "Flat", "rate_2026": 4.25, "has_local_tax": true },
     "MN": { "name": "Minnesota", "tax_type": "Graduated", "rate_2026": 9.85,
       "brackets": [
         { "min": 0, "max": 30070, "rate": 5.35 },
@@ -193,7 +193,7 @@
         { "min": 210000, "max": null, "rate": 5.9 }
       ]
     },
-    "NY": { "name": "New York", "tax_type": "Graduated", "rate_2026": 10.9,
+    "NY": { "name": "New York", "tax_type": "Graduated", "rate_2026": 10.9, "has_local_tax": true,
       "brackets": [
         { "min": 0, "max": 8500, "rate": 4.0 },
         { "min": 8500, "max": 11700, "rate": 4.5 },
@@ -214,7 +214,7 @@
         { "min": 225975, "max": null, "rate": 1.95 }
       ]
     },
-    "OH": { "name": "Ohio", "tax_type": "Graduated", "rate_2026": 2.75,
+    "OH": { "name": "Ohio", "tax_type": "Graduated", "rate_2026": 2.75, "has_local_tax": true,
       "brackets": [
         { "min": 0, "max": 26050, "rate": 0 },
         { "min": 26050, "max": 100000, "rate": 2.75 },
@@ -239,7 +239,7 @@
         { "min": 125000, "max": null, "rate": 9.9 }
       ]
     },
-    "PA": { "name": "Pennsylvania", "tax_type": "Flat", "rate_2026": 3.07 },
+    "PA": { "name": "Pennsylvania", "tax_type": "Flat", "rate_2026": 3.07, "has_local_tax": true },
     "RI": { "name": "Rhode Island", "tax_type": "Graduated", "rate_2026": 5.99,
       "brackets": [
         { "min": 0, "max": 73450, "rate": 3.75 },

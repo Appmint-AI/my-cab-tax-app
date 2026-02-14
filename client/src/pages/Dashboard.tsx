@@ -515,12 +515,13 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
   const [stateAdjustmentAck, setStateAdjustmentAck] = useState(false);
   const [boughtNewVehicle, setBoughtNewVehicle] = useState(false);
+  const [affidavitAccepted, setAffidavitAccepted] = useState(false);
 
   const { data: readinessData } = useQuery<any>({ queryKey: ["/api/submission-readiness"] });
   const stateInfo = readinessData?.stateInfo || {};
   const requiresStateAdjustment = stateInfo?.requiresStateAdjustment || false;
 
-  const allChecked = ack1099k && ackFigures && ackBookkeeping && ackStateVerified && perjuryAccepted
+  const allChecked = ack1099k && ackFigures && ackBookkeeping && ackStateVerified && perjuryAccepted && affidavitAccepted
     && (!requiresStateAdjustment || stateAdjustmentAck);
   const pinValid = /^\d{5}$/.test(selfSelectPin);
   const canSubmit = allChecked && pinValid && validationResult?.valid && !finalizing;
@@ -541,6 +542,7 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
     setFinalizeError(null);
     setStateAdjustmentAck(false);
     setBoughtNewVehicle(false);
+    setAffidavitAccepted(false);
   }
 
   async function handleOpenModal() {
@@ -568,10 +570,11 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
         ack_1099k_verified: ack1099k,
         ack_figures_reviewed: ackFigures,
         ack_bookkeeping_tool: ackBookkeeping,
-        ack_state_verified: ackStateVerified,
+        ackStateVerified,
         perjury_accepted: perjuryAccepted,
-        stateCode: stateInfo.stateCode || null,
-        stateBucket: stateInfo.taxType || null,
+        affidavitAccepted,
+        filingStateCode: stateInfo.stateCode || null,
+        filingStateBucket: stateInfo.taxType || null,
         stateAdjustmentAck: requiresStateAdjustment ? stateAdjustmentAck : undefined,
         boughtNewVehicle: requiresStateAdjustment ? boughtNewVehicle : undefined,
       });
@@ -759,6 +762,17 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
                               />
                               <Label htmlFor="finalize-perjury" className="text-xs leading-snug cursor-pointer">
                                 I accept the perjury statement above and understand the legal implications.
+                              </Label>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <Checkbox
+                                id="finalize-affidavit"
+                                checked={affidavitAccepted}
+                                onCheckedChange={(c) => setAffidavitAccepted(c === true)}
+                                data-testid="checkbox-finalize-affidavit"
+                              />
+                              <Label htmlFor="finalize-affidavit" className="text-xs leading-snug cursor-pointer">
+                                I affirm under penalty of perjury that I am a bona fide resident of {stateInfo.stateName || "my filing state"} as of December 31, {taxYear}, and that the state and local tax information herein is true and correct.
                               </Label>
                             </div>
                           </div>

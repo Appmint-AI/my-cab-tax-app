@@ -938,6 +938,12 @@ export async function registerRoutes(
         ack_figures_reviewed: z.literal(true, { errorMap: () => ({ message: "You must confirm all auto-calculated figures are accurate" }) }),
         ack_bookkeeping_tool: z.literal(true, { errorMap: () => ({ message: "You must acknowledge MCTUSA is a bookkeeping tool" }) }),
         perjury_accepted: z.literal(true, { errorMap: () => ({ message: "You must accept the perjury statement" }) }),
+        ackStateVerified: z.literal(true, { errorMap: () => ({ message: "You must verify your filing state" }) }),
+        affidavitAccepted: z.literal(true, { errorMap: () => ({ message: "You must sign the residency affidavit" }) }),
+        filingStateCode: z.string().min(2).max(2).optional(),
+        filingStateBucket: z.string().optional(),
+        stateAdjustmentAck: z.boolean().optional(),
+        boughtNewVehicle: z.boolean().optional(),
       });
 
       const parsed = finalizeSchema.parse(req.body);
@@ -1018,6 +1024,10 @@ export async function registerRoutes(
         ackFiguresReviewed: true,
         ackBookkeepingTool: true,
         perjuryAccepted: true,
+        ackStateVerified: true,
+        affidavitAccepted: true,
+        filingStateCode: parsed.filingStateCode || user?.stateCode || null,
+        filingStateBucket: parsed.filingStateBucket || null,
         ipAddress,
         userAgent,
       });
@@ -1038,6 +1048,12 @@ export async function registerRoutes(
           ack_figures_reviewed: true,
           ack_bookkeeping_tool: true,
           perjury_accepted: true,
+          ackStateVerified: true,
+          affidavitAccepted: true,
+          filingStateCode: parsed.filingStateCode || user?.stateCode || null,
+          filingStateBucket: parsed.filingStateBucket || null,
+          stateAdjustmentAck: parsed.stateAdjustmentAck || false,
+          boughtNewVehicle: parsed.boughtNewVehicle || false,
           irsJsonSuccess: irsResult.success,
           vaultPdfSuccess: vaultResult.success,
           vaultPath: vaultResult.vaultPath || null,
@@ -1296,6 +1312,39 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/state-info/:stateCode", async (req: Request, res: Response) => {
+    try {
+      const { stateCode } = req.params;
+      const { getStateConfig, calculateStateTax } = await import("./submission/state-engine");
+      const config = getStateConfig(stateCode);
+      if (!config) {
+        return res.status(404).json({ message: "State not found" });
+      }
+      const taxResult = calculateStateTax(stateCode, 50000);
+      const bucketColors: Record<string, string> = {
+        None: "blue",
+        Flat: "green",
+        Graduated: "yellow",
+        Decoupled: "red",
+      };
+      res.json({
+        stateCode,
+        stateName: config.name,
+        taxType: config.tax_type,
+        topRate: config.rate_2026,
+        effectiveRate: taxResult.effectiveRate,
+        estimatedTaxAt50k: taxResult.taxOwed,
+        bucketColor: bucketColors[config.tax_type] || "gray",
+        hasLocalTax: config.has_local_tax || false,
+        isDecoupled: config.tax_type === "Decoupled",
+        decoupledRules: config.decoupled_rules || [],
+        brackets: config.brackets || [],
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to get state info" });
+    }
+  });
+
   app.get("/api/submission-readiness", isAuthenticated, async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ message: "Not authenticated" });
@@ -1443,6 +1492,78 @@ export async function registerRoutes(
   });
 
   // ========== ODOMETER ROUTES ==========
+
+  app.post("/api/dl/upload-scan", isAuthenticated, receiptUpload.single("file"), async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const file = req.file;
+    if (!file) return res.status(400).json({ message: "No file uploaded" });
+
+    try {
+      const imageUrl = await uploadToVault(file.buffer, userId, file.mimetype, "pro");
+      const { scanDriversLicenseWithAI } = await import("./receipt-ocr");
+      const ocrResult = await scanDriversLicenseWithAI(file.buffer, file.mimetype);
+
+      await storage.updateUser(userId, {
+        dlImageUrl: imageUrl,
+        dlStateOcr: ocrResult.stateCode || null,
+      });
+
+      res.json({
+        imageUrl,
+        ocrResult: {
+          stateCode: ocrResult.stateCode,
+          stateName: ocrResult.stateName,
+          fullName: ocrResult.fullName,
+          confidence: ocrResult.confidence,
+        },
+      });
+    } catch (err: any) {
+      console.error("DL scan error:", err);
+      res.status(500).json({ message: err.message || "Failed to scan driver's license" });
+    }
+  });
+
+  app.post("/api/dl/utility-bill", isAuthenticated, receiptUpload.single("file"), async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const file = req.file;
+    if (!file) return res.status(400).json({ message: "No file uploaded" });
+
+    try {
+      const imageUrl = await uploadToVault(file.buffer, userId, file.mimetype, "pro");
+      await storage.updateUser(userId, { utilityBillUrl: imageUrl });
+      res.json({ imageUrl });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to upload utility bill" });
+    }
+  });
+
+  app.patch("/api/dl/residency", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+
+    const schema = z.object({
+      residencyStatus: z.enum(["confirmed", "moved", "clarified"]),
+      movedDuringYear: z.boolean().optional(),
+      movedFromState: z.string().optional(),
+      movedToState: z.string().optional(),
+      movedDate: z.string().optional(),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+
+    await storage.updateUser(userId, {
+      residencyStatus: parsed.data.residencyStatus,
+      movedDuringYear: parsed.data.movedDuringYear || false,
+      movedFromState: parsed.data.movedFromState || null,
+      movedToState: parsed.data.movedToState || null,
+      movedDate: parsed.data.movedDate || null,
+    });
+
+    res.json({ success: true });
+  });
 
   app.post("/api/odometer/upload-photo", isAuthenticated, receiptUpload.single("file"), async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;

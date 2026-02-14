@@ -249,6 +249,55 @@ export function validatePreSubmission(data: SubmissionData, user?: User): Valida
     }
   }
 
+  const filingState = jurisdictionData?.stateCode;
+  if (filingState) {
+    const incomesWithPayeeState = data.incomes.filter((i: any) => i.payeeState);
+    if (incomesWithPayeeState.length > 0) {
+      const mismatchedIncomes = incomesWithPayeeState.filter((i: any) => i.payeeState !== filingState);
+      if (mismatchedIncomes.length > 0) {
+        const states = Array.from(new Set(mismatchedIncomes.map((i: any) => i.payeeState)));
+        warnings.push({
+          code: "1099K_STATE_MISMATCH",
+          field: "incomes.payeeState",
+          message: `${mismatchedIncomes.length} income record(s) have 1099-K payee addresses in ${states.join(", ")}, but your filing state is ${filingState}. The IRS may flag this discrepancy. Verify your platform account addresses match your filing state.`,
+          severity: "warning",
+        });
+      }
+    }
+    const tripsWithState = data.mileageLogs.filter((m: any) => m.tripState);
+    if (tripsWithState.length > 0) {
+      const outOfStateMiles = tripsWithState.filter((m: any) => m.tripState !== filingState);
+      const outOfStatePercent = Math.round((outOfStateMiles.length / tripsWithState.length) * 100);
+      if (outOfStatePercent >= 90) {
+        const topStates = Array.from(new Set(outOfStateMiles.map((m: any) => m.tripState))).slice(0, 3);
+        warnings.push({
+          code: "MILEAGE_STATE_MISMATCH",
+          field: "mileageLogs.tripState",
+          message: `${outOfStatePercent}% of your logged trips are in ${topStates.join("/")} — not your filing state (${filingState}). The IRS expects most driving activity to occur in your state of residence. Consider updating your filing state if you primarily drive elsewhere.`,
+          severity: "warning",
+        });
+      }
+    }
+
+    const dlState = (user as any)?.dlStateOcr;
+    if (dlState && dlState !== filingState) {
+      const residencyStatus = (user as any)?.residencyStatus;
+      if (!residencyStatus || residencyStatus === "") {
+        warnings.push({
+          code: "DL_STATE_UNRESOLVED",
+          field: "user.dlStateOcr",
+          message: `Your Driver's License is from ${dlState} but your filing state is ${filingState}. Complete the residency clarification in your profile before filing.`,
+          severity: "warning",
+        });
+      }
+    }
+  }
+
+  const jurisdictionConsistencyPassed = warnings.filter(w =>
+    w.code === "1099K_STATE_MISMATCH" || w.code === "MILEAGE_STATE_MISMATCH" || w.code === "DL_STATE_UNRESOLVED"
+  ).length === 0;
+  preflightChecks.push({ label: "Jurisdiction Consistency", passed: jurisdictionConsistencyPassed, required: false });
+
   const totalChecks = preflightChecks.length;
   const passedChecks = preflightChecks.filter(c => c.passed).length;
   const preflightScore = totalChecks > 0 ? Math.round((passedChecks / totalChecks) * 100) : 0;

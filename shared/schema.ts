@@ -106,6 +106,7 @@ export const incomes = pgTable("incomes", {
   description: text("description"),
   miles: numeric("miles").default("0"),
   platformFees: numeric("platform_fees").default("0"),
+  payeeState: text("payee_state"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -119,6 +120,7 @@ export const mileageLogs = pgTable("mileage_logs", {
   startOdometer: numeric("start_odometer"),
   endOdometer: numeric("end_odometer"),
   totalMiles: numeric("total_miles").notNull(),
+  tripState: text("trip_state"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -162,6 +164,11 @@ export const submissionReceipts = pgTable("submission_receipts", {
   ack1099kVerified: boolean("ack_1099k_verified").notNull(),
   ackFiguresReviewed: boolean("ack_figures_reviewed").notNull(),
   ackBookkeepingTool: boolean("ack_bookkeeping_tool").notNull(),
+  ackStateVerified: boolean("ack_state_verified").notNull().default(false),
+  affidavitAccepted: boolean("affidavit_accepted").notNull().default(false),
+  affidavitText: text("affidavit_text"),
+  filingStateCode: text("filing_state_code"),
+  filingStateBucket: text("filing_state_bucket"),
   perjuryAccepted: boolean("perjury_accepted").notNull(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),

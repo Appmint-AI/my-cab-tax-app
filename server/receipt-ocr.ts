@@ -1,5 +1,77 @@
 import { ai } from "./replit_integrations/image/client";
 
+export interface DLOcrResult {
+  stateCode: string;
+  stateName: string;
+  fullName: string;
+  confidence: number;
+  rawText: string;
+}
+
+export async function scanDriversLicenseWithAI(imageBuffer: Buffer, mimeType: string): Promise<DLOcrResult> {
+  const base64 = imageBuffer.toString("base64");
+
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash-preview-05-20",
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            inlineData: {
+              data: base64,
+              mimeType: mimeType || "image/jpeg",
+            },
+          },
+          {
+            text: `You are an expert document OCR system specialized in US Driver's Licenses and State IDs. Analyze this image and extract the following information.
+
+Return ONLY a valid JSON object with exactly these fields (no markdown, no code blocks, no explanation):
+{
+  "stateCode": "string - the 2-letter US state abbreviation (e.g., CA, NY, TX)",
+  "stateName": "string - the full state name (e.g., California, New York, Texas)",
+  "fullName": "string - the person's full name as shown on the ID",
+  "confidence": number - your confidence in the extraction accuracy from 0-100,
+  "rawText": "string - all readable text from the document"
+}
+
+Important rules:
+- The state is usually prominently displayed at the top of the license
+- Look for "STATE OF", "DRIVER LICENSE", or the state name/seal
+- stateCode must be a valid 2-letter US state abbreviation
+- If you cannot determine the state, return empty string for stateCode
+- confidence should reflect how clearly you can identify the issuing state`,
+          },
+        ],
+      },
+    ],
+  });
+
+  const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+  try {
+    const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const parsed = JSON.parse(cleaned);
+
+    return {
+      stateCode: String(parsed.stateCode || "").toUpperCase().trim(),
+      stateName: String(parsed.stateName || ""),
+      fullName: String(parsed.fullName || ""),
+      confidence: Math.min(100, Math.max(0, Number(parsed.confidence) || 0)),
+      rawText: String(parsed.rawText || ""),
+    };
+  } catch {
+    console.error("Failed to parse Gemini DL OCR response:", text);
+    return {
+      stateCode: "",
+      stateName: "",
+      fullName: "",
+      confidence: 0,
+      rawText: text,
+    };
+  }
+}
+
 export interface ReceiptOcrResult {
   merchantName: string;
   date: string;

@@ -14,6 +14,7 @@ export interface StateConfig {
   rate_2026: number;
   brackets?: TaxBracket[];
   decoupled_rules?: string[];
+  has_local_tax?: boolean;
 }
 
 export interface StateTaxResult {
@@ -140,6 +141,17 @@ export function calculateStateTax(stateCode: string, netProfit: number): StateTa
     decoupledRules,
     requiresStateAdjustment,
   };
+}
+
+export function hasLocalTax(stateCode: string): boolean {
+  const config = stateMap[stateCode];
+  return config?.has_local_tax === true;
+}
+
+export function getLocalTaxStates(): string[] {
+  return Object.entries(stateMap)
+    .filter(([, config]) => config.has_local_tax === true)
+    .map(([code]) => code);
 }
 
 export function getBucketStates(bucket: TaxType): string[] {
