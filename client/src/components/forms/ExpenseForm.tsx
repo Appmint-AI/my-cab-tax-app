@@ -28,8 +28,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Info } from "lucide-react";
 import { z } from "zod";
+import { SALT_DEDUCTION_CAP } from "@shared/schema";
 
 const formSchema = insertExpenseSchema.extend({
   amount: z.coerce.number().positive("Amount must be positive"),
@@ -97,12 +98,17 @@ export function ExpenseForm({ initialData, open: controlledOpen, onOpenChange: s
   const categories = [
     "Car and Truck Expenses",
     "Commissions and Fees",
+    "Home Office",
     "Insurance",
     "Interest",
     "Legal and Professional Services",
     "Office Expense",
+    "Property Tax (SALT)",
     "Other Expenses",
   ];
+
+  const selectedCategory = form.watch("category");
+  const isSaltCategory = selectedCategory === "Property Tax (SALT)" || selectedCategory === "Home Office";
 
   return (
     <Dialog open={isOpen} onOpenChange={setOpen}>
@@ -167,6 +173,22 @@ export function ExpenseForm({ initialData, open: controlledOpen, onOpenChange: s
                 </FormItem>
               )}
             />
+
+            {isSaltCategory && (
+              <div className="flex items-start gap-2 p-3 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20" data-testid="info-salt-cap">
+                <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
+                    2026 SALT Deduction Cap: ${SALT_DEDUCTION_CAP.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-amber-800/70 dark:text-amber-300/70 mt-0.5">
+                    {selectedCategory === "Home Office"
+                      ? "Home office deductions may include a portion of property taxes. The combined SALT deduction is capped at $40,000 for 2026 (up from $10,000)."
+                      : "State and local property taxes are subject to the $40,000 SALT cap for 2026 (increased from $10,000 under the TCJA extension)."}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {vehicles && vehicles.length > 0 && (
               <FormField

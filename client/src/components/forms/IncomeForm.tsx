@@ -31,7 +31,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
-import { Plus, Loader2, Zap, Lock } from "lucide-react";
+import { Plus, Loader2, Zap, Lock, DollarSign } from "lucide-react";
 import { z } from "zod";
 import { Link } from "wouter";
 
@@ -40,6 +40,7 @@ const formSchema = insertIncomeSchema.extend({
   date: z.string().min(1, "Date is required"),
   miles: z.coerce.number().min(0).optional().default(0),
   platformFees: z.coerce.number().min(0).optional().default(0),
+  isTips: z.boolean().optional().default(false),
 });
 
 interface IncomeFormProps {
@@ -77,6 +78,7 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
       miles: initialData?.miles ? Number(initialData.miles) : 0,
       platformFees: initialData?.platformFees ? Number(initialData.platformFees) : 0,
       payeeState: (initialData as any)?.payeeState ?? "",
+      isTips: (initialData as any)?.isTips ?? false,
     },
   });
 
@@ -97,6 +99,7 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
         miles: initialData.miles ? Number(initialData.miles) : 0,
         platformFees: initialData.platformFees ? Number(initialData.platformFees) : 0,
         payeeState: (initialData as any)?.payeeState ?? "",
+        isTips: (initialData as any)?.isTips ?? false,
       });
     }
   }, [initialData, form]);
@@ -247,6 +250,31 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
                 )}
               />
             )}
+
+            <FormField
+              control={form.control}
+              name="isTips"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center justify-between gap-2 p-3 rounded-md border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                      <div>
+                        <span className="text-sm font-medium">Tips / Gratuities</span>
+                        <p className="text-xs text-muted-foreground">2026: Tips are exempt from federal income tax</p>
+                      </div>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        data-testid="switch-is-tips"
+                      />
+                    </FormControl>
+                  </div>
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               <FormField

@@ -31,6 +31,14 @@ Key architectural and feature specifications include:
 - **Compliance Alerts Dashboard**: A real-time alert banner on the Dashboard showing rate changes, regulatory updates, and provider status. Alerts can be dismissed and link to original sources. The `/api/compliance-alerts` endpoint serves all active alerts.
 - **Tax Provider API**: Endpoints at `/api/live-rate/:stateCode`, `/api/tax-provider/status`, `/api/tax-provider/refresh`, `/api/sentinel/scan`, and `/api/sentinel/status` expose the live rate system and sentinel controls.
 
+### 2026 Tax Law Updates (Recent Changes)
+- **No Tax on Tips (OBBBA)**: `isTips` boolean field on incomes schema; toggle in IncomeForm; tip income exempt from federal income tax in TaxSummary calculations; "Tips (Tax-Exempt)" badge on IncomesPage.
+- **1099-K Threshold Reversion**: $20,000 gross / 200+ transactions threshold (reverted from $600); SmallEarnerGate component on Dashboard with dynamic messaging based on gross income.
+- **2026 Mileage Rate**: IRS_MILEAGE_RATE constant = 0.725 (72.5¢/mile, up 2.5¢ from 2025); prominent green banner on MileagePage.
+- **SALT Deduction Cap**: SALT_DEDUCTION_CAP = $40,000 (increased from $10,000); new "Home Office" and "Property Tax (SALT)" expense categories with SALT cap awareness notice in ExpenseForm.
+- **Quarterly Estimated Tax Calculator**: Full federal tax bracket calculation (single filer 2026) + 15.3% SE tax; quarterly payment breakdown with deadline tracking on Dashboard.
+- **Smart Summary / Money Saved**: Comprehensive savings breakdown showing mileage, tips exemption, expenses, SE deduction, and SALT savings; displayed before export section on Dashboard.
+
 ## External Dependencies
 - **Auth0**: For OpenID Connect (OIDC) authentication, MFA, and biometric login.
 - **Google Cloud Storage**: Used for storing receipt images.

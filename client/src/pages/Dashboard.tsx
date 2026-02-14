@@ -41,6 +41,172 @@ import { IRS_MILEAGE_RATE } from "@shared/schema";
 import type { TaxSummary, MileageLog } from "@shared/schema";
 import type { User } from "@shared/models/auth";
 
+const IRS_1099K_THRESHOLD = 20000;
+const IRS_1099K_TRANSACTIONS = 200;
+
+function SmallEarnerGate({ grossIncome }: { grossIncome: number }) {
+  const isAboveThreshold = grossIncome >= IRS_1099K_THRESHOLD;
+
+  return (
+    <Card className="mt-6 border-blue-200/60 dark:border-blue-800/40 bg-blue-50/30 dark:bg-blue-950/20 shadow-sm" data-testid="card-1099k-gate">
+      <CardContent className="flex items-start gap-3 py-3 px-4">
+        <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+              2026 IRS Update: 1099-K Reporting
+            </p>
+            {isAboveThreshold ? (
+              <Badge variant="destructive" className="text-[10px] no-default-active-elevate" data-testid="badge-1099k-above">
+                Threshold Exceeded
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[10px] border-green-400 text-green-700 dark:text-green-300 no-default-active-elevate" data-testid="badge-1099k-below">
+                Below Threshold
+              </Badge>
+            )}
+          </div>
+          {isAboveThreshold ? (
+            <p className="text-xs text-blue-800/70 dark:text-blue-300/70 mt-1 leading-relaxed">
+              Your gross income (${grossIncome.toLocaleString()}) exceeds the 2026 reporting threshold of ${IRS_1099K_THRESHOLD.toLocaleString()}. Platforms must issue a 1099-K when gross payments exceed ${IRS_1099K_THRESHOLD.toLocaleString()} AND exceed {IRS_1099K_TRANSACTIONS} transactions. Report the GROSS amount from Box 1a, even if it differs from your bank deposits. Use "Add 1099-K" to enter your details.
+            </p>
+          ) : (
+            <p className="text-xs text-blue-800/70 dark:text-blue-300/70 mt-1 leading-relaxed">
+              Your gross income (${grossIncome.toLocaleString()}) is below the 2026 gross threshold of ${IRS_1099K_THRESHOLD.toLocaleString()}. A 1099-K is required only when BOTH the ${IRS_1099K_THRESHOLD.toLocaleString()} gross AND {IRS_1099K_TRANSACTIONS}+ transaction thresholds are met. You must still report all income on Schedule C regardless of whether a 1099-K is issued.
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuarterlyEstimatedTaxCalculator({ summary }: { summary: TaxSummary }) {
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentQuarter = Math.floor(currentMonth / 3) + 1;
+  
+  const annualSETax = summary.selfEmploymentTax;
+  const seDeduction = summary.seDeduction;
+  const taxableIncome = summary.netProfit - seDeduction - (summary.tipExemption || 0);
+  
+  const federalTaxBrackets2026 = [
+    { min: 0, max: 11600, rate: 0.10 },
+    { min: 11600, max: 47150, rate: 0.12 },
+    { min: 47150, max: 100525, rate: 0.22 },
+    { min: 100525, max: 191950, rate: 0.24 },
+    { min: 191950, max: 243725, rate: 0.32 },
+    { min: 243725, max: 609350, rate: 0.35 },
+    { min: 609350, max: Infinity, rate: 0.37 },
+  ];
+  
+  let federalIncomeTax = 0;
+  let remaining = Math.max(0, taxableIncome);
+  for (const bracket of federalTaxBrackets2026) {
+    const taxable = Math.min(remaining, bracket.max - bracket.min);
+    if (taxable <= 0) break;
+    federalIncomeTax += taxable * bracket.rate;
+    remaining -= taxable;
+  }
+  
+  const totalAnnualTax = federalIncomeTax + annualSETax;
+  const quarterlyPayment = totalAnnualTax / 4;
+  
+  const effectiveRate = summary.netProfit > 0 ? (totalAnnualTax / summary.netProfit) * 100 : 0;
+  
+  const quarterLabels = ["Q1", "Q2", "Q3", "Q4"];
+  const deadlines = summary.quarterlyDeadlines;
+
+  return (
+    <Card className="mt-6 border-border/60 shadow-sm" data-testid="card-quarterly-calculator">
+      <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+        <CardTitle className="text-base font-medium flex items-center gap-2 flex-wrap">
+          <Gauge className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+          Quarterly Estimated Tax Calculator
+        </CardTitle>
+        <Badge variant="outline" className="text-[10px] no-default-active-elevate" data-testid="badge-effective-rate">
+          {effectiveRate.toFixed(1)}% Effective Rate
+        </Badge>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-3 rounded-md bg-muted/30">
+              <p className="text-xs text-muted-foreground">Net Profit</p>
+              <p className="text-sm font-bold font-display" data-testid="text-calc-net-profit">
+                ${Math.max(0, summary.netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="p-3 rounded-md bg-muted/30">
+              <p className="text-xs text-muted-foreground">Federal Income Tax</p>
+              <p className="text-sm font-bold font-display" data-testid="text-calc-income-tax">
+                ${federalIncomeTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="p-3 rounded-md bg-muted/30">
+              <p className="text-xs text-muted-foreground">SE Tax (15.3%)</p>
+              <p className="text-sm font-bold font-display" data-testid="text-calc-se-tax">
+                ${annualSETax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="p-3 rounded-md bg-purple-50 dark:bg-purple-950/20">
+              <p className="text-xs text-muted-foreground">Total Annual Tax</p>
+              <p className="text-sm font-bold font-display text-purple-700 dark:text-purple-300" data-testid="text-calc-total-annual">
+                ${totalAnnualTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Quarterly Payments (Form 1040-ES)</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {deadlines.map((d, i) => {
+                const date = parseISO(d);
+                const isPast = date < today;
+                const isCurrent = i + 1 === currentQuarter;
+                return (
+                  <div
+                    key={d}
+                    className={`p-3 rounded-md border ${
+                      isCurrent
+                        ? "border-purple-300 dark:border-purple-700 bg-purple-50/50 dark:bg-purple-950/20"
+                        : isPast
+                        ? "border-border/40 bg-muted/20 opacity-60"
+                        : "border-border/40"
+                    }`}
+                    data-testid={`card-quarter-${i + 1}`}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <Badge
+                        variant={isCurrent ? "default" : isPast ? "secondary" : "outline"}
+                        className="text-[10px] no-default-active-elevate"
+                      >
+                        {quarterLabels[i]}
+                      </Badge>
+                      {isPast && <CheckCircle2 className="h-3 w-3 text-muted-foreground" />}
+                      {isCurrent && <Clock className="h-3 w-3 text-purple-600 dark:text-purple-400" />}
+                    </div>
+                    <p className="text-sm font-bold font-display mt-1.5">
+                      ${quarterlyPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className={`text-[10px] mt-0.5 ${isPast ? "line-through text-muted-foreground" : "text-muted-foreground"}`}>
+                      Due {format(date, "MMM d")}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            Estimates based on 2026 federal tax brackets (single filer) and 15.3% SE tax rate. Does not include state taxes. Consult a CPA for precise calculations. IRS safe harbor: pay 100% of prior year tax or 90% of current year tax to avoid underpayment penalties.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ComplianceAlertsBanner() {
   const { data: alerts } = useQuery<any[]>({ queryKey: ["/api/compliance-alerts"] });
   const { data: providerStatus } = useQuery<any>({ queryKey: ["/api/tax-provider/status"] });
@@ -312,28 +478,157 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <Card className="mt-6 border-blue-200/60 dark:border-blue-800/40 bg-blue-50/30 dark:bg-blue-950/20 shadow-sm" data-testid="card-1099k-tip">
-        <CardContent className="flex items-start gap-3 py-3 px-4">
-          <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
-              IRS Update: 1099-K Reporting Threshold
-            </p>
-            <p className="text-xs text-blue-800/70 dark:text-blue-300/70 mt-0.5 leading-relaxed">
-              You will likely receive a 1099-K if you earned over $600 this year. Make sure to report the GROSS amount from Box 1a here, even if it&apos;s more than what you received in your bank account. Use "Add 1099-K" to enter your 1099-K details.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <SmallEarnerGate grossIncome={summary.grossIncome} />
+
+      <QuarterlyEstimatedTaxCalculator summary={summary} />
 
       <div className="mt-8 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
         <DashboardCharts summary={summary} />
       </div>
 
+      <SmartSummaryMoneySaved summary={summary} />
+
       <ExportSection summary={summary} mileageLogs={mileageData || []} />
       <SubmissionReadinessChecklist />
       <FinalizeSubmissionSection summary={summary} />
     </Layout>
+  );
+}
+
+function SmartSummaryMoneySaved({ summary }: { summary: TaxSummary }) {
+  const tipSavings = (summary.tipExemption || 0) * 0.22;
+  const mileageSavings = summary.mileageDeduction * 0.22;
+  const expenseSavings = summary.totalOtherExpenses * 0.22;
+  const seDeductionSavings = summary.seDeduction * 0.22;
+  
+  const saltExpenses = (summary.expensesByCategory["Property Tax (SALT)"] || 0) + (summary.expensesByCategory["Home Office"] || 0);
+  const saltCapped = Math.min(saltExpenses, summary.saltDeductionCap || 40000);
+  const saltSavings = saltCapped * 0.22;
+  
+  const totalSavings = tipSavings + mileageSavings + expenseSavings + seDeductionSavings + saltSavings;
+  
+  const savingsItems = [
+    {
+      label: "Mileage Deduction",
+      amount: summary.mileageDeduction,
+      savings: mileageSavings,
+      description: `${summary.totalMiles.toLocaleString()} miles at $${summary.mileageRate}/mi`,
+      color: "text-orange-600 dark:text-orange-400",
+      bgColor: "bg-orange-100 dark:bg-orange-900/30",
+    },
+    {
+      label: "Tips Exemption (2026)",
+      amount: summary.tipExemption || 0,
+      savings: tipSavings,
+      description: "Federal income tax exempt under OBBBA",
+      color: "text-green-600 dark:text-green-400",
+      bgColor: "bg-green-100 dark:bg-green-900/30",
+      isNew: true,
+    },
+    {
+      label: "Business Expenses",
+      amount: summary.totalOtherExpenses,
+      savings: expenseSavings,
+      description: "Schedule C deductible expenses",
+      color: "text-blue-600 dark:text-blue-400",
+      bgColor: "bg-blue-100 dark:bg-blue-900/30",
+    },
+    {
+      label: "SE Tax Deduction",
+      amount: summary.seDeduction,
+      savings: seDeductionSavings,
+      description: "50% of self-employment tax deduction",
+      color: "text-purple-600 dark:text-purple-400",
+      bgColor: "bg-purple-100 dark:bg-purple-900/30",
+    },
+  ];
+
+  if (saltExpenses > 0) {
+    savingsItems.push({
+      label: "SALT Deductions (2026)",
+      amount: saltCapped,
+      savings: saltSavings,
+      description: `Property tax & home office (capped at $${(summary.saltDeductionCap || 40000).toLocaleString()})`,
+      color: "text-amber-600 dark:text-amber-400",
+      bgColor: "bg-amber-100 dark:bg-amber-900/30",
+      isNew: true,
+    });
+  }
+
+  return (
+    <Card className="mt-8 border-border/60 shadow-sm" data-testid="card-smart-summary">
+      <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+        <CardTitle className="text-base font-medium flex items-center gap-2 flex-wrap">
+          <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
+          Smart Summary: Money Saved
+        </CardTitle>
+        <Badge variant="outline" className="text-xs border-green-400 text-green-700 dark:text-green-300 no-default-active-elevate" data-testid="badge-total-savings">
+          ${totalSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Saved
+        </Badge>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Estimated tax savings from your tracked deductions and 2026 tax law changes (based on 22% marginal rate).
+          </p>
+
+          <div className="space-y-2">
+            {savingsItems
+              .filter(item => item.amount > 0)
+              .map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between gap-3 p-3 rounded-md bg-muted/20 border border-border/30"
+                  data-testid={`row-savings-${item.label.toLowerCase().replace(/[^a-z]/g, '-')}`}
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={`p-1.5 rounded-full ${item.bgColor} shrink-0`}>
+                      <DollarSign className={`h-3.5 w-3.5 ${item.color}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-medium">{item.label}</p>
+                        {(item as any).isNew && (
+                          <Badge variant="outline" className="text-[9px] border-green-400 text-green-700 dark:text-green-300 no-default-active-elevate">
+                            NEW 2026
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{item.description}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-bold font-display">
+                      ${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className={`text-xs font-medium ${item.color}`}>
+                      -${item.savings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} tax
+                    </p>
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          {savingsItems.filter(item => item.amount > 0).length === 0 && (
+            <div className="text-center py-6">
+              <p className="text-sm text-muted-foreground">
+                Start tracking income, mileage, and expenses to see your estimated tax savings here.
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-2 p-3 rounded-md bg-green-50/50 dark:bg-green-950/20 border border-green-200/60 dark:border-green-800/40">
+            <div>
+              <p className="text-sm font-medium text-green-900 dark:text-green-200">Total Estimated Tax Savings</p>
+              <p className="text-xs text-green-800/70 dark:text-green-300/70">Across all tracked deductions and exemptions</p>
+            </div>
+            <p className="text-xl font-bold font-display text-green-700 dark:text-green-300" data-testid="text-total-savings-amount">
+              ${totalSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

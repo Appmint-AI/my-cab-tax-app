@@ -11,7 +11,7 @@ import {
   type AuditNotice, type InsertAuditNotice,
   type UpdateExpenseRequest, type UpdateIncomeRequest, type UpdateMileageLogRequest, type UpdateVehicleRequest,
   type TaxSummary,
-  IRS_MILEAGE_RATE, SE_TAX_RATE, SE_TAXABLE_BASE, QUARTERLY_DEADLINES,
+  IRS_MILEAGE_RATE, SE_TAX_RATE, SE_TAXABLE_BASE, QUARTERLY_DEADLINES, SALT_DEDUCTION_CAP,
   mapToIRSCategory
 } from "@shared/schema";
 import type { User } from "@shared/models/auth";
@@ -287,6 +287,10 @@ export class DatabaseStorage implements IStorage {
 
     const grossIncome = incomesList.reduce((sum, inc) => sum + Number(inc.amount), 0);
     const totalPlatformFees = incomesList.reduce((sum, inc) => sum + Number(inc.platformFees || 0), 0);
+    const tipIncome = incomesList
+      .filter(inc => inc.isTips)
+      .reduce((sum, inc) => sum + Number(inc.amount), 0);
+    const tipExemption = tipIncome;
     
     const incomeMiles = incomesList.reduce((sum, inc) => sum + Number(inc.miles || 0), 0);
     const loggedMiles = mileageLogsList.reduce((sum, log) => sum + Number(log.totalMiles), 0);
@@ -340,6 +344,9 @@ export class DatabaseStorage implements IStorage {
       incomeBySource,
       quarterlyDeadlines: QUARTERLY_DEADLINES,
       mileageRate: IRS_MILEAGE_RATE,
+      tipIncome,
+      tipExemption,
+      saltDeductionCap: SALT_DEDUCTION_CAP,
     };
   }
 

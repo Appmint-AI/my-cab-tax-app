@@ -43,7 +43,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertMileageLogSchema, IRS_MILEAGE_RATE, type MileageLog } from "@shared/schema";
 import { z } from "zod";
-import { Plus, Loader2, Trash2, Car, MapPin, Calendar } from "lucide-react";
+import { Plus, Loader2, Trash2, Car, MapPin, Calendar, TrendingUp, Info } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useTaxSummary } from "@/hooks/use-tax";
 import { useVehicles } from "@/hooks/use-vehicles";
@@ -128,6 +128,25 @@ export default function MileagePage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mb-6 border-green-200/60 dark:border-green-800/40 bg-green-50/30 dark:bg-green-950/20 shadow-sm" data-testid="card-mileage-rate-banner">
+        <CardContent className="flex items-start gap-3 py-3 px-4">
+          <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-medium text-green-900 dark:text-green-200">
+                2026 IRS Standard Mileage Rate: ${IRS_MILEAGE_RATE}/mile
+              </p>
+              <Badge variant="outline" className="text-[10px] border-green-400 text-green-700 dark:text-green-300 no-default-active-elevate" data-testid="badge-mileage-rate">
+                Up 2.5&#162; from 2025
+              </Badge>
+            </div>
+            <p className="text-xs text-green-800/70 dark:text-green-300/70 mt-1 leading-relaxed">
+              The IRS increased the standard mileage rate to 72.5&#162; per business mile for 2026. This rate covers gas, insurance, depreciation, and maintenance. Keep contemporaneous records per IRS Pub. 463 to substantiate your deduction.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-border/60 shadow-sm">
         <CardHeader>

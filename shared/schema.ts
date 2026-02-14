@@ -12,6 +12,9 @@ export const IRS_MILEAGE_RATE = 0.725;
 export const SE_TAX_RATE = 0.153;
 export const SE_TAXABLE_BASE = 0.9235; // SE tax applies to 92.35% of net profit
 export const QUARTERLY_DEADLINES = ["2026-04-15", "2026-06-15", "2026-09-15", "2027-01-15"];
+export const FORM_1099K_THRESHOLD = 20000; // 2026 reverted threshold
+export const FORM_1099K_TRANSACTION_THRESHOLD = 200; // 2026 reverted threshold
+export const SALT_DEDUCTION_CAP = 40000; // 2026 SALT cap raised to $40,000
 
 // Mileage methodology options per IRS rules
 export const MILEAGE_METHODS = ["standard", "actual"] as const;
@@ -21,10 +24,12 @@ export type MileageMethod = typeof MILEAGE_METHODS[number];
 export const IRS_EXPENSE_CATEGORIES = [
   "Car and Truck Expenses",
   "Commissions and Fees",
+  "Home Office",
   "Insurance",
   "Interest",
   "Legal and Professional Services",
   "Office Expense",
+  "Property Tax (SALT)",
   "Other Expenses",
 ] as const;
 
@@ -96,7 +101,7 @@ export const expenses = pgTable("expenses", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Incomes table - now with miles and platformFees
+// Incomes table - now with miles, platformFees, and tips tracking
 export const incomes = pgTable("incomes", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),
@@ -107,6 +112,7 @@ export const incomes = pgTable("incomes", {
   miles: numeric("miles").default("0"),
   platformFees: numeric("platform_fees").default("0"),
   payeeState: text("payee_state"),
+  isTips: boolean("is_tips").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -369,6 +375,7 @@ export const insertIncomeSchema = createInsertSchema(incomes).omit({
   amount: z.coerce.number().positive(),
   miles: z.coerce.number().min(0).optional().default(0),
   platformFees: z.coerce.number().min(0).optional().default(0),
+  isTips: z.boolean().optional().default(false),
 });
 
 export const insertMileageLogSchema = createInsertSchema(mileageLogs).omit({
@@ -434,4 +441,7 @@ export interface TaxSummary {
   incomeBySource: Record<string, number>;
   quarterlyDeadlines: string[];
   mileageRate: number;
+  tipIncome: number;
+  tipExemption: number;
+  saltDeductionCap: number;
 }

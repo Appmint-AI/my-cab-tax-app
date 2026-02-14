@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { MoreVertical, Search, Trash2, Pencil, Wallet } from "lucide-react";
 import { useState } from "react";
@@ -86,9 +87,16 @@ export default function IncomesPage() {
                       {format(new Date(income.date), "MMM d, yyyy")}
                     </TableCell>
                     <TableCell>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">
-                        {income.source}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">
+                          {income.source}
+                        </span>
+                        {income.isTips && (
+                          <Badge variant="outline" className="text-[10px] border-green-400 text-green-700 dark:text-green-300 no-default-active-elevate" data-testid={`badge-tips-${income.id}`}>
+                            Tips (Tax-Exempt)
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate text-muted-foreground">
                       {income.description || "-"}
