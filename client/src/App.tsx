@@ -24,6 +24,7 @@ import VerifyPage from "@/pages/VerifyPage";
 import AuditCenterPage from "@/pages/AuditCenterPage";
 import AdminPage from "@/pages/AdminPage";
 import IndustryPickerPage from "@/pages/IndustryPickerPage";
+import ExportPage from "@/pages/ExportPage";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -139,6 +140,10 @@ function Router() {
       
       <Route path="/incomes">
         <VerifiedRoute component={IncomesPage} />
+      </Route>
+
+      <Route path="/export">
+        <VerifiedRoute component={ExportPage} />
       </Route>
 
       <Route path="/audit-center">

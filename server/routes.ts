@@ -1895,6 +1895,85 @@ export async function registerRoutes(
     }
   });
 
+  // ===== Tax Export Engine =====
+  const {
+    buildExportSummary,
+    generateExpensesCsv,
+    generateMileageCsv,
+    generateIncomeCsv,
+    createReceiptVaultZip,
+  } = await import("./export-engine");
+
+  app.get("/api/export/summary", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const taxYear = parseInt(req.query.year as string) || new Date().getFullYear();
+      const summary = await buildExportSummary(userId, taxYear);
+      res.json(summary);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/export/expenses-csv", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const taxYear = parseInt(req.query.year as string) || new Date().getFullYear();
+      const expenses = await storage.getExpenses(userId);
+      const csv = generateExpensesCsv(expenses, taxYear);
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=MCTUSA_Expenses_${taxYear}.csv`);
+      res.send(csv);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/export/mileage-csv", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const taxYear = parseInt(req.query.year as string) || new Date().getFullYear();
+      const logs = await storage.getMileageLogs(userId);
+      const csv = generateMileageCsv(logs, taxYear);
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=MCTUSA_Mileage_${taxYear}.csv`);
+      res.send(csv);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/export/income-csv", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const taxYear = parseInt(req.query.year as string) || new Date().getFullYear();
+      const incomes = await storage.getIncomes(userId);
+      const csv = generateIncomeCsv(incomes, taxYear);
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=MCTUSA_Income_${taxYear}.csv`);
+      res.send(csv);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/export/receipt-vault-zip", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user || user.subscriptionStatus !== "pro") {
+        return res.status(403).json({ message: "Receipt Vault ZIP is a Pro feature. Please upgrade your subscription." });
+      }
+      const taxYear = parseInt(req.query.year as string) || new Date().getFullYear();
+      const zipBuffer = await createReceiptVaultZip(userId, taxYear);
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename=MCTUSA_Receipt_Vault_${taxYear}.zip`);
+      res.send(zipBuffer);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }
 

@@ -15,6 +15,7 @@ import {
   MapPin,
   ScanLine,
   Shield,
+  Download,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/mileage", label: "Mileage", icon: MapPin },
     { href: "/receipts", label: "Receipts", icon: ScanLine },
     { href: "/vehicles", label: "Vehicles", icon: CarFront },
+    { href: "/export", label: "Export", icon: Download, desktopOnly: true },
     { href: "/audit-center", label: "Audit Defense", icon: Shield },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
@@ -80,7 +82,8 @@ export function Layout({ children }: LayoutProps) {
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors duration-150 cursor-pointer",
                   isActive
                     ? "bg-sidebar-accent text-white font-medium"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                  (item as any).desktopOnly && "hidden md:flex"
                 )}
                 onClick={() => setMobileMenuOpen(false)}
               >
