@@ -36,17 +36,43 @@ interface TaxRateAdapter {
   } | null>;
 }
 
+const STRIPE_TAX_DEFAULT_CODE = "txcd_20030000";
+
 class StripeTaxAdapter implements TaxRateAdapter {
   name = "stripe_tax";
   private _configured: boolean | null = null;
+  private _pendingRetryAt: number = 0;
+  private static readonly PENDING_RETRY_INTERVAL_MS = 15 * 60 * 1000;
 
   isConfigured(): boolean {
+    if (this._configured === false) {
+      if (this._pendingRetryAt > 0 && Date.now() >= this._pendingRetryAt) {
+        this._configured = null;
+        this._pendingRetryAt = 0;
+      } else {
+        return false;
+      }
+    }
     if (this._configured !== null) return this._configured;
     const hasConnector = !!(process.env.REPLIT_CONNECTORS_HOSTNAME &&
       (process.env.REPL_IDENTITY || process.env.WEB_REPL_RENEWAL));
     const hasEnvKey = !!process.env.STRIPE_SECRET_KEY;
     this._configured = hasConnector || hasEnvKey;
     return this._configured;
+  }
+
+  private async getStripe() {
+    try {
+      const { getUncachableStripeClient } = await import("../stripeClient");
+      return await getUncachableStripeClient();
+    } catch {
+      if (process.env.STRIPE_SECRET_KEY) {
+        const Stripe = (await import("stripe")).default;
+        return new Stripe(process.env.STRIPE_SECRET_KEY);
+      }
+      this._configured = false;
+      return null;
+    }
   }
 
   async fetchRate(stateCode: string, income: number, _zipCode?: string): Promise<{
@@ -58,19 +84,8 @@ class StripeTaxAdapter implements TaxRateAdapter {
     if (!this.isConfigured()) return null;
 
     try {
-      let stripe;
-      try {
-        const { getUncachableStripeClient } = await import("../stripeClient");
-        stripe = await getUncachableStripeClient();
-      } catch {
-        if (process.env.STRIPE_SECRET_KEY) {
-          const Stripe = (await import("stripe")).default;
-          stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-        } else {
-          this._configured = false;
-          return null;
-        }
-      }
+      const stripe = await this.getStripe();
+      if (!stripe) return null;
 
       const calculation = await stripe.tax.calculations.create({
         currency: "usd",
@@ -79,7 +94,7 @@ class StripeTaxAdapter implements TaxRateAdapter {
             amount: Math.round(income * 100),
             reference: `schedule_c_net_profit_${stateCode}`,
             tax_behavior: "exclusive" as const,
-            tax_code: "txcd_10000000",
+            tax_code: STRIPE_TAX_DEFAULT_CODE,
           },
         ],
         customer_details: {
@@ -103,6 +118,7 @@ class StripeTaxAdapter implements TaxRateAdapter {
         estimatedTax: Math.round(taxAmount * 100) / 100,
         metadata: {
           stripeCalculationId: calculation.id,
+          taxCode: STRIPE_TAX_DEFAULT_CODE,
           lineItems: calculation.line_items?.data?.length || 0,
           source: "stripe_tax_calculation_api",
           note: "Stripe Tax provides certified tax calculations including state/local taxes",
@@ -110,11 +126,12 @@ class StripeTaxAdapter implements TaxRateAdapter {
       };
     } catch (err: any) {
       if (err?.type === 'StripeInvalidRequestError' && err?.message?.includes('Tax has not been activated')) {
-        console.warn(`[tax-provider] Stripe Tax not activated on this account. Falling back to static rates.`);
+        console.warn(`[tax-provider] Stripe Tax pending activation — will retry in 15 minutes. Using static rates.`);
         this._configured = false;
+        this._pendingRetryAt = Date.now() + StripeTaxAdapter.PENDING_RETRY_INTERVAL_MS;
         return null;
       }
-      console.error(`[tax-provider] Stripe Tax API error for ${stateCode}:`, err);
+      console.error(`[tax-provider] Stripe Tax API error for ${stateCode}:`, err?.message || err);
       return null;
     }
   }

@@ -1138,12 +1138,25 @@ export async function registerRoutes(
         ? `https://${process.env.REPLIT_DEV_DOMAIN}`
         : process.env.APP_URL || `http://localhost:5000`;
 
+      try {
+        const price = await stripe.prices.retrieve(priceId);
+        if (price.product && typeof price.product === 'string') {
+          const product = await stripe.products.retrieve(price.product);
+          if (product.tax_code !== 'txcd_20030000') {
+            await stripe.products.update(price.product, { tax_code: 'txcd_20030000' });
+          }
+        }
+      } catch (taxCodeErr: any) {
+        console.warn("[stripe] Could not verify product tax code:", taxCodeErr?.message);
+      }
+
       const sessionConfig: any = {
         mode: "subscription",
         line_items: [{ price: priceId, quantity: 1 }],
         success_url: `${appUrl}/dashboard?upgrade=success`,
         cancel_url: `${appUrl}/upgrade?cancelled=true`,
         metadata: { userId },
+        automatic_tax: { enabled: true },
       };
 
       if (user.stripeCustomerId) {

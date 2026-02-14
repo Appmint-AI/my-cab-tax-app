@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { complianceAlerts } from "@shared/schema";
 import { desc, eq, and, gt } from "drizzle-orm";
+import type Stripe from "stripe";
 
 const IRS_KEYWORDS = [
   "Schedule C",
@@ -130,15 +131,128 @@ async function isDuplicateAlert(sourceUrl: string): Promise<boolean> {
   return existing.length > 0;
 }
 
+const STATE_NAMES: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi",
+  MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire",
+  NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina",
+  ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania",
+  RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee",
+  TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington",
+  WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming", DC: "District of Columbia",
+};
+
+let _knownNexusStates: Set<string> = new Set();
+
+async function checkStripeNexus(): Promise<number> {
+  let alertsCreated = 0;
+  try {
+    let stripe;
+    try {
+      const { getUncachableStripeClient } = await import("../stripeClient");
+      stripe = await getUncachableStripeClient();
+    } catch {
+      if (process.env.STRIPE_SECRET_KEY) {
+        const StripeSDK = (await import("stripe")).default;
+        stripe = new StripeSDK(process.env.STRIPE_SECRET_KEY);
+      } else {
+        return 0;
+      }
+    }
+
+    let settings: any;
+    try {
+      settings = await (stripe as any).tax.settings.retrieve();
+    } catch {
+      return 0;
+    }
+
+    if (settings.status !== "active") return 0;
+
+    const registrations: any[] = [];
+    let hasMore = true;
+    let startingAfter: string | undefined;
+
+    while (hasMore) {
+      const params: any = { limit: 100, status: "active" };
+      if (startingAfter) params.starting_after = startingAfter;
+      const page = await (stripe as any).tax.registrations.list(params);
+      registrations.push(...page.data);
+      hasMore = page.has_more;
+      if (page.data.length > 0) startingAfter = page.data[page.data.length - 1].id;
+    }
+
+    const activeStates = new Set<string>();
+    for (const reg of registrations) {
+      const state = reg.country_options?.us?.state;
+      if (state) activeStates.add(state);
+    }
+
+    const activeStatesArr = Array.from(activeStates);
+    for (const stateCode of activeStatesArr) {
+      if (_knownNexusStates.has(stateCode)) continue;
+
+      const stateName = STATE_NAMES[stateCode] || stateCode;
+      const sourceUrl = `https://dashboard.stripe.com/tax/registrations`;
+
+      const existing = await db
+        .select({ id: complianceAlerts.id })
+        .from(complianceAlerts)
+        .where(
+          and(
+            eq(complianceAlerts.alertType, "nexus_detected"),
+            eq(complianceAlerts.stateCode, stateCode),
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        _knownNexusStates.add(stateCode);
+        continue;
+      }
+
+      await db.insert(complianceAlerts).values({
+        alertType: "nexus_detected",
+        severity: "critical",
+        title: `Nexus Detected: ${stateName}`,
+        description: `Stripe Tax has identified a tax nexus obligation in ${stateName} (${stateCode}). This means you have enough economic activity (drivers, transactions, or revenue) in this state that you may be legally required to collect and remit sales tax there. Review your Stripe Tax registrations and consult a tax professional.`,
+        source: "stripe_tax_nexus",
+        sourceUrl,
+        stateCode,
+        metadata: {
+          detectedAt: new Date().toISOString(),
+          registrationCount: registrations.length,
+          activeStates: Array.from(activeStates),
+        },
+      });
+
+      _knownNexusStates.add(stateCode);
+      alertsCreated++;
+      console.log(`[sentinel] Nexus alert created: ${stateName} (${stateCode})`);
+    }
+
+    _knownNexusStates = activeStates;
+
+  } catch (err) {
+    console.error("[sentinel] Nexus check error:", err instanceof Error ? err.message : err);
+  }
+  return alertsCreated;
+}
+
 export async function runSentinelScan(): Promise<{
   feedsScanned: number;
   itemsProcessed: number;
   alertsCreated: number;
+  nexusAlertsCreated: number;
   errors: string[];
 }> {
   let feedsScanned = 0;
   let itemsProcessed = 0;
   let alertsCreated = 0;
+  let nexusAlertsCreated = 0;
   const errors: string[] = [];
 
   console.log("[sentinel] Starting compliance scan...");
@@ -192,8 +306,14 @@ export async function runSentinelScan(): Promise<{
     }
   }
 
-  console.log(`[sentinel] Scan complete: ${feedsScanned} feeds, ${itemsProcessed} items, ${alertsCreated} alerts`);
-  return { feedsScanned, itemsProcessed, alertsCreated, errors };
+  try {
+    nexusAlertsCreated = await checkStripeNexus();
+  } catch (err) {
+    errors.push(`Nexus check: ${err instanceof Error ? err.message : "Unknown error"}`);
+  }
+
+  console.log(`[sentinel] Scan complete: ${feedsScanned} feeds, ${itemsProcessed} items, ${alertsCreated} alerts, ${nexusAlertsCreated} nexus alerts`);
+  return { feedsScanned, itemsProcessed, alertsCreated, nexusAlertsCreated, errors };
 }
 
 let sentinelInterval: NodeJS.Timeout | null = null;
@@ -202,6 +322,7 @@ let lastScanResult: {
   feedsScanned: number;
   itemsProcessed: number;
   alertsCreated: number;
+  nexusAlertsCreated: number;
   errors: string[];
 } | null = null;
 
