@@ -53,6 +53,7 @@ export const users = pgTable("users", {
   utilityBillUrl: varchar("utility_bill_url"),
   lastLoginAt: timestamp("last_login_at"),
   inactivityEmailSent: varchar("inactivity_email_sent"),
+  hasExported2026: boolean("has_exported_2026").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

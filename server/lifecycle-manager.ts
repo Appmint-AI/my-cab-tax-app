@@ -12,7 +12,9 @@ type EmailType =
   | "day_7_nudge"
   | "day_30_milestone"
   | "payment_receipt"
-  | "abandoned_checkout";
+  | "abandoned_checkout"
+  | "tax_season_30day"
+  | "tax_season_15day";
 
 type Segment = "taxi" | "delivery" | "hybrid" | null;
 
@@ -269,6 +271,87 @@ async function sendLifecycleEmail(
   }
 }
 
+function buildTaxSeason30DayEmail(name: string, segment: Segment): { subject: string; html: string } {
+  const label = getSegmentLabel(segment);
+  const segmentTip = segment === "taxi"
+    ? "Your medallion fees, car washes, and tolls are ready to deduct."
+    : segment === "delivery"
+    ? "Your thermal bags, phone mounts, and delivery supplies are all deductible."
+    : "Your multi-app expenses across rideshare AND delivery are categorized and ready.";
+
+  return {
+    subject: `${name}, April 15th is 30 days away — is your 2026 Tax Pack ready?`,
+    html: `
+      <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a;">
+        <div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:32px 24px;border-radius:8px 8px 0 0;">
+          <h1 style="color:#fff;margin:0;font-size:22px;">30 Days to Tax Day</h1>
+          <p style="color:#94a3b8;margin:8px 0 0;font-size:14px;">${label} Driver</p>
+        </div>
+        <div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+          <p style="font-size:15px;line-height:1.6;">Hi ${name},</p>
+          <p style="font-size:15px;line-height:1.6;">April 15th is exactly one month away. If you haven't exported your 2026 records yet, now is the time to review and finalize your books.</p>
+          <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:16px;margin:20px 0;">
+            <p style="font-size:14px;font-weight:600;margin:0 0 8px;color:#92400e;">Your MCTUSA Checklist:</p>
+            <ul style="font-size:14px;line-height:1.8;margin:0;padding-left:20px;color:#78350f;">
+              <li>Review your mileage log (2026 rate: 72.5 cents/mile)</li>
+              <li>Verify all expenses are categorized for Schedule C</li>
+              <li>Check the Compliance Sentinel for any 2026 updates</li>
+              <li>Hit "Export" to generate your IRS-ready Tax Pack</li>
+            </ul>
+          </div>
+          <p style="font-size:14px;line-height:1.6;color:#666;">${segmentTip}</p>
+          <div style="text-align:center;margin:24px 0;">
+            <a href="https://mycabtaxusa.com" style="display:inline-block;background:#2563eb;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px;">Log in to Web Dashboard</a>
+          </div>
+          <p style="font-size:13px;color:#999;line-height:1.5;">Don't leave money on the table. Our segment-aware engine has already categorized your expenses for the Schedule C. Just export, upload to your tax software, and breathe easy.</p>
+          ${USA_FOOTER}
+        </div>
+      </div>
+    `,
+  };
+}
+
+function buildTaxSeason15DayEmail(name: string, segment: Segment): { subject: string; html: string } {
+  const label = getSegmentLabel(segment);
+
+  return {
+    subject: `15 Days Left: Your 2026 Tax Pack is waiting, ${name}.`,
+    html: `
+      <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a;">
+        <div style="background:linear-gradient(135deg,#7f1d1d,#991b1b);padding:32px 24px;border-radius:8px 8px 0 0;">
+          <h1 style="color:#fff;margin:0;font-size:22px;">15 Days to Tax Day</h1>
+          <p style="color:#fca5a5;margin:8px 0 0;font-size:14px;">${label} Driver</p>
+        </div>
+        <div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+          <p style="font-size:15px;line-height:1.6;">Hi ${name},</p>
+          <p style="font-size:15px;line-height:1.6;">Tax Day (April 15th) is officially two weeks away. If you haven't exported your records yet, now is the time to sit down at your PC or Mac and finalize your books.</p>
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:16px;margin:20px 0;">
+            <p style="font-size:14px;font-weight:600;margin:0 0 8px;color:#991b1b;">Your MCTUSA Checklist:</p>
+            <ul style="font-size:14px;line-height:1.8;margin:0;padding-left:20px;color:#7f1d1d;">
+              <li><strong>Login on Desktop:</strong> It's easier to review your 2026 mileage and expenses on a big screen.</li>
+              <li><strong>Review the Compliance Sentinel:</strong> Ensure you've captured all the latest 2026 deductions (like the updated 72.5 cents/mile mileage rate).</li>
+              <li><strong>Hit "Export":</strong> Get your IRS-ready PDF and CSV in seconds.</li>
+            </ul>
+          </div>
+          <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:16px;margin:20px 0;">
+            <p style="font-size:14px;font-weight:600;margin:0 0 4px;color:#166534;">2026 Tax Context</p>
+            <ul style="font-size:13px;line-height:1.7;margin:0;padding-left:20px;color:#15803d;">
+              <li><strong>IRS Direct File discontinued</strong> for 2026 — your Export feature is more valuable than ever.</li>
+              <li><strong>New Schedule 1-A</strong> for "No Tax on Tips" — your Qualifying Tips are tracked separately.</li>
+              <li><strong>SALT cap raised to $40,000</strong> — check your Property Tax deductions.</li>
+            </ul>
+          </div>
+          <p style="font-size:15px;line-height:1.6;">Don't leave money on the table. Our segment-aware engine has already categorized your expenses for the Schedule C. Just export, upload to your tax software, and breathe easy.</p>
+          <div style="text-align:center;margin:24px 0;">
+            <a href="https://mycabtaxusa.com" style="display:inline-block;background:#dc2626;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px;">Log in to Web Dashboard</a>
+          </div>
+          ${USA_FOOTER}
+        </div>
+      </div>
+    `,
+  };
+}
+
 export async function triggerWelcomeEmail(userId: string): Promise<void> {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user?.email) return;
@@ -304,6 +387,13 @@ export async function triggerAbandonedCheckoutEmail(userId: string): Promise<voi
   await sendLifecycleEmail(user.email, emailData, userId, "abandoned_checkout", segment);
 }
 
+function isWithinWindow(month: number, day: number, windowDays: number = 14): boolean {
+  const now = new Date();
+  const target = new Date(now.getFullYear(), month - 1, day);
+  const diffMs = now.getTime() - target.getTime();
+  return diffMs >= 0 && diffMs <= windowDays * DAY_MS;
+}
+
 export async function runLifecycleCycle(): Promise<void> {
   log("Starting lifecycle email cycle...", "lifecycle");
 
@@ -323,6 +413,11 @@ export async function runLifecycleCycle(): Promise<void> {
     let welcomeCount = 0;
     let day7Count = 0;
     let day30Count = 0;
+    let taxSeason30Count = 0;
+    let taxSeason15Count = 0;
+
+    const is30DayWindow = isWithinWindow(3, 15);
+    const is15DayWindow = isWithinWindow(4, 1);
 
     for (const user of allUsers) {
       if (!user.email || !user.createdAt) continue;
@@ -353,9 +448,23 @@ export async function runLifecycleCycle(): Promise<void> {
           day30Count++;
         }
       }
+
+      if (is30DayWindow && !user.hasExported2026 && !(await hasAlreadySent(user.id, "tax_season_30day"))) {
+        const emailData = buildTaxSeason30DayEmail(name, segment);
+        if (await sendLifecycleEmail(user.email, emailData, user.id, "tax_season_30day", segment)) {
+          taxSeason30Count++;
+        }
+      }
+
+      if (is15DayWindow && !user.hasExported2026 && !(await hasAlreadySent(user.id, "tax_season_15day"))) {
+        const emailData = buildTaxSeason15DayEmail(name, segment);
+        if (await sendLifecycleEmail(user.email, emailData, user.id, "tax_season_15day", segment)) {
+          taxSeason15Count++;
+        }
+      }
     }
 
-    log(`Lifecycle cycle complete: ${welcomeCount} welcome, ${day7Count} day-7 nudges, ${day30Count} day-30 milestones`, "lifecycle");
+    log(`Lifecycle cycle complete: ${welcomeCount} welcome, ${day7Count} day-7 nudges, ${day30Count} day-30 milestones, ${taxSeason30Count} tax-30day, ${taxSeason15Count} tax-15day`, "lifecycle");
   } catch (error) {
     log(`Lifecycle cycle error: ${error}`, "lifecycle");
   }

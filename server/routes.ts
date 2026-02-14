@@ -2,6 +2,8 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
+import { eq } from "drizzle-orm";
+import { users } from "@shared/models/auth";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
@@ -1924,6 +1926,9 @@ export async function registerRoutes(
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", `attachment; filename=MCTUSA_Expenses_${taxYear}.csv`);
       res.send(csv);
+      if (taxYear === 2026) {
+        db.update(users).set({ hasExported2026: true, updatedAt: new Date() }).where(eq(users.id, userId)).catch(() => {});
+      }
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -1938,6 +1943,9 @@ export async function registerRoutes(
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", `attachment; filename=MCTUSA_Mileage_${taxYear}.csv`);
       res.send(csv);
+      if (taxYear === 2026) {
+        db.update(users).set({ hasExported2026: true, updatedAt: new Date() }).where(eq(users.id, userId)).catch(() => {});
+      }
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -1952,6 +1960,9 @@ export async function registerRoutes(
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", `attachment; filename=MCTUSA_Income_${taxYear}.csv`);
       res.send(csv);
+      if (taxYear === 2026) {
+        db.update(users).set({ hasExported2026: true, updatedAt: new Date() }).where(eq(users.id, userId)).catch(() => {});
+      }
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
