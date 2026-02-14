@@ -4,8 +4,17 @@ import { useMileageLogs, useCreateMileageLog, useDeleteMileageLog } from "@/hook
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +34,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Form,
   FormControl,
   FormField,
@@ -43,7 +58,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertMileageLogSchema, IRS_MILEAGE_RATE, type MileageLog } from "@shared/schema";
 import { z } from "zod";
-import { Plus, Loader2, Trash2, Car, MapPin, Calendar, TrendingUp, Info } from "lucide-react";
+import { Plus, Loader2, Trash2, Car, MapPin, Calendar, TrendingUp, Search, MoreVertical, ArrowUpDown, LayoutList, LayoutGrid } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useTaxSummary } from "@/hooks/use-tax";
 import { useVehicles } from "@/hooks/use-vehicles";
@@ -64,13 +79,68 @@ const businessPurposes = [
   "Other Business Purpose",
 ];
 
+type SortField = "date" | "totalMiles" | "businessPurpose" | "tripState";
+type SortDir = "asc" | "desc";
+
 export default function MileagePage() {
   const { data: logs, isLoading } = useMileageLogs();
   const { data: summary } = useTaxSummary();
   const [formOpen, setFormOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const [search, setSearch] = useState("");
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const totalLoggedMiles = logs?.reduce((sum, log) => sum + Number(log.totalMiles), 0) || 0;
   const mileageDeduction = totalLoggedMiles * IRS_MILEAGE_RATE;
+
+  const filteredLogs = logs
+    ?.filter(log =>
+      log.businessPurpose.toLowerCase().includes(search.toLowerCase()) ||
+      (log.tripState && log.tripState.toLowerCase().includes(search.toLowerCase())) ||
+      log.date.includes(search)
+    )
+    .sort((a, b) => {
+      let cmp = 0;
+      if (sortField === "date") {
+        cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+      } else if (sortField === "totalMiles") {
+        cmp = Number(a.totalMiles) - Number(b.totalMiles);
+      } else if (sortField === "businessPurpose") {
+        cmp = a.businessPurpose.localeCompare(b.businessPurpose);
+      } else if (sortField === "tripState") {
+        cmp = (a.tripState || "").localeCompare(b.tripState || "");
+      }
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("desc");
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (!filteredLogs) return;
+    if (selectedIds.size === filteredLogs.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredLogs.map(l => l.id)));
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   return (
     <Layout>
@@ -149,33 +219,120 @@ export default function MileagePage() {
       </Card>
 
       <Card className="border-border/60 shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Car className="h-5 w-5" />
-            Mileage Log
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 rounded-lg" />)}
+        <div className="p-4 border-b border-border/40 bg-muted/20 flex flex-col sm:flex-row gap-4 justify-between items-center">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search mileage logs..."
+                className="pl-9 bg-background"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                data-testid="input-mileage-search"
+              />
             </div>
-          ) : !logs || logs.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Car className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="font-medium">No mileage entries yet</p>
-              <p className="text-sm mt-1">Start logging your business miles to maximize your deduction.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">{filteredLogs?.length || 0} records</span>
+            <div className="hidden md:flex items-center border border-border rounded-md">
+              <Button
+                variant={viewMode === "table" ? "secondary" : "ghost"}
+                size="sm"
+                className="rounded-r-none"
+                onClick={() => setViewMode("table")}
+                data-testid="button-view-table"
+              >
+                <LayoutList className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "card" ? "secondary" : "ghost"}
+                size="sm"
+                className="rounded-l-none"
+                onClick={() => setViewMode("card")}
+                data-testid="button-view-card"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {logs
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .map((log) => (
-                  <MileageLogRow key={log.id} log={log} />
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="p-4 space-y-3">
+            {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+          </div>
+        ) : !filteredLogs || filteredLogs.length === 0 ? (
+          <div className="p-12 text-center text-muted-foreground flex flex-col items-center">
+            <div className="bg-muted p-4 rounded-full mb-4">
+              <Car className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+            <p className="text-lg font-medium text-foreground">No mileage entries found</p>
+            <p className="mb-4">Start logging your business miles to maximize your deduction.</p>
+            <MileageLogForm open={formOpen} onOpenChange={setFormOpen} />
+          </div>
+        ) : viewMode === "table" ? (
+          <div className="overflow-x-auto">
+            <Table data-testid="table-mileage-logs">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-[40px] hidden md:table-cell">
+                    <Checkbox
+                      checked={selectedIds.size === filteredLogs.length && filteredLogs.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                      data-testid="checkbox-select-all-mileage"
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" size="sm" className="gap-1 -ml-3" onClick={() => toggleSort("date")} data-testid="button-sort-date">
+                      Date
+                      <ArrowUpDown className="h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" size="sm" className="gap-1 -ml-3" onClick={() => toggleSort("businessPurpose")} data-testid="button-sort-purpose">
+                      Business Purpose
+                      <ArrowUpDown className="h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="hidden lg:table-cell">
+                    <Button variant="ghost" size="sm" className="gap-1 -ml-3" onClick={() => toggleSort("tripState")} data-testid="button-sort-state">
+                      State
+                      <ArrowUpDown className="h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="hidden xl:table-cell">Odometer</TableHead>
+                  <TableHead className="text-right">
+                    <Button variant="ghost" size="sm" className="gap-1 -mr-3 ml-auto" onClick={() => toggleSort("totalMiles")} data-testid="button-sort-miles">
+                      Miles
+                      <ArrowUpDown className="h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-right hidden md:table-cell">Deduction</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredLogs.map((log) => (
+                  <MileageTableRow
+                    key={log.id}
+                    log={log}
+                    selected={selectedIds.has(log.id)}
+                    onToggleSelect={() => toggleSelect(log.id)}
+                  />
                 ))}
-            </div>
-          )}
-        </CardContent>
+              </TableBody>
+            </Table>
+            {selectedIds.size > 0 && (
+              <BulkActions selectedIds={selectedIds} onClear={() => setSelectedIds(new Set())} />
+            )}
+          </div>
+        ) : (
+          <CardContent className="space-y-2 pt-4">
+            {filteredLogs.map((log) => (
+              <MileageLogRow key={log.id} log={log} />
+            ))}
+          </CardContent>
+        )}
       </Card>
 
       <Card className="border-border/60 shadow-sm mt-4">
@@ -189,15 +346,122 @@ export default function MileagePage() {
   );
 }
 
+function MileageTableRow({ log, selected, onToggleSelect }: { log: MileageLog; selected: boolean; onToggleSelect: () => void }) {
+  const deleteMutation = useDeleteMileageLog();
+  const deduction = Number(log.totalMiles) * IRS_MILEAGE_RATE;
+
+  return (
+    <TableRow className="group hover:bg-muted/30" data-testid={`row-mileage-${log.id}`}>
+      <TableCell className="hidden md:table-cell">
+        <Checkbox
+          checked={selected}
+          onCheckedChange={onToggleSelect}
+          data-testid={`checkbox-mileage-${log.id}`}
+        />
+      </TableCell>
+      <TableCell className="font-medium whitespace-nowrap">
+        {format(parseISO(log.date), "MMM d, yyyy")}
+      </TableCell>
+      <TableCell>
+        <Badge variant="secondary" className="no-default-active-elevate text-xs">
+          {log.businessPurpose}
+        </Badge>
+      </TableCell>
+      <TableCell className="hidden lg:table-cell">
+        {log.tripState || <span className="text-muted-foreground">-</span>}
+      </TableCell>
+      <TableCell className="hidden xl:table-cell text-muted-foreground text-sm font-mono">
+        {log.startOdometer && log.endOdometer
+          ? `${Number(log.startOdometer).toLocaleString()} - ${Number(log.endOdometer).toLocaleString()}`
+          : "-"}
+      </TableCell>
+      <TableCell className="text-right font-bold font-mono">
+        {Number(log.totalMiles).toLocaleString(undefined, { maximumFractionDigits: 1 })}
+      </TableCell>
+      <TableCell className="text-right font-mono text-muted-foreground hidden md:table-cell">
+        ${deduction.toFixed(2)}
+      </TableCell>
+      <TableCell>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="invisible group-hover:visible" data-testid={`button-actions-mileage-${log.id}`}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => {
+                if (confirm("Are you sure you want to delete this mileage entry?")) {
+                  deleteMutation.mutate(log.id);
+                }
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function BulkActions({ selectedIds, onClear }: { selectedIds: Set<number>; onClear: () => void }) {
+  const deleteMutation = useDeleteMileageLog();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const handleBulkDelete = async () => {
+    Array.from(selectedIds).forEach(id => {
+      deleteMutation.mutate(id);
+    });
+    onClear();
+    setConfirmOpen(false);
+  };
+
+  return (
+    <div className="p-3 border-t border-border/40 bg-muted/30 flex items-center justify-between gap-4 flex-wrap" data-testid="bulk-actions-mileage">
+      <span className="text-sm text-muted-foreground">{selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""} selected</span>
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={onClear} data-testid="button-clear-selection">
+          Clear
+        </Button>
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" size="sm" data-testid="button-bulk-delete-mileage">
+              <Trash2 className="h-3 w-3 mr-1" />
+              Delete Selected
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {selectedIds.size} Mileage Entries</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove {selectedIds.size} mileage record{selectedIds.size !== 1 ? "s" : ""}. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBulkDelete}>
+                Delete {selectedIds.size} Entries
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </div>
+  );
+}
+
 function MileageLogRow({ log }: { log: MileageLog }) {
   const deleteMutation = useDeleteMileageLog();
 
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-background" data-testid={`row-mileage-${log.id}`}>
+    <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-background" data-testid={`card-mileage-${log.id}`}>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium">{format(parseISO(log.date), "MMM d, yyyy")}</span>
           <Badge variant="secondary" className="text-xs no-default-active-elevate">{log.businessPurpose}</Badge>
+          {log.tripState && <Badge variant="outline" className="text-xs no-default-active-elevate">{log.tripState}</Badge>}
         </div>
         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
           <span>{Number(log.totalMiles).toLocaleString(undefined, { maximumFractionDigits: 1 })} miles</span>
