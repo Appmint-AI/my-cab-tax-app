@@ -39,6 +39,8 @@ import JSZip from "jszip";
 import { jsPDF } from "jspdf";
 import { IRS_MILEAGE_RATE } from "@shared/schema";
 import type { TaxSummary, MileageLog } from "@shared/schema";
+import { SubmissionSuccess } from "@/components/SubmissionSuccess";
+import { useLocation } from "wouter";
 import type { User } from "@shared/models/auth";
 import { getSegmentConfig } from "@/lib/segment-config";
 
@@ -1029,6 +1031,7 @@ function FreeRetentionAlert({ user }: { user: User | null | undefined }) {
 }
 
 function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
+  const [, navigate] = useLocation();
   const [modalOpen, setModalOpen] = useState(false);
   const [ack1099k, setAck1099k] = useState(false);
   const [ackFigures, setAckFigures] = useState(false);
@@ -1378,39 +1381,25 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
                   )}
 
                   {finalizeResult && (
-                    <div className="p-4 rounded-md bg-green-500/10 border border-green-500/30 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-                        <p className="text-sm font-medium text-green-700 dark:text-green-400" data-testid="text-finalize-success">
-                          Tax year {finalizeResult.taxYear} has been finalized and locked.
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">
-                          Filing ID: <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded" data-testid="text-filing-id">{finalizeResult.filingId}</code>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Submission Hash: <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded" data-testid="text-submission-hash">{finalizeResult.submissionHash}</code>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Preparer Type: <span className="font-medium">Self-Prepared</span> | App Role: <span className="font-medium">ERO</span>
-                        </p>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Your records are permanently stored in your 7-year IRS vault. The Filing ID is watermarked on every page of your audit PDF. They cannot be edited or deleted.
-                      </p>
-                    </div>
+                    <SubmissionSuccess
+                      taxYear={finalizeResult.taxYear}
+                      filingId={finalizeResult.filingId}
+                      submissionHash={finalizeResult.submissionHash}
+                      variant="finalize"
+                      onClose={() => { setModalOpen(false); resetModal(); }}
+                      onGoToExport={() => { setModalOpen(false); resetModal(); navigate("/export"); }}
+                    />
                   )}
 
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => { setModalOpen(false); resetModal(); }}
-                      data-testid="button-finalize-cancel"
-                    >
-                      {finalizeResult ? "Close" : "Cancel"}
-                    </Button>
-                    {!finalizeResult && (
+                  {!finalizeResult && (
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => { setModalOpen(false); resetModal(); }}
+                        data-testid="button-finalize-cancel"
+                      >
+                        Cancel
+                      </Button>
                       <Button
                         onClick={handleFinalize}
                         disabled={!canSubmit}
@@ -1419,8 +1408,8 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
                         {finalizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                         {finalizing ? "Signing & Submitting..." : "Submit and Pay"}
                       </Button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

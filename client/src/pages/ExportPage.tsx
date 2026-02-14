@@ -24,8 +24,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import {
   FileText,
@@ -39,9 +37,9 @@ import {
   DollarSign,
   MapPin,
   Receipt,
-  ExternalLink,
   Shield,
 } from "lucide-react";
+import { SubmissionSuccess } from "@/components/SubmissionSuccess";
 
 interface CategoryBreakdown {
   category: string;
@@ -93,42 +91,12 @@ function AuditRiskBadge({ risk }: { risk: string }) {
 function SuccessModal({ open, onClose, taxYear }: { open: boolean; onClose: () => void; taxYear: number }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[500px]" data-testid="dialog-export-success">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CheckCircle2 className="h-6 w-6 text-green-600" />
-            Your Tax Pack is Ready!
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 pt-2">
-          <p className="text-muted-foreground leading-relaxed">
-            We've bundled your {taxYear} Mileage Report, Expense Summary, and Receipt Vault into a single download. You can now upload these files to your preferred filing software or send them to your accountant.
-          </p>
-          <Card>
-            <CardContent className="py-4 px-4 space-y-3">
-              <p className="text-sm font-medium">Next Steps:</p>
-              <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                <li>Open the CSV files in Excel or Google Sheets to verify totals</li>
-                <li>Upload the PDF summary to TurboTax, FreeTaxUSA, or your accountant's portal</li>
-                <li>Keep the Receipt Vault ZIP as your IRS backup documentation</li>
-              </ol>
-            </CardContent>
-          </Card>
-          <div className="flex gap-3 flex-wrap">
-            <Button
-              variant="outline"
-              className="flex-1 gap-2"
-              onClick={() => window.open("https://www.irs.gov/forms-pubs/about-schedule-c-form-1040", "_blank")}
-              data-testid="button-irs-schedule-c-link"
-            >
-              <ExternalLink className="h-4 w-4" />
-              IRS Schedule C Guide
-            </Button>
-            <Button className="flex-1" onClick={onClose} data-testid="button-close-success">
-              Done
-            </Button>
-          </div>
-        </div>
+      <DialogContent className="sm:max-w-[540px] max-h-[90vh] overflow-y-auto" data-testid="dialog-export-success">
+        <SubmissionSuccess
+          taxYear={taxYear}
+          variant="export"
+          onClose={onClose}
+        />
       </DialogContent>
     </Dialog>
   );
