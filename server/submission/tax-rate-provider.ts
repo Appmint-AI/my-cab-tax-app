@@ -38,9 +38,15 @@ interface TaxRateAdapter {
 
 class StripeTaxAdapter implements TaxRateAdapter {
   name = "stripe_tax";
+  private _configured: boolean | null = null;
 
   isConfigured(): boolean {
-    return !!process.env.STRIPE_SECRET_KEY && !!process.env.STRIPE_TAX_ENABLED;
+    if (this._configured !== null) return this._configured;
+    const hasConnector = !!(process.env.REPLIT_CONNECTORS_HOSTNAME &&
+      (process.env.REPL_IDENTITY || process.env.WEB_REPL_RENEWAL));
+    const hasEnvKey = !!process.env.STRIPE_SECRET_KEY;
+    this._configured = hasConnector || hasEnvKey;
+    return this._configured;
   }
 
   async fetchRate(stateCode: string, income: number, _zipCode?: string): Promise<{
@@ -52,8 +58,19 @@ class StripeTaxAdapter implements TaxRateAdapter {
     if (!this.isConfigured()) return null;
 
     try {
-      const Stripe = (await import("stripe")).default;
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+      let stripe;
+      try {
+        const { getUncachableStripeClient } = await import("../stripeClient");
+        stripe = await getUncachableStripeClient();
+      } catch {
+        if (process.env.STRIPE_SECRET_KEY) {
+          const Stripe = (await import("stripe")).default;
+          stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+        } else {
+          this._configured = false;
+          return null;
+        }
+      }
 
       const calculation = await stripe.tax.calculations.create({
         currency: "usd",
@@ -91,7 +108,12 @@ class StripeTaxAdapter implements TaxRateAdapter {
           note: "Stripe Tax provides certified tax calculations including state/local taxes",
         },
       };
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.type === 'StripeInvalidRequestError' && err?.message?.includes('Tax has not been activated')) {
+        console.warn(`[tax-provider] Stripe Tax not activated on this account. Falling back to static rates.`);
+        this._configured = false;
+        return null;
+      }
       console.error(`[tax-provider] Stripe Tax API error for ${stateCode}:`, err);
       return null;
     }

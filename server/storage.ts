@@ -129,10 +129,15 @@ export interface IStorage {
     ackFiguresReviewed: boolean;
     ackBookkeepingTool: boolean;
     perjuryAccepted: boolean;
+    ackStateVerified?: boolean;
+    affidavitAccepted?: boolean;
+    filingStateCode?: string | null;
+    filingStateBucket?: string | null;
     ipAddress?: string | null;
     userAgent?: string | null;
   }): Promise<SubmissionReceipt>;
   getSubmissionReceipts(userId: string): Promise<SubmissionReceipt[]>;
+  updateUser(userId: string, data: Partial<Record<string, unknown>>): Promise<User | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -613,6 +618,10 @@ export class DatabaseStorage implements IStorage {
     ackFiguresReviewed: boolean;
     ackBookkeepingTool: boolean;
     perjuryAccepted: boolean;
+    ackStateVerified?: boolean;
+    affidavitAccepted?: boolean;
+    filingStateCode?: string | null;
+    filingStateBucket?: string | null;
     ipAddress?: string | null;
     userAgent?: string | null;
   }): Promise<SubmissionReceipt> {
@@ -636,6 +645,10 @@ export class DatabaseStorage implements IStorage {
       ackFiguresReviewed: data.ackFiguresReviewed,
       ackBookkeepingTool: data.ackBookkeepingTool,
       perjuryAccepted: data.perjuryAccepted,
+      ackStateVerified: data.ackStateVerified ?? false,
+      affidavitAccepted: data.affidavitAccepted ?? false,
+      filingStateCode: data.filingStateCode || null,
+      filingStateBucket: data.filingStateBucket || null,
       ipAddress: data.ipAddress || null,
       userAgent: data.userAgent || null,
     }).returning();
@@ -644,6 +657,11 @@ export class DatabaseStorage implements IStorage {
 
   async getSubmissionReceipts(userId: string): Promise<SubmissionReceipt[]> {
     return await db.select().from(submissionReceipts).where(eq(submissionReceipts.userId, userId));
+  }
+
+  async updateUser(userId: string, data: Partial<Record<string, unknown>>): Promise<User | undefined> {
+    const [user] = await db.update(users).set(data as any).where(eq(users.id, userId)).returning();
+    return user;
   }
 }
 

@@ -799,6 +799,7 @@ export async function registerRoutes(
         description: parsed.description || `Auto-Grossed from $${parsed.netPayout.toFixed(2)} net payout`,
         miles: 0,
         platformFees: calculatedFee,
+        isTips: false,
       });
 
       res.status(201).json({
@@ -1100,16 +1101,21 @@ export async function registerRoutes(
     });
   });
 
-  // Stripe integration
-  const getStripeClient = () => {
-    const key = process.env.STRIPE_SECRET_KEY;
-    if (!key) return null;
-    return new Stripe(key, { apiVersion: "2025-04-30.basil" as any });
+  // Stripe integration via Replit connector
+  const getStripeClient = async (): Promise<Stripe | null> => {
+    try {
+      const { getUncachableStripeClient } = await import("./stripeClient");
+      return await getUncachableStripeClient();
+    } catch {
+      const key = process.env.STRIPE_SECRET_KEY;
+      if (!key) return null;
+      return new Stripe(key, { apiVersion: "2025-04-30.basil" as any });
+    }
   };
 
   // Create Stripe Checkout Session
   app.post("/api/stripe/create-checkout-session", isAuthenticated, async (req, res) => {
-    const stripe = getStripeClient();
+    const stripe = await getStripeClient();
     if (!stripe) {
       return res.status(503).json({ message: "Payment processing is not configured yet." });
     }
@@ -1157,7 +1163,7 @@ export async function registerRoutes(
 
   // Stripe Webhook
   app.post("/api/stripe/webhook", async (req, res) => {
-    const stripe = getStripeClient();
+    const stripe = await getStripeClient();
     if (!stripe) return res.status(503).send("Stripe not configured");
 
     const sig = req.headers["stripe-signature"] as string;
@@ -1372,7 +1378,7 @@ export async function registerRoutes(
     try {
       const { stateCode } = req.params;
       const income = Number(req.query.income) || 50000;
-      const zipCode = req.query.zipCode as string | undefined;
+      const zipCode = typeof req.query.zipCode === 'string' ? req.query.zipCode : undefined;
       const forceRefresh = req.query.refresh === "true";
 
       const { getLiveRate } = await import("./submission/tax-rate-provider");
