@@ -1795,6 +1795,106 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/email-domain/add", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
+    const user = await storage.getUser(userId);
+    if (!user || !user.email || !adminEmails.includes(user.email)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const { domain } = req.body;
+    if (!domain || typeof domain !== "string") {
+      return res.status(400).json({ message: "Domain is required" });
+    }
+
+    try {
+      const { getResendClient } = await import("./resend");
+      const { client } = await getResendClient();
+      const result = await client.domains.create({ name: domain.trim().toLowerCase() });
+      res.json(result);
+    } catch (error: any) {
+      const msg = error.message || "Unknown error";
+      const status = msg.includes("already") ? 409 : 500;
+      res.status(status).json({ message: msg });
+    }
+  });
+
+  app.get("/api/admin/email-domain/status", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
+    const user = await storage.getUser(userId);
+    if (!user || !user.email || !adminEmails.includes(user.email)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    try {
+      const { getResendClient } = await import("./resend");
+      const { client } = await getResendClient();
+      const domainsResult = await client.domains.list();
+      res.json(domainsResult);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/email-domain/verify", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
+    const user = await storage.getUser(userId);
+    if (!user || !user.email || !adminEmails.includes(user.email)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const { domainId } = req.body;
+    if (!domainId || typeof domainId !== "string") {
+      return res.status(400).json({ message: "Domain ID is required" });
+    }
+
+    try {
+      const { getResendClient } = await import("./resend");
+      const { client } = await getResendClient();
+      const result = await client.domains.verify(domainId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/email-domain/dns-records", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
+    const user = await storage.getUser(userId);
+    if (!user || !user.email || !adminEmails.includes(user.email)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    try {
+      const { getResendClient } = await import("./resend");
+      const { client } = await getResendClient();
+      const domainsResult = await client.domains.list();
+      const domains = (domainsResult as any)?.data || [];
+
+      const domainDetails = [];
+      for (const d of domains) {
+        try {
+          const detail = await client.domains.get(d.id);
+          domainDetails.push(detail);
+        } catch {
+          domainDetails.push(d);
+        }
+      }
+
+      res.json({ domains: domainDetails });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }
 

@@ -30,10 +30,18 @@ async function getCredentials() {
   return { apiKey: connectionSettings.settings.api_key, fromEmail: connectionSettings.settings.from_email };
 }
 
+const CUSTOM_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || null;
+const CUSTOM_FROM_NAME = "My Cab Tax USA";
+
 export async function getResendClient() {
   const { apiKey, fromEmail } = await getCredentials();
+
+  const resolvedFrom = CUSTOM_FROM_EMAIL
+    ? `${CUSTOM_FROM_NAME} <${CUSTOM_FROM_EMAIL}>`
+    : fromEmail;
+
   return {
     client: new Resend(apiKey),
-    fromEmail,
+    fromEmail: resolvedFrom,
   };
 }
