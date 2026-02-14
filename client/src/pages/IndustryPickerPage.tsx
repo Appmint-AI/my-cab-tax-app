@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CarFront, Package, Loader2, ArrowRight } from "lucide-react";
+import { CarFront, Package, Loader2, ArrowRight, Layers } from "lucide-react";
 import { useLocation } from "wouter";
 import type { UserSegment } from "@/lib/segment-config";
 
@@ -38,6 +38,13 @@ export default function IndustryPickerPage() {
       icon: Package,
       features: ["Order delivery tracking", "Tip breakdown analysis", "Equipment deductions"],
     },
+    {
+      id: "hybrid" as UserSegment,
+      title: "Show Both (Hybrid)",
+      description: "I multi-app — rides until 5 PM, then deliveries for the dinner rush.",
+      icon: Layers,
+      features: ["Combined ride & delivery tracking", "Merged expense suggestions", "All platforms in one view"],
+    },
   ];
 
   return (
@@ -55,7 +62,7 @@ export default function IndustryPickerPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {options.map((option) => {
             const isSelected = selected === option.id;
             return (

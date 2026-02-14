@@ -30,7 +30,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Trash2, User, FileText, AlertTriangle, XCircle, MessageSquare, MapPin, Building, Download, Loader2, CheckCircle, CarFront, Package, ArrowLeftRight } from "lucide-react";
+import { Shield, Trash2, User, FileText, AlertTriangle, XCircle, MessageSquare, MapPin, Building, Download, Loader2, CheckCircle, CarFront, Package, ArrowLeftRight, Layers } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "wouter";
 
@@ -365,7 +365,12 @@ function IndustrySegmentSettings() {
   });
 
   const currentSegment = user?.userSegment || "taxi";
-  const isTaxi = currentSegment === "taxi";
+
+  const segmentOptions = [
+    { id: "taxi", label: "Taxi / Rideshare", sub: "Uber, Lyft, Taxi", Icon: CarFront },
+    { id: "delivery", label: "Delivery Courier", sub: "DoorDash, Instacart", Icon: Package },
+    { id: "hybrid", label: "Show Both (Hybrid)", sub: "Multi-app drivers", Icon: Layers },
+  ];
 
   return (
     <Card>
@@ -377,35 +382,28 @@ function IndustrySegmentSettings() {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Switch between rideshare and delivery to see relevant expense categories, income sources, and tax tips.
+          Switch between rideshare, delivery, or hybrid to see relevant expense categories, income sources, and tax tips.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Button
-            variant={isTaxi ? "default" : "outline"}
-            className="justify-start gap-3 h-auto py-3"
-            onClick={() => segmentMutation.mutate("taxi")}
-            disabled={segmentMutation.isPending}
-            data-testid="button-segment-taxi"
-          >
-            <CarFront className="h-5 w-5 shrink-0" />
-            <div className="text-left">
-              <p className="font-medium text-sm">Taxi / Rideshare</p>
-              <p className={`text-xs ${isTaxi ? "text-primary-foreground/70" : "text-muted-foreground"}`}>Uber, Lyft, Taxi</p>
-            </div>
-          </Button>
-          <Button
-            variant={!isTaxi ? "default" : "outline"}
-            className="justify-start gap-3 h-auto py-3"
-            onClick={() => segmentMutation.mutate("delivery")}
-            disabled={segmentMutation.isPending}
-            data-testid="button-segment-delivery"
-          >
-            <Package className="h-5 w-5 shrink-0" />
-            <div className="text-left">
-              <p className="font-medium text-sm">Delivery Courier</p>
-              <p className={`text-xs ${!isTaxi ? "text-primary-foreground/70" : "text-muted-foreground"}`}>DoorDash, Instacart</p>
-            </div>
-          </Button>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {segmentOptions.map(({ id, label, sub, Icon }) => {
+            const isActive = currentSegment === id;
+            return (
+              <Button
+                key={id}
+                variant={isActive ? "default" : "outline"}
+                className="justify-start gap-3"
+                onClick={() => segmentMutation.mutate(id)}
+                disabled={segmentMutation.isPending}
+                data-testid={`button-segment-${id}`}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                <div className="text-left">
+                  <p className="font-medium text-sm">{label}</p>
+                  <p className={`text-xs ${isActive ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{sub}</p>
+                </div>
+              </Button>
+            );
+          })}
         </div>
         {segmentMutation.isPending && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">

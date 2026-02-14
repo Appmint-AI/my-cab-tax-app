@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getSegmentConfig } from "@/lib/segment-config";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
@@ -19,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ShieldCheck, User, MapPin, FileText, Loader2, CheckCircle, AlertTriangle, CreditCard, Home, Lock, Car, Gauge, Upload, Info, Building, Globe, Users } from "lucide-react";
+import { ShieldCheck, User, MapPin, FileText, Loader2, CheckCircle, AlertTriangle, CreditCard, Home, Lock, Car, Gauge, Upload, Info, Building, Globe, Users, BadgeCheck } from "lucide-react";
 
 const US_STATES = [
   "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
@@ -114,6 +115,14 @@ export default function VerifyPage() {
   const [dlPhotoUploading, setDlPhotoUploading] = useState(false);
   const [dlOcrResult, setDlOcrResult] = useState<{ stateCode: string; stateName: string; fullName: string; confidence: number } | null>(null);
   const [dlOcrError, setDlOcrError] = useState<string | null>(null);
+
+  const isTaxiSegment = user?.userSegment === "taxi" || user?.userSegment === "hybrid";
+  const [tlcPermitNumber, setTlcPermitNumber] = useState("");
+  const [chauffeurLicenseNumber, setChauffeurLicenseNumber] = useState("");
+  const [hasTlcPermit, setHasTlcPermit] = useState(false);
+
+  const TLC_STATES = ["NY", "NJ", "IL", "MA", "CA"];
+  const needsTlc = isTaxiSegment && TLC_STATES.includes(driversLicenseState);
 
   const [residencyMismatch, setResidencyMismatch] = useState(false);
   const [residencyChoice, setResidencyChoice] = useState<"confirmed" | "moved" | "">("");
@@ -625,9 +634,80 @@ export default function VerifyPage() {
                 </div>
               </div>
 
+              {needsTlc && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2 p-3 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+                      <BadgeCheck className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
+                          Taxi/Rideshare License Required
+                        </p>
+                        <p className="text-xs text-amber-800/70 dark:text-amber-300/70 mt-0.5">
+                          {driversLicenseState === "NY"
+                            ? "New York requires a TLC (Taxi & Limousine Commission) permit for rideshare drivers."
+                            : `${STATE_NAMES[driversLicenseState] || driversLicenseState} may require a chauffeur or for-hire vehicle license for rideshare drivers.`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="hasTlcPermit"
+                        checked={hasTlcPermit}
+                        onCheckedChange={(v) => setHasTlcPermit(!!v)}
+                        data-testid="checkbox-has-tlc"
+                      />
+                      <Label htmlFor="hasTlcPermit" className="text-sm cursor-pointer">
+                        {driversLicenseState === "NY"
+                          ? "I have a TLC permit"
+                          : "I have a chauffeur / for-hire license"}
+                      </Label>
+                    </div>
+
+                    {hasTlcPermit && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {driversLicenseState === "NY" ? (
+                          <div>
+                            <Label htmlFor="tlcPermit">TLC Permit Number</Label>
+                            <Input
+                              id="tlcPermit"
+                              data-testid="input-tlc-permit"
+                              value={tlcPermitNumber}
+                              onChange={(e) => setTlcPermitNumber(e.target.value)}
+                              placeholder="6-digit TLC number"
+                              type="password"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Your TLC license renewal fee is a deductible business expense.
+                            </p>
+                          </div>
+                        ) : (
+                          <div>
+                            <Label htmlFor="chauffeurLicense">Chauffeur License Number</Label>
+                            <Input
+                              id="chauffeurLicense"
+                              data-testid="input-chauffeur-license"
+                              value={chauffeurLicenseNumber}
+                              onChange={(e) => setChauffeurLicenseNumber(e.target.value)}
+                              placeholder="License number"
+                              type="password"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Chauffeur license fees are deductible on Schedule C.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
               <Button
                 className="w-full"
-                disabled={!fullName || !driversLicenseState || !driversLicenseNumber || dlPhotoUploading}
+                disabled={!fullName || !driversLicenseState || !driversLicenseNumber || dlPhotoUploading || (needsTlc && hasTlcPermit && driversLicenseState === "NY" && !tlcPermitNumber) || (needsTlc && hasTlcPermit && driversLicenseState !== "NY" && !chauffeurLicenseNumber)}
                 onClick={() => setStep(2)}
                 data-testid="button-verify-next-1"
               >

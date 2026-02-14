@@ -9,6 +9,7 @@ import {
   LogOut, 
   CarFront,
   Package,
+  Layers,
   Menu,
   X,
   Settings,
@@ -32,8 +33,7 @@ export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const segmentConfig = getSegmentConfig(user?.userSegment);
-  const isDelivery = user?.userSegment === "delivery";
-  const BrandIcon = isDelivery ? Package : CarFront;
+  const BrandIcon = user?.userSegment === "hybrid" ? Layers : user?.userSegment === "delivery" ? Package : CarFront;
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -41,7 +41,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/expenses", label: "Expenses", icon: Receipt },
     { href: "/mileage", label: "Mileage", icon: MapPin },
     { href: "/receipts", label: "Receipts", icon: ScanLine },
-    { href: "/vehicles", label: "Vehicles", icon: isDelivery ? Package : CarFront },
+    { href: "/vehicles", label: "Vehicles", icon: CarFront },
     { href: "/audit-center", label: "Audit Defense", icon: Shield },
     { href: "/settings", label: "Settings", icon: Settings },
   ];

@@ -1245,7 +1245,7 @@ export async function registerRoutes(
     if (!userId) return res.status(401).json({ message: "Not authenticated" });
 
     const segmentSchema = z.object({
-      segment: z.enum(["taxi", "delivery"]),
+      segment: z.enum(["taxi", "delivery", "hybrid"]),
     });
     const parsed = segmentSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid segment" });

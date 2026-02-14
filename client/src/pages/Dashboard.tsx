@@ -29,7 +29,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info, Send, CheckCircle2, XCircle, Lock, Gauge, MapPin, Bell, Radio, X, RefreshCw, ExternalLink } from "lucide-react";
+import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info, Send, CheckCircle2, XCircle, Lock, Gauge, MapPin, Bell, Radio, X, RefreshCw, ExternalLink, Lightbulb } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { Link } from "wouter";
@@ -490,10 +490,55 @@ export default function Dashboard() {
 
       <SmartSummaryMoneySaved summary={summary} />
 
+      <SegmentProTips />
+
       <ExportSection summary={summary} mileageLogs={mileageData || []} />
       <SubmissionReadinessChecklist />
       <FinalizeSubmissionSection summary={summary} />
     </Layout>
+  );
+}
+
+function SegmentProTips() {
+  const { user } = useAuth();
+  const segmentConfig = getSegmentConfig(user?.userSegment);
+  const { data: subscription } = useSubscription();
+  const isPro = subscription?.tier === "pro";
+
+  const tips = isPro
+    ? [...segmentConfig.proTips, ...segmentConfig.vaultTips]
+    : segmentConfig.proTips;
+
+  return (
+    <Card className="mt-6 border-border/60 shadow-sm" data-testid="card-segment-pro-tips">
+      <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+        <CardTitle className="text-base font-medium flex items-center gap-2 flex-wrap">
+          <Lightbulb className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+          {segmentConfig.shortLabel} Tax Tips
+        </CardTitle>
+        <Badge variant="secondary" className="text-xs no-default-active-elevate" data-testid="badge-segment-tips-count">
+          {tips.length} tips
+        </Badge>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-2">
+          {tips.map((tip, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm">
+              <div className="h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-amber-400 shrink-0 mt-2" />
+              <span className="text-foreground/80">{tip}</span>
+            </li>
+          ))}
+        </ul>
+        {isPro && segmentConfig.vaultTips.length > 0 && (
+          <div className="mt-4 pt-3 border-t">
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Shield className="h-3.5 w-3.5 text-primary" />
+              Vault tips included with your Pro subscription for 7-year IRS-compliant storage.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -841,7 +886,7 @@ function FreeRetentionAlert({ user }: { user: User | null | undefined }) {
               Free Tier: Your tax data is stored for 90 days.
             </p>
             <p className="text-xs text-yellow-700/80 dark:text-yellow-400/70 mt-0.5">
-              Upgrade to Pro for 7-year IRS-compliant storage with the Tax Vault.
+              Upgrade to Pro for 7-year IRS-compliant storage with the Tax Vault, plus segment-aware vault tips.
             </p>
           </div>
           <Link href="/upgrade">
