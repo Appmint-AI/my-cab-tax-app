@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
@@ -614,6 +615,8 @@ export async function registerRoutes(
     const ipAddress = req.headers["x-forwarded-for"]?.toString()?.split(",")[0]?.trim() || req.socket.remoteAddress || null;
     const userAgent = req.headers["user-agent"] || null;
     await storage.acceptTerms(userId, version, ipAddress || undefined, userAgent || undefined);
+    const { triggerWelcomeEmail } = await import("./lifecycle-manager");
+    triggerWelcomeEmail(userId).catch(() => {});
     res.json({ success: true });
   });
 
@@ -1200,6 +1203,8 @@ export async function registerRoutes(
     }
 
     try {
+      const { triggerPaymentReceiptEmail, triggerAbandonedCheckoutEmail } = await import("./lifecycle-manager");
+
       switch (event.type) {
         case "checkout.session.completed": {
           const session = event.data.object as Stripe.Checkout.Session;
@@ -1214,6 +1219,16 @@ export async function registerRoutes(
               dataRetentionUntil: retentionDate,
               vaultEnabled: true,
             });
+            const amountTotal = session.amount_total ? `$${(session.amount_total / 100).toFixed(2)}` : "your subscription";
+            triggerPaymentReceiptEmail(userId, amountTotal).catch(() => {});
+          }
+          break;
+        }
+        case "checkout.session.expired": {
+          const session = event.data.object as Stripe.Checkout.Session;
+          const userId = session.metadata?.userId;
+          if (userId) {
+            triggerAbandonedCheckoutEmail(userId).catch(() => {});
           }
           break;
         }
@@ -1750,6 +1765,31 @@ export async function registerRoutes(
     try {
       const metrics = await storage.getAdminMetrics();
       res.json(metrics);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/lifecycle-metrics", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
+    const user = await storage.getUser(userId);
+    if (!user || !user.email || !adminEmails.includes(user.email)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    try {
+      const { lifecycleEmails } = await import("@shared/schema");
+      const allEmails = await db.select().from(lifecycleEmails);
+      const byType: Record<string, number> = {};
+      const bySegment: Record<string, number> = {};
+      for (const e of allEmails) {
+        byType[e.emailType] = (byType[e.emailType] || 0) + 1;
+        const seg = e.segment || "unknown";
+        bySegment[seg] = (bySegment[seg] || 0) + 1;
+      }
+      res.json({ total: allEmails.length, byType, bySegment });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

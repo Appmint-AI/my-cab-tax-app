@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { startCleanupWorker } from "./cleanup-worker";
 import { startSentinel } from "./submission/compliance-sentinel";
+import { startLifecycleWorker } from "./lifecycle-manager";
 
 const app = express();
 const httpServer = createServer(app);
@@ -102,6 +103,7 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
       startCleanupWorker();
       startSentinel(6);
+      startLifecycleWorker();
     },
   );
 })();

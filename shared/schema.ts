@@ -475,3 +475,15 @@ export interface TaxSummary {
   tipExemption: number;
   saltDeductionCap: number;
 }
+
+export const lifecycleEmails = pgTable("lifecycle_emails", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  emailType: text("email_type").notNull(),
+  sentAt: timestamp("sent_at").defaultNow(),
+  segment: text("segment"),
+  metadata: jsonb("metadata"),
+});
+
+export type LifecycleEmail = typeof lifecycleEmails.$inferSelect;
+export type InsertLifecycleEmail = typeof lifecycleEmails.$inferInsert;
