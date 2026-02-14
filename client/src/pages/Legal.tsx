@@ -143,7 +143,13 @@ export default function Legal() {
 
                 <section>
                   <h3 className="font-semibold text-base mb-2">2.4 Data Storage & Retention</h3>
-                  <p>Your data is stored in secure PostgreSQL databases hosted on encrypted cloud infrastructure. We retain your data for as long as your account is active. You may request deletion of your data at any time by contacting us. After account deletion, your data will be permanently removed within 30 days.</p>
+                  <p>Your data is stored in secure PostgreSQL databases hosted on encrypted cloud infrastructure with geographically redundant backups. We retain your data for as long as your account is active. You may request deletion of your data at any time via Settings or by contacting us. After account deletion, your data will be permanently removed within 30 days.</p>
+                  <ul className="list-disc pl-5 space-y-1 mt-2">
+                    <li><strong>Free Tier:</strong> Tax data is retained while your account is active. Data is automatically deleted after 90 days of account inactivity. You are responsible for exporting and backing up your records before this period expires.</li>
+                    <li><strong>Pro Tier (Tax Vault):</strong> All tax data, receipt images, mileage logs, and financial records are stored in our secure Tax Vault with <strong>guaranteed 7-year data retention</strong>, provided your Pro subscription remains in good standing. This exceeds the IRS minimum 3-year recordkeeping requirement (IRC Section 6501(a)) and aligns with the IRS recommended 7-year retention for self-employment records.</li>
+                    <li><strong>Subscription Lapse:</strong> If a Pro subscription lapses, you have a 30-day grace period to export your data. After the grace period, your account reverts to Free Tier terms. Re-subscribing within the grace period fully restores your Tax Vault without data loss.</li>
+                    <li><strong>Tamper-Evident Storage:</strong> All record modifications are logged in a tamper-evident audit trail. Digitally signed Record Integrity Certificates verify data authenticity for IRS audit purposes.</li>
+                  </ul>
                 </section>
 
                 <section>

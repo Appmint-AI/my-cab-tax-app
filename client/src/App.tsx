@@ -96,6 +96,12 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/legal" component={Legal} />
+      <Route path="/privacy">
+        <Redirect to="/legal?tab=privacy" />
+      </Route>
+      <Route path="/terms">
+        <Redirect to="/legal?tab=terms" />
+      </Route>
       <Route path="/upgrade" component={UpgradePage} />
       <Route path="/support" component={SupportPage} />
       

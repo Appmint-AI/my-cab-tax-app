@@ -23,6 +23,7 @@ export function TermsAcceptanceDialog() {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const [agreed, setAgreed] = useState(false);
+  const [dataRetentionAgreed, setDataRetentionAgreed] = useState(false);
 
   const acceptMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/accept-terms", { version: CURRENT_TERMS_VERSION }),
@@ -32,6 +33,7 @@ export function TermsAcceptanceDialog() {
   });
 
   const shouldShow = isAuthenticated && user && !user.termsAcceptedAt;
+  const canSubmit = agreed && dataRetentionAgreed && !acceptMutation.isPending;
 
   if (!shouldShow) return null;
 
@@ -83,34 +85,57 @@ export function TermsAcceptanceDialog() {
                 <p className="font-semibold text-foreground">Privacy Policy (GLBA & CCPA Compliant)</p>
                 <p>We collect your name, email, and financial data you enter to provide our services. We use industry-standard encryption. We do not sell your personal financial data to third parties. California residents have additional data rights under CCPA.</p>
               </div>
+
+              <div>
+                <p className="font-semibold text-foreground">7-Year Secure Data Retention</p>
+                <p>Pro subscribers benefit from our Tax Vault with guaranteed 7-year data retention, exceeding the IRS minimum 3-year recordkeeping requirement. Free Tier users' data is retained while their account is active and subject to a 90-day inactivity deletion policy. All data is stored on encrypted cloud infrastructure with geographically redundant backups. You may request permanent deletion at any time via Settings.</p>
+              </div>
             </div>
 
             <p className="text-muted-foreground">
               Read the full{" "}
-              <Link href="/legal" className="text-primary underline" data-testid="link-full-legal">
-                Terms of Service, Privacy Policy, and Tax Disclaimers
+              <Link href="/terms" className="text-primary underline" data-testid="link-full-terms">
+                Terms of Service
+              </Link>
+              {" and "}
+              <Link href="/privacy" className="text-primary underline" data-testid="link-full-privacy">
+                Privacy Policy
               </Link>
               .
             </p>
           </div>
         </ScrollArea>
 
-        <div className="flex items-start gap-3 pt-2">
-          <Checkbox
-            id="accept-terms"
-            checked={agreed}
-            onCheckedChange={(checked) => setAgreed(checked === true)}
-            data-testid="checkbox-accept-terms"
-          />
-          <Label htmlFor="accept-terms" className="text-sm leading-snug cursor-pointer">
-            I have read and agree to the Terms of Service (v{CURRENT_TERMS_VERSION}), Privacy Policy, Tax Disclaimers, and Mandatory Arbitration clause.
-          </Label>
+        <div className="space-y-3 pt-2">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="accept-terms"
+              checked={agreed}
+              onCheckedChange={(checked) => setAgreed(checked === true)}
+              data-testid="checkbox-accept-terms"
+            />
+            <Label htmlFor="accept-terms" className="text-sm leading-snug cursor-pointer">
+              I have read and agree to the Terms of Service (v{CURRENT_TERMS_VERSION}), Privacy Policy, Tax Disclaimers, and Mandatory Arbitration clause.
+            </Label>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="accept-data-retention"
+              checked={dataRetentionAgreed}
+              onCheckedChange={(checked) => setDataRetentionAgreed(checked === true)}
+              data-testid="checkbox-accept-data-retention"
+            />
+            <Label htmlFor="accept-data-retention" className="text-sm leading-snug cursor-pointer">
+              I agree to the <Link href="/terms" className="text-primary underline">Terms of Service</Link> and <Link href="/privacy" className="text-primary underline">Privacy Policy</Link>, including the 7-year secure data retention policy.
+            </Label>
+          </div>
         </div>
 
         <DialogFooter>
           <Button
             onClick={() => acceptMutation.mutate()}
-            disabled={!agreed || acceptMutation.isPending}
+            disabled={!canSubmit}
             data-testid="button-accept-terms"
           >
             {acceptMutation.isPending ? "Accepting..." : "I Agree"}

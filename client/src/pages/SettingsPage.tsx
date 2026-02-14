@@ -228,16 +228,52 @@ export default function SettingsPage() {
             Legal & Privacy Support
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           <p className="text-sm text-foreground/80 leading-relaxed">
             Have a data export request, account deletion inquiry, dispute, or security concern? Submit a formal inquiry to our legal team.
           </p>
-          <Link href="/support">
-            <Button variant="outline" data-testid="button-legal-support">
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Contact Legal & Privacy Support
-            </Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/terms">
+              <Button variant="outline" data-testid="button-terms-link">
+                <FileText className="h-4 w-4 mr-2" />
+                Terms of Service
+              </Button>
+            </Link>
+            <Link href="/privacy">
+              <Button variant="outline" data-testid="button-privacy-link">
+                <Shield className="h-4 w-4 mr-2" />
+                Privacy Policy
+              </Button>
+            </Link>
+            <Link href="/support">
+              <Button variant="outline" data-testid="button-legal-support">
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Contact Legal & Privacy Support
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Help & Feedback
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-foreground/80 leading-relaxed">
+            We're in beta and your feedback helps us build a better product. Report bugs, suggest features, or share your experience.
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => window.open("https://forms.gle/mycabtax-beta-feedback", "_blank")}
+            data-testid="button-beta-feedback"
+          >
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Send Beta Feedback
+          </Button>
         </CardContent>
       </Card>
 

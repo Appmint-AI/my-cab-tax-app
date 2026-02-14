@@ -117,8 +117,14 @@ export default function Landing() {
       <footer className="py-8 border-t border-border/40 mt-auto bg-background">
         <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-2 text-muted-foreground text-xs">
           <div className="flex gap-4 flex-wrap justify-center">
+            <Link href="/terms" className="underline hover-elevate px-2 py-1 rounded-md" data-testid="link-terms-footer">
+              Terms of Service
+            </Link>
+            <Link href="/privacy" className="underline hover-elevate px-2 py-1 rounded-md" data-testid="link-privacy-footer">
+              Privacy Policy
+            </Link>
             <Link href="/legal" className="underline hover-elevate px-2 py-1 rounded-md" data-testid="link-legal-footer">
-              Legal &mdash; Terms, Privacy & Tax Disclaimers
+              Full Legal Center
             </Link>
             <Link href="/support" className="underline hover-elevate px-2 py-1 rounded-md" data-testid="link-support-footer">
               Legal & Privacy Support
