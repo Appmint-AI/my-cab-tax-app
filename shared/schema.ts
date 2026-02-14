@@ -269,6 +269,42 @@ export const legalConsentLogsRelations = relations(legalConsentLogs, ({ one }) =
   }),
 }));
 
+// Tax Rate Cache - stores live API rates with 24hr TTL
+export const taxRateCache = pgTable("tax_rate_cache", {
+  id: serial("id").primaryKey(),
+  stateCode: text("state_code").notNull(),
+  jurisdiction: text("jurisdiction"),
+  provider: text("provider").notNull().default("static"),
+  rateData: jsonb("rate_data").notNull(),
+  previousRate: numeric("previous_rate"),
+  currentRate: numeric("current_rate"),
+  rateChangePct: numeric("rate_change_pct"),
+  fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+// Compliance Alerts - rate changes, regulatory updates, sentinel findings
+export const complianceAlerts = pgTable("compliance_alerts", {
+  id: serial("id").primaryKey(),
+  alertType: text("alert_type").notNull(),
+  severity: text("severity").notNull().default("info"),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  source: text("source"),
+  sourceUrl: text("source_url"),
+  stateCode: text("state_code"),
+  metadata: jsonb("metadata"),
+  isRead: boolean("is_read").notNull().default(false),
+  isDismissed: boolean("is_dismissed").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const taxRateCacheRelations = relations(taxRateCache, () => ({}));
+export const complianceAlertsRelations = relations(complianceAlerts, () => ({}));
+
+export type TaxRateCache = typeof taxRateCache.$inferSelect;
+export type ComplianceAlert = typeof complianceAlerts.$inferSelect;
+
 // Relations
 export const expensesRelations = relations(expenses, ({ one }) => ({
   user: one(users, {

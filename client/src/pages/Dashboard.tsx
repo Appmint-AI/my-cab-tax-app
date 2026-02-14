@@ -29,17 +29,114 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info, Send, CheckCircle2, XCircle, Lock, Gauge, MapPin } from "lucide-react";
+import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info, Send, CheckCircle2, XCircle, Lock, Gauge, MapPin, Bell, Radio, X, RefreshCw, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { Link } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import JSZip from "jszip";
 import { jsPDF } from "jspdf";
 import { IRS_MILEAGE_RATE } from "@shared/schema";
 import type { TaxSummary, MileageLog } from "@shared/schema";
 import type { User } from "@shared/models/auth";
+
+function ComplianceAlertsBanner() {
+  const { data: alerts } = useQuery<any[]>({ queryKey: ["/api/compliance-alerts"] });
+  const { data: providerStatus } = useQuery<any>({ queryKey: ["/api/tax-provider/status"] });
+
+  const dismissMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("POST", `/api/compliance-alerts/${id}/dismiss`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/compliance-alerts"] }),
+  });
+
+  const activeAlerts = alerts?.filter((a: any) => !a.isDismissed) || [];
+  if (activeAlerts.length === 0 && providerStatus?.activeProvider === "static") {
+    return (
+      <Alert className="mb-4" data-testid="alert-provider-static">
+        <Radio className="h-4 w-4" />
+        <AlertTitle className="flex items-center gap-2 flex-wrap">
+          Tax Rate Source: Static Data
+          <Badge variant="secondary" className="text-xs no-default-active-elevate">Offline</Badge>
+        </AlertTitle>
+        <AlertDescription className="text-xs">
+          Your tax rates are sourced from a local file. Connect a live provider (Stripe Tax or Avalara) for real-time rate updates and certified accuracy. The IRS Compliance Sentinel is monitoring for regulatory changes.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (activeAlerts.length === 0) return null;
+
+  return (
+    <div className="space-y-2 mb-4" data-testid="compliance-alerts-panel">
+      {activeAlerts.slice(0, 5).map((alert: any) => (
+        <Alert
+          key={alert.id}
+          className={
+            alert.severity === "critical" ? "border-red-500/50 bg-red-50 dark:bg-red-950/20" :
+            alert.severity === "warning" ? "border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20" :
+            ""
+          }
+          data-testid={`alert-compliance-${alert.id}`}
+        >
+          {alert.alertType === "rate_change" ? (
+            <RefreshCw className="h-4 w-4" />
+          ) : (
+            <Bell className="h-4 w-4" />
+          )}
+          <AlertTitle className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="flex items-center gap-2 flex-wrap">
+              {alert.title}
+              <Badge
+                variant={alert.severity === "critical" ? "destructive" : "secondary"}
+                className="text-xs no-default-active-elevate"
+              >
+                {alert.severity}
+              </Badge>
+              {alert.alertType === "rate_change" && (
+                <Badge variant="outline" className="text-xs no-default-active-elevate">Rate Change</Badge>
+              )}
+            </span>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => dismissMutation.mutate(alert.id)}
+              data-testid={`button-dismiss-alert-${alert.id}`}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </AlertTitle>
+          <AlertDescription className="text-xs">
+            <p>{alert.description}</p>
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
+              {alert.sourceUrl && (
+                <a
+                  href={alert.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary underline flex items-center gap-1"
+                  data-testid={`link-alert-source-${alert.id}`}
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  View Source
+                </a>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {alert.source} {alert.createdAt && `- ${format(new Date(alert.createdAt), "MMM d, yyyy")}`}
+              </span>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ))}
+      {activeAlerts.length > 5 && (
+        <p className="text-xs text-muted-foreground text-center">
+          +{activeAlerts.length - 5} more alerts
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { data: summary, isLoading } = useTaxSummary();
@@ -112,6 +209,8 @@ export default function Dashboard() {
           <ReceiptCapture />
         </div>
       </div>
+
+      <ComplianceAlertsBanner />
 
       {isFreeUser && <FreeRetentionAlert user={user} />}
 

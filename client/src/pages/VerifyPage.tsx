@@ -836,14 +836,21 @@ export default function VerifyPage() {
                         <Globe className="h-4 w-4 shrink-0" />
                         <span className="text-sm font-semibold">{stateInfo.stateName}</span>
                       </div>
-                      <Badge variant={
-                        stateInfo.bucketColor === "blue" ? "secondary" :
-                        stateInfo.bucketColor === "red" ? "destructive" : "outline"
-                      } className="no-default-active-elevate text-xs" data-testid="badge-state-bucket">
-                        {stateInfo.taxType === "None" ? "No Income Tax" :
-                         stateInfo.taxType === "Flat" ? "Flat Tax" :
-                         stateInfo.taxType === "Graduated" ? "Graduated Tax" : "Decoupled"}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant={
+                          stateInfo.bucketColor === "blue" ? "secondary" :
+                          stateInfo.bucketColor === "red" ? "destructive" : "outline"
+                        } className="no-default-active-elevate text-xs" data-testid="badge-state-bucket">
+                          {stateInfo.taxType === "None" ? "No Income Tax" :
+                           stateInfo.taxType === "Flat" ? "Flat Tax" :
+                           stateInfo.taxType === "Graduated" ? "Graduated Tax" : "Decoupled"}
+                        </Badge>
+                        {stateInfo.isLive && (
+                          <Badge variant="outline" className="no-default-active-elevate text-xs text-green-600 dark:text-green-400 border-green-500/50" data-testid="badge-live-rate">
+                            Live
+                          </Badge>
+                        )}
+                      </div>
                     </div>
 
                     {stateInfo.taxType === "None" ? (

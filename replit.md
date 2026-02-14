@@ -26,10 +26,17 @@ Key architectural and feature specifications include:
 - **Tax Profile Onboarding**: An expanded onboarding process includes steps for primary location, local tax context, and residency status with dynamic UI elements and consistency checks.
 - **Submission Readiness Checklist**: A dashboard component displays filing coverage, readiness percentage, and estimated state tax before payment, with color-coded state bucket banners.
 
+- **Live Tax Rate Provider**: A pluggable tax rate engine (`server/submission/tax-rate-provider.ts`) with adapters for Stripe Tax, Avalara, and a static fallback (`states.json`). Rates are cached in `tax_rate_cache` table with 24-hour TTL. Automatically detects rate changes >0.1% and creates compliance alerts. The system gracefully falls back to static data when no API key is configured.
+- **Compliance Sentinel**: An IRS RSS feed monitor (`server/submission/compliance-sentinel.ts`) that scans IRS news feeds every 6 hours for regulatory keywords (Schedule C, Mileage Rate, 1099-K, etc.). Creates compliance alerts for admin review. Feeds monitored: IRS News Releases, Tax Tips, and e-News for Tax Professionals.
+- **Compliance Alerts Dashboard**: A real-time alert banner on the Dashboard showing rate changes, regulatory updates, and provider status. Alerts can be dismissed and link to original sources. The `/api/compliance-alerts` endpoint serves all active alerts.
+- **Tax Provider API**: Endpoints at `/api/live-rate/:stateCode`, `/api/tax-provider/status`, `/api/tax-provider/refresh`, `/api/sentinel/scan`, and `/api/sentinel/status` expose the live rate system and sentinel controls.
+
 ## External Dependencies
 - **Auth0**: For OpenID Connect (OIDC) authentication, MFA, and biometric login.
 - **Google Cloud Storage**: Used for storing receipt images.
 - **Gemini AI (Google)**: For server-side multimodal OCR for receipt data extraction.
-- **Stripe**: For managing tiered pricing subscriptions, checkout sessions, and webhooks.
+- **Stripe**: For managing tiered pricing subscriptions, checkout sessions, webhooks, and optionally Stripe Tax API for live tax rates.
+- **Avalara (AvaTax)**: Optional live tax rate provider for certified, rooftop-accurate rate calculations.
 - **PostgreSQL**: The primary database for all application data.
 - **Resend**: For sending transactional emails.
+- **IRS RSS Feeds**: Monitored by the Compliance Sentinel for regulatory updates.

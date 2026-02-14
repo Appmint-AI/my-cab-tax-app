@@ -1314,34 +1314,146 @@ export async function registerRoutes(
 
   app.get("/api/state-info/:stateCode", async (req: Request, res: Response) => {
     try {
-      const { stateCode } = req.params;
-      const { getStateConfig, calculateStateTax } = await import("./submission/state-engine");
+      const stateCode = String(req.params.stateCode);
+      const { getStateConfig } = await import("./submission/state-engine");
+      const { getLiveRate, getActiveProviderName } = await import("./submission/tax-rate-provider");
       const config = getStateConfig(stateCode);
       if (!config) {
         return res.status(404).json({ message: "State not found" });
       }
-      const taxResult = calculateStateTax(stateCode, 50000);
+
+      const liveResult = await getLiveRate(stateCode, 50000);
       const bucketColors: Record<string, string> = {
         None: "blue",
         Flat: "green",
         Graduated: "yellow",
         Decoupled: "red",
       };
+
       res.json({
         stateCode,
         stateName: config.name,
         taxType: config.tax_type,
-        topRate: config.rate_2026,
-        effectiveRate: taxResult.effectiveRate,
-        estimatedTaxAt50k: taxResult.taxOwed,
+        topRate: liveResult.topRate,
+        effectiveRate: liveResult.effectiveRate,
+        estimatedTaxAt50k: liveResult.estimatedTax,
         bucketColor: bucketColors[config.tax_type] || "gray",
         hasLocalTax: config.has_local_tax || false,
         isDecoupled: config.tax_type === "Decoupled",
         decoupledRules: config.decoupled_rules || [],
         brackets: config.brackets || [],
+        provider: liveResult.provider,
+        isLive: liveResult.isLive,
+        cachedAt: liveResult.cachedAt,
+        expiresAt: liveResult.expiresAt,
+        rateChanged: liveResult.rateChanged,
+        rateChangePct: liveResult.rateChangePct,
       });
     } catch (err: any) {
       res.status(500).json({ message: err.message || "Failed to get state info" });
+    }
+  });
+
+  app.get("/api/live-rate/:stateCode", async (req: Request, res: Response) => {
+    try {
+      const { stateCode } = req.params;
+      const income = Number(req.query.income) || 50000;
+      const zipCode = req.query.zipCode as string | undefined;
+      const forceRefresh = req.query.refresh === "true";
+
+      const { getLiveRate } = await import("./submission/tax-rate-provider");
+      const result = await getLiveRate(stateCode, income, zipCode, forceRefresh);
+
+      if (!result.stateName || result.stateName === "Unknown") {
+        return res.status(404).json({ message: "State not found" });
+      }
+
+      const bucketColors: Record<string, string> = {
+        None: "blue",
+        Flat: "green",
+        Graduated: "yellow",
+        Decoupled: "red",
+      };
+
+      res.json({
+        ...result,
+        bucketColor: bucketColors[result.taxType] || "gray",
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to get live rate" });
+    }
+  });
+
+  app.get("/api/tax-provider/status", async (_req: Request, res: Response) => {
+    try {
+      const { getProviderStatus, getActiveProviderName } = await import("./submission/tax-rate-provider");
+      const { getSentinelStatus } = await import("./submission/compliance-sentinel");
+      res.json({
+        activeProvider: getActiveProviderName(),
+        providers: getProviderStatus(),
+        sentinel: getSentinelStatus(),
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to get provider status" });
+    }
+  });
+
+  app.post("/api/tax-provider/refresh", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { refreshAllRates } = await import("./submission/tax-rate-provider");
+      const result = await refreshAllRates(Number(req.body.income) || 50000);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to refresh rates" });
+    }
+  });
+
+  app.get("/api/compliance-alerts", async (_req: Request, res: Response) => {
+    try {
+      const { getRecentAlerts } = await import("./submission/tax-rate-provider");
+      const alerts = await getRecentAlerts(50);
+      res.json(alerts);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to get alerts" });
+    }
+  });
+
+  app.post("/api/compliance-alerts/:id/dismiss", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { dismissAlert } = await import("./submission/tax-rate-provider");
+      await dismissAlert(Number(req.params.id));
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to dismiss alert" });
+    }
+  });
+
+  app.post("/api/compliance-alerts/:id/read", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { markAlertRead } = await import("./submission/tax-rate-provider");
+      await markAlertRead(Number(req.params.id));
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to mark alert read" });
+    }
+  });
+
+  app.post("/api/sentinel/scan", isAuthenticated, async (_req: Request, res: Response) => {
+    try {
+      const { runSentinelScan } = await import("./submission/compliance-sentinel");
+      const result = await runSentinelScan();
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to run sentinel scan" });
+    }
+  });
+
+  app.get("/api/sentinel/status", async (_req: Request, res: Response) => {
+    try {
+      const { getSentinelStatus } = await import("./submission/compliance-sentinel");
+      res.json(getSentinelStatus());
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to get sentinel status" });
     }
   });
 
