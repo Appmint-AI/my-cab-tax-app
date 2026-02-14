@@ -305,6 +305,91 @@ function ComplianceAlertsBanner() {
   );
 }
 
+function TaxHealthBar({ summary, user }: { summary: TaxSummary; user: User | null }) {
+  const hasIncome = summary.grossIncome > 0;
+  const hasExpenses = summary.totalOtherExpenses > 0;
+  const hasMileage = summary.totalMiles > 0;
+  const isVerified = !!user?.isVerified;
+
+  const checks = [
+    { done: isVerified, label: "Identity Verified" },
+    { done: hasIncome, label: "Income Logged" },
+    { done: hasExpenses, label: "Expenses Tracked" },
+    { done: hasMileage, label: "Mileage Recorded" },
+  ];
+  const completedCount = checks.filter(c => c.done).length;
+  const healthPercent = Math.round((completedCount / checks.length) * 100);
+
+  const tipSavings = (summary.tipExemption || 0) * 0.22;
+  const mileageSavings = summary.mileageDeduction * 0.22;
+  const expenseSavings = summary.totalOtherExpenses * 0.22;
+  const seDeductionSavings = summary.seDeduction * 0.22;
+  const totalEstimatedSavings = tipSavings + mileageSavings + expenseSavings + seDeductionSavings;
+
+  return (
+    <div className="rounded-md border border-border bg-card p-4" data-testid="tax-health-bar">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className={`flex items-center justify-center h-10 w-10 rounded-md shrink-0 ${
+            healthPercent === 100
+              ? "bg-primary/15 text-primary"
+              : healthPercent >= 50
+              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+              : "bg-red-500/15 text-red-600 dark:text-red-400"
+          }`}>
+            <Shield className="h-5 w-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium">Tax Health</span>
+              <Badge
+                variant="outline"
+                className={`text-[10px] no-default-active-elevate ${
+                  healthPercent === 100
+                    ? "border-primary/40 text-primary"
+                    : healthPercent >= 50
+                    ? "border-amber-400/40 text-amber-600 dark:text-amber-400"
+                    : "border-red-400/40 text-red-600 dark:text-red-400"
+                }`}
+                data-testid="badge-health-percent"
+              >
+                {healthPercent}% Ready
+              </Badge>
+            </div>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              {checks.map((c, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <div className={`h-1.5 w-8 rounded-full ${
+                    c.done ? "bg-primary" : "bg-muted-foreground/20"
+                  }`} />
+                </div>
+              ))}
+              <span className="text-[10px] text-muted-foreground ml-1">
+                {completedCount}/{checks.length}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 sm:gap-6">
+          <div className="text-right">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Tax Savings</p>
+            <p className="text-lg font-semibold text-primary" data-testid="text-health-savings">
+              ${totalEstimatedSavings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Net Profit</p>
+            <p className="text-lg font-semibold" data-testid="text-health-profit">
+              ${Math.max(0, summary.netProfit).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { data: summary, isLoading } = useTaxSummary();
   const { data: mileageData } = useMileageLogs();
@@ -364,12 +449,12 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold" data-testid="text-dashboard-title">{segmentConfig.dashboardHeading}</h1>
-          <p className="text-muted-foreground">{segmentConfig.dashboardSubheading}</p>
+          <h1 className="text-2xl font-semibold" data-testid="text-dashboard-title">{segmentConfig.dashboardHeading}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{segmentConfig.dashboardSubheading}</p>
         </div>
-        <div className="flex gap-3 w-full md:w-auto flex-wrap">
+        <div className="flex gap-2 w-full md:w-auto flex-wrap">
           <IncomeForm />
           <AutoGrossForm />
           <Form1099K />
@@ -377,6 +462,8 @@ export default function Dashboard() {
           <ReceiptCapture />
         </div>
       </div>
+
+      <TaxHealthBar summary={summary} user={user} />
 
       <ComplianceAlertsBanner />
 

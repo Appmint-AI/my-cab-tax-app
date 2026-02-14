@@ -48,16 +48,16 @@ export default function IndustryPickerPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-muted/20 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-8">
         <div className="text-center space-y-3">
-          <div className="inline-flex p-3 bg-primary rounded-xl text-primary-foreground mx-auto">
-            <CarFront className="h-8 w-8" />
+          <div className="inline-flex p-3 bg-primary rounded-md text-primary-foreground mx-auto">
+            <CarFront className="h-7 w-7" />
           </div>
-          <h1 className="text-3xl font-display font-bold" data-testid="text-industry-title">
+          <h1 className="text-2xl font-semibold" data-testid="text-industry-title">
             How do you earn?
           </h1>
-          <p className="text-muted-foreground max-w-md mx-auto">
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
             We'll tailor your dashboard, expense suggestions, and tax tips to match your work.
           </p>
         </div>

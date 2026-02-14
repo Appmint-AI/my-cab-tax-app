@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { getSegmentConfig } from "@/lib/segment-config";
@@ -11,7 +11,6 @@ import {
   Package,
   Layers,
   Menu,
-  X,
   Settings,
   MapPin,
   ScanLine,
@@ -35,6 +34,14 @@ export function Layout({ children }: LayoutProps) {
   const segmentConfig = getSegmentConfig(user?.userSegment);
   const BrandIcon = user?.userSegment === "hybrid" ? Layers : user?.userSegment === "delivery" ? Package : CarFront;
 
+  useEffect(() => {
+    const segment = user?.userSegment || "taxi";
+    document.documentElement.setAttribute("data-segment", segment);
+    return () => {
+      document.documentElement.removeAttribute("data-segment");
+    };
+  }, [user?.userSegment]);
+
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/incomes", label: "Income", icon: Wallet },
@@ -47,22 +54,22 @@ export function Layout({ children }: LayoutProps) {
   ];
 
   const NavContent = () => (
-    <div className="flex flex-col h-full">
-      <div className="p-6 border-b border-border/50">
+    <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
+      <div className="p-5 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary rounded-lg text-primary-foreground">
-            <BrandIcon className="h-6 w-6" />
+          <div className="p-2 bg-segment-accent rounded-md">
+            <BrandIcon className="h-5 w-5 text-segment-accent-foreground" />
           </div>
           <div>
-            <h1 className="font-display font-bold text-lg leading-tight">My Cab Tax</h1>
-            <Badge variant="secondary" className="text-[10px] no-default-active-elevate mt-0.5" data-testid="badge-segment-label">
-              {segmentConfig.shortLabel}
-            </Badge>
+            <h1 className="font-semibold text-base leading-tight text-white dark:text-white">My Cab Tax</h1>
+            <p className="text-[11px] text-sidebar-foreground/60 mt-0.5" data-testid="badge-segment-label">
+              {segmentConfig.shortLabel} Mode
+            </p>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-3 space-y-0.5">
         {navItems.map((item) => {
           const isActive = location === item.href;
           return (
@@ -70,38 +77,42 @@ export function Layout({ children }: LayoutProps) {
               <div
                 data-testid={`link-nav-${item.label.toLowerCase()}`}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer",
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors duration-150 cursor-pointer",
                   isActive
-                    ? "bg-accent text-accent-foreground font-semibold"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-sidebar-accent text-white font-medium"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                 )}
                 onClick={() => setMobileMenuOpen(false)}
               >
-                <item.icon className={cn("h-5 w-5", isActive ? "text-accent-foreground" : "text-muted-foreground")} />
+                <item.icon className={cn("h-4 w-4", isActive ? "text-white" : "text-sidebar-foreground/50")} />
                 {item.label}
+                {isActive && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-segment-accent" />
+                )}
               </div>
             </Link>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t border-border/50">
-        <div className="flex items-center gap-3 px-2 mb-4">
-          <Avatar className="h-9 w-9 border-2 border-background shadow-sm">
+      <div className="p-3 border-t border-sidebar-border">
+        <div className="flex items-center gap-3 px-2 mb-3">
+          <Avatar className="h-8 w-8 border border-sidebar-border">
             <AvatarImage src={user?.profileImageUrl || undefined} />
-            <AvatarFallback className="bg-primary/20 text-primary font-bold">
+            <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground text-xs font-medium">
               {user?.firstName?.[0]}{user?.lastName?.[0]}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden">
-            <p className="text-sm font-medium truncate">{user?.firstName} {user?.lastName}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            <p className="text-sm font-medium text-white dark:text-white truncate">{user?.firstName} {user?.lastName}</p>
+            <p className="text-[11px] text-sidebar-foreground/50 truncate">{user?.email}</p>
           </div>
         </div>
         <Button 
-          variant="outline" 
-          className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive hover:border-destructive/30 hover:bg-destructive/5"
+          variant="ghost"
+          className="w-full justify-start gap-2 text-sidebar-foreground/60"
           onClick={() => logout()}
+          data-testid="button-sign-out"
         >
           <LogOut className="h-4 w-4" />
           Sign Out
@@ -111,34 +122,32 @@ export function Layout({ children }: LayoutProps) {
   );
 
   return (
-    <div className="min-h-screen bg-muted/20 flex">
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:block w-64 bg-background border-r border-border fixed h-full z-30">
+    <div className="min-h-screen bg-background flex">
+      <aside className="hidden md:block w-64 fixed h-full z-30">
         <NavContent />
       </aside>
 
-      {/* Mobile Sidebar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-background/80 backdrop-blur-md border-b border-border z-40 px-4 flex items-center justify-between">
+      <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-sidebar backdrop-blur-md border-b border-sidebar-border z-40 px-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-primary rounded-md text-primary-foreground">
-            <BrandIcon className="h-5 w-5" />
+          <div className="p-1.5 bg-segment-accent rounded-md">
+            <BrandIcon className="h-4 w-4 text-segment-accent-foreground" />
           </div>
-          <span className="font-display font-bold text-lg">My Cab Tax</span>
+          <span className="font-semibold text-sm text-white">My Cab Tax</span>
         </div>
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="-mr-2">
-              <Menu className="h-6 w-6" />
+            <Button variant="ghost" size="icon" className="text-white hover:bg-sidebar-accent">
+              <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-72">
+          <SheetContent side="left" className="p-0 w-72 border-sidebar-border bg-sidebar">
             <NavContent />
           </SheetContent>
         </Sheet>
       </div>
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 pt-20 md:pt-8 w-full max-w-full overflow-x-hidden">
-        <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="max-w-6xl mx-auto space-y-6">
           {children}
         </div>
       </main>

@@ -1,7 +1,9 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Redirect, Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { CarFront, Calculator, TrendingUp, ShieldCheck } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { CarFront, Calculator, TrendingUp, ShieldCheck, ArrowRight, Zap, Receipt, MapPin } from "lucide-react";
 
 export default function Landing() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -13,14 +15,13 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      {/* Navbar */}
       <nav className="border-b border-border/40 backdrop-blur-sm fixed w-full z-50 bg-background/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="bg-primary p-2 rounded-lg text-primary-foreground">
-              <CarFront className="w-6 h-6" />
+            <div className="bg-primary p-1.5 rounded-md text-primary-foreground">
+              <CarFront className="w-5 h-5" />
             </div>
-            <span className="font-display font-bold text-xl tracking-tight">My Cab Tax</span>
+            <span className="font-semibold text-lg tracking-tight">My Cab Tax</span>
           </div>
           <Button onClick={login} variant="outline" data-testid="button-login-nav">
             Log In
@@ -28,105 +29,93 @@ export default function Landing() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary-foreground font-medium text-sm mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <span className="w-2 h-2 rounded-full bg-primary"></span>
-          Built specifically for drivers
+      <section className="relative pt-28 pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[hsl(216,65%,8%)] via-[hsl(216,55%,12%)] to-[hsl(216,65%,8%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(160,100%,36%,0.08),transparent_60%)]" />
+
+        <div className="relative max-w-5xl mx-auto text-center">
+          <Badge variant="outline" className="mb-6 text-xs border-white/20 text-white/70 no-default-active-elevate" data-testid="badge-hero-tagline">
+            <Zap className="h-3 w-3 mr-1.5" />
+            Built for drivers, by tax professionals
+          </Badge>
+
+          <h1 className="font-semibold text-3xl sm:text-5xl md:text-6xl tracking-tight mb-5 text-white leading-tight">
+            Your Tax Season,{" "}
+            <span className="text-[hsl(160,100%,45%)]">Simplified</span>
+          </h1>
+
+          <p className="text-base sm:text-lg text-white/60 max-w-2xl mx-auto mb-8 leading-relaxed">
+            Track rideshare income, maximize deductions, and estimate your taxes in real-time. 
+            The only tax app built specifically for gig economy drivers.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button size="lg" onClick={login} className="gap-2" data-testid="button-login-hero">
+              Start Tracking Free
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="mt-16 grid grid-cols-3 gap-4 max-w-lg mx-auto">
+            <div className="text-center">
+              <p className="text-2xl font-semibold text-white">72.5</p>
+              <p className="text-[11px] text-white/40 mt-0.5">cents/mile (2026)</p>
+            </div>
+            <div className="text-center border-x border-white/10">
+              <p className="text-2xl font-semibold text-[hsl(160,100%,45%)]">$0</p>
+              <p className="text-[11px] text-white/40 mt-0.5">tax on tips</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-semibold text-white">$40K</p>
+              <p className="text-[11px] text-white/40 mt-0.5">SALT cap (2026)</p>
+            </div>
+          </div>
         </div>
-        
-        <h1 className="font-display font-bold text-4xl sm:text-6xl md:text-7xl tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700">
-          Tax Season Made <br />
-          <span className="text-primary relative inline-block">
-             Simple
-             <svg className="absolute w-full h-3 -bottom-1 left-0 text-primary/30 -z-10" viewBox="0 0 100 10" preserveAspectRatio="none">
-               <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" />
-             </svg>
-          </span>
-        </h1>
-        
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
-          Track your rideshare income, deduct gas and maintenance expenses, and estimate your taxes in real-time. Never overpay again.
-        </p>
-        
-        <div className="flex flex-col sm:flex-row gap-4 justify-center animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
-          <Button size="lg" onClick={login} data-testid="button-login-hero">
-            Start Tracking Free
+      </section>
+
+      <section className="py-20 bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-xl font-semibold mb-2">Everything you need to file with confidence</h2>
+            <p className="text-sm text-muted-foreground">Track, deduct, and file — all in one place.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { icon: Calculator, title: "Real-time Tax Estimates", desc: "Know exactly what you owe as you earn. No surprises at year-end." },
+              { icon: TrendingUp, title: "Smart Expense Tracking", desc: "Log gas, car washes, and maintenance. Every deduction counts." },
+              { icon: MapPin, title: "IRS-Grade Mileage Log", desc: "Compliant with IRS Pub. 463. Track business purpose and odometer readings." },
+              { icon: Receipt, title: "AI Receipt Scanning", desc: "Snap a photo. Our AI extracts vendor, amount, and category automatically." },
+            ].map((feature) => (
+              <Card key={feature.title} className="border-border/50">
+                <CardContent className="p-5 space-y-3">
+                  <div className="h-9 w-9 bg-primary/10 text-primary rounded-md flex items-center justify-center">
+                    <feature.icon className="w-4 h-4" />
+                  </div>
+                  <h3 className="font-medium text-sm">{feature.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{feature.desc}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 bg-card border-t border-border/40">
+        <div className="max-w-3xl mx-auto px-4 text-center space-y-4">
+          <ShieldCheck className="h-8 w-8 text-primary mx-auto" />
+          <h2 className="text-xl font-semibold">Enterprise-grade Security</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed max-w-xl mx-auto">
+            Protected by Auth0 with multi-factor authentication and biometric login. 
+            Your financial data is encrypted end-to-end and never shared.
+          </p>
+          <Button size="lg" onClick={login} variant="outline" className="mt-4" data-testid="button-login-security">
+            Get Started
           </Button>
         </div>
-        
-        {/* Abstract Hero Visual */}
-        <div className="mt-20 relative animate-in fade-in zoom-in-95 duration-1000 delay-300">
-          <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent z-10 h-20 bottom-0"></div>
-          {/* Using a placeholder for a UI screenshot or dashboard preview */}
-          <div className="bg-card border border-border/60 rounded-xl shadow-2xl overflow-hidden max-w-4xl mx-auto aspect-video flex items-center justify-center bg-muted/30">
-             <div className="grid grid-cols-2 md:grid-cols-3 gap-8 p-12 opacity-80">
-                <div className="bg-background p-6 rounded-lg shadow-sm border border-border/50 flex flex-col items-center gap-4">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
-                    <TrendingUp />
-                  </div>
-                  <div className="h-2 w-20 bg-muted rounded"></div>
-                  <div className="h-2 w-12 bg-muted rounded"></div>
-                </div>
-                <div className="bg-background p-6 rounded-lg shadow-sm border border-border/50 flex flex-col items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                    <Calculator />
-                  </div>
-                  <div className="h-2 w-20 bg-muted rounded"></div>
-                  <div className="h-2 w-12 bg-muted rounded"></div>
-                </div>
-                <div className="bg-background p-6 rounded-lg shadow-sm border border-border/50 flex flex-col items-center gap-4 hidden md:flex">
-                  <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
-                    <ShieldCheck />
-                  </div>
-                  <div className="h-2 w-20 bg-muted rounded"></div>
-                  <div className="h-2 w-12 bg-muted rounded"></div>
-                </div>
-             </div>
-          </div>
-        </div>
       </section>
 
-      {/* Features Grid */}
-      <section className="py-24 bg-muted/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-card p-8 rounded-md border border-border/50">
-              <div className="w-12 h-12 bg-primary/20 text-primary rounded-xl flex items-center justify-center mb-6">
-                <Calculator className="w-6 h-6" />
-              </div>
-              <h3 className="font-display font-bold text-xl mb-3">Real-time Tax Estimates</h3>
-              <p className="text-muted-foreground leading-relaxed">
-                Know exactly what you owe as you earn. No more surprises at the end of the year.
-              </p>
-            </div>
-            
-            <div className="bg-card p-8 rounded-md border border-border/50">
-              <div className="w-12 h-12 bg-primary/20 text-primary rounded-xl flex items-center justify-center mb-6">
-                <TrendingUp className="w-6 h-6" />
-              </div>
-              <h3 className="font-display font-bold text-xl mb-3">Expense Tracking</h3>
-              <p className="text-muted-foreground leading-relaxed">
-                Log gas, car washes, and maintenance instantly. Every deduction counts.
-              </p>
-            </div>
-            
-            <div className="bg-card p-8 rounded-md border border-border/50">
-              <div className="w-12 h-12 bg-primary/20 text-primary rounded-xl flex items-center justify-center mb-6">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <h3 className="font-display font-bold text-xl mb-3">Secure with MFA</h3>
-              <p className="text-muted-foreground leading-relaxed">
-                Protected by Auth0 with multi-factor authentication and biometric login. Your financial data stays safe.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-12 border-t border-border/40 mt-auto bg-background">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-3 text-muted-foreground text-sm">
+      <footer className="py-8 border-t border-border/40 mt-auto bg-background">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-2 text-muted-foreground text-xs">
           <div className="flex gap-4 flex-wrap justify-center">
             <Link href="/legal" className="underline hover-elevate px-2 py-1 rounded-md" data-testid="link-legal-footer">
               Legal &mdash; Terms, Privacy & Tax Disclaimers
@@ -135,7 +124,7 @@ export default function Landing() {
               Legal & Privacy Support
             </Link>
           </div>
-          <p className="text-xs text-muted-foreground" data-testid="text-legal-contact-footer">Legal Notices: legal@mycabtax.com</p>
+          <p className="text-[11px] text-muted-foreground" data-testid="text-legal-contact-footer">Legal Notices: legal@mycabtax.com</p>
           <p>&copy; {new Date().getFullYear()} My Cab Tax USA. All rights reserved.</p>
         </div>
       </footer>
