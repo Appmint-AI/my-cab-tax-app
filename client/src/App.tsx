@@ -22,6 +22,7 @@ import ReceiptsPage from "@/pages/ReceiptsPage";
 import ScanPage from "@/pages/ScanPage";
 import VerifyPage from "@/pages/VerifyPage";
 import AuditCenterPage from "@/pages/AuditCenterPage";
+import AdminPage from "@/pages/AdminPage";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -109,6 +110,10 @@ function Router() {
 
       <Route path="/settings">
         <ProtectedRoute component={SettingsPage} />
+      </Route>
+
+      <Route path="/admin">
+        <ProtectedRoute component={AdminPage} />
       </Route>
       
       <Route component={NotFound} />

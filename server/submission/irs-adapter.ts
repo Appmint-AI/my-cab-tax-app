@@ -111,6 +111,20 @@ export interface IRSScheduleCPayload {
   };
 }
 
+/**
+ * Internal IRS Adapter — Generates a validated, hash-verified JSON payload
+ * that maps directly to IRS Schedule C line items.
+ *
+ * @compliance IRS Schedule C (Form 1040), Schedule SE, IRC Sec. 274(d)
+ * @compliance OBBBA Sec. 101 (2026) — Tip income adjustments per federal/state decoupling
+ *
+ * @why This adapter produces the canonical data representation for tax filing.
+ *      The SHA-256 submissionHash creates a tamper-evident audit trail that can
+ *      be verified years later during IRS examination. The JSON structure mirrors
+ *      actual Schedule C line numbers for direct mapping to e-filing XML schemas.
+ *      Using an immutable hash ensures M&A due diligence can verify data integrity
+ *      across the full 7-year retention period.
+ */
 export class InternalIRSAdapter implements SubmissionProvider {
   readonly name = "irs_json";
 
@@ -141,6 +155,17 @@ export class InternalIRSAdapter implements SubmissionProvider {
     }
   }
 
+  /**
+   * Builds the complete IRS Schedule C JSON payload from aggregated tax summary data.
+   * Includes SHA-256 submissionHash for tamper-evident audit trail.
+   *
+   * @compliance Schedule C Lines 1-31 mapping, Schedule SE, IRC Sec. 1401
+   * @compliance OBBBA Sec. 101 — Tip income federal exemption with state decoupling awareness
+   * @why The payload structure mirrors IRS e-filing XML schema fields for future
+   *      direct submission capability. The SHA-256 hash over the complete payload
+   *      creates an immutable fingerprint that can be verified during IRS examination
+   *      up to 7 years after filing.
+   */
   buildScheduleCPayload(data: SubmissionData): IRSScheduleCPayload {
     const { summary } = data;
 

@@ -92,6 +92,18 @@ export interface IStorage {
   getOdometerCheckins(userId: string, vehicleId?: number): Promise<OdometerCheckin[]>;
   createOdometerCheckin(data: InsertOdometerCheckin & { userId: string }): Promise<OdometerCheckin>;
 
+  getAdminMetrics(): Promise<{
+    totalUsers: number;
+    proUsers: number;
+    verifiedUsers: number;
+    totalIncomeRecords: number;
+    totalExpenseRecords: number;
+    totalMileageLogs: number;
+    taxesFiled: number;
+    auditLogEntries: number;
+    activeComplianceAlerts: number;
+  }>;
+
   getAuditNotices(userId: string): Promise<AuditNotice[]>;
   createAuditNotice(data: InsertAuditNotice & { userId: string }): Promise<AuditNotice>;
   deleteAuditNotice(userId: string, id: number): Promise<void>;
@@ -277,6 +289,25 @@ export class DatabaseStorage implements IStorage {
     return expired.length;
   }
 
+  /**
+   * Computes the complete IRS Schedule C tax summary for a given user.
+   *
+   * @compliance IRS Schedule C (Form 1040) — Profit or Loss from Business
+   * @compliance IRS Schedule SE — Self-Employment Tax
+   * @compliance IRC Sec. 162 — Trade or Business Expenses
+   * @compliance IRC Sec. 274(d) — Substantiation of mileage deductions (Pub. 463)
+   * @compliance OBBBA Sec. 101 (2026) — No Tax on Tips federal exemption
+   *
+   * @why All tax math is performed server-side within the application boundary.
+   *      No user financial data is sent to external tax calculation APIs.
+   *      This ensures: (1) data sovereignty, (2) deterministic auditability,
+   *      and (3) offline resilience. The function uses immutable IRS constants
+   *      from shared/schema.ts, making year-over-year updates trivial.
+   *
+   * @param userId - The authenticated user's unique identifier
+   * @returns A TaxSummary object containing all Schedule C line items,
+   *          SE tax calculations, quarterly estimates, and tip exemption data
+   */
   async getTaxSummary(userId: string): Promise<TaxSummary> {
     const expensesList = await this.getExpenses(userId);
     const incomesList = await this.getIncomes(userId);
@@ -504,6 +535,41 @@ export class DatabaseStorage implements IStorage {
   async createOdometerCheckin(data: InsertOdometerCheckin & { userId: string }): Promise<OdometerCheckin> {
     const [checkin] = await db.insert(odometerCheckins).values(data).returning();
     return checkin;
+  }
+
+  async getAdminMetrics() {
+    const { sql, count } = await import("drizzle-orm");
+    const { complianceAlerts } = await import("@shared/schema");
+
+    const [userCount] = await db.select({ count: count() }).from(users);
+    const [incomeCount] = await db.select({ count: count() }).from(incomes);
+    const [expenseCount] = await db.select({ count: count() }).from(expenses);
+    const [mileageCount] = await db.select({ count: count() }).from(mileageLogs);
+    const [submissionCount] = await db.select({ count: count() }).from(submissionReceipts);
+    const [auditLogCount] = await db.select({ count: count() }).from(auditLogs);
+    const [proCount] = await db.select({ count: count() }).from(users)
+      .where(sql`${users.subscriptionStatus} = 'pro'`);
+    const [verifiedCount] = await db.select({ count: count() }).from(users)
+      .where(sql`${users.isVerified} = true`);
+
+    let activeAlerts = 0;
+    try {
+      const [alertCount] = await db.select({ count: count() }).from(complianceAlerts)
+        .where(sql`${complianceAlerts.dismissed} = false`);
+      activeAlerts = alertCount.count;
+    } catch {}
+
+    return {
+      totalUsers: userCount.count,
+      proUsers: proCount.count,
+      verifiedUsers: verifiedCount.count,
+      totalIncomeRecords: incomeCount.count,
+      totalExpenseRecords: expenseCount.count,
+      totalMileageLogs: mileageCount.count,
+      taxesFiled: submissionCount.count,
+      auditLogEntries: auditLogCount.count,
+      activeComplianceAlerts: activeAlerts,
+    };
   }
 
   async getAuditNotices(userId: string): Promise<AuditNotice[]> {

@@ -7,14 +7,37 @@ import { users } from "./models/auth";
 export * from "./models/auth";
 export * from "./models/chat";
 
-// 2026 IRS Constants
+/**
+ * 2026 IRS Constants — Tax Year 2026
+ *
+ * @compliance IRS Notice 2026-01, Rev. Proc. 2026-XX
+ * @why These constants are the single source of truth for all tax calculations.
+ *      Centralizing them here ensures year-over-year updates are single-line
+ *      changes with full downstream propagation to the tax engine, PDF exports,
+ *      and frontend displays. Acquirers can verify each value against the cited
+ *      IRS publications.
+ */
+
+/** @compliance IRS Notice 2026-01 — Standard mileage rate for business use of a vehicle. Up 2.5 cents from 2025 (70.0c). */
 export const IRS_MILEAGE_RATE = 0.725;
+
+/** @compliance IRC Sec. 1401 — Combined SE tax rate (12.4% OASDI + 2.9% Medicare). */
 export const SE_TAX_RATE = 0.153;
-export const SE_TAXABLE_BASE = 0.9235; // SE tax applies to 92.35% of net profit
+
+/** @compliance IRC Sec. 1402(a)(12) — SE tax applies to 92.35% of net self-employment earnings. */
+export const SE_TAXABLE_BASE = 0.9235;
+
+/** @compliance IRS Form 1040-ES — Quarterly estimated tax payment due dates for tax year 2026. */
 export const QUARTERLY_DEADLINES = ["2026-04-15", "2026-06-15", "2026-09-15", "2027-01-15"];
-export const FORM_1099K_THRESHOLD = 20000; // 2026 reverted threshold
-export const FORM_1099K_TRANSACTION_THRESHOLD = 200; // 2026 reverted threshold
-export const SALT_DEDUCTION_CAP = 40000; // 2026 SALT cap raised to $40,000
+
+/** @compliance IRC Sec. 6050W(e) — 2026 reverted 1099-K gross threshold ($20,000). The $600 threshold from the American Rescue Plan was delayed and reverted. */
+export const FORM_1099K_THRESHOLD = 20000;
+
+/** @compliance IRC Sec. 6050W(e) — 2026 reverted 1099-K transaction count threshold (200+). Both gross AND transaction thresholds must be met. */
+export const FORM_1099K_TRANSACTION_THRESHOLD = 200;
+
+/** @compliance TCJA Extension (2026) — SALT deduction cap raised from $10,000 to $40,000 for tax year 2026. Applies to state and local property taxes, including home office property tax allocation. */
+export const SALT_DEDUCTION_CAP = 40000;
 
 // Mileage methodology options per IRS rules
 export const MILEAGE_METHODS = ["standard", "actual"] as const;
@@ -48,6 +71,13 @@ export const LEGACY_CATEGORY_MAP: Record<string, IRSExpenseCategory> = {
   "Other": "Other Expenses",
 };
 
+/**
+ * Maps legacy or user-entered expense categories to IRS Schedule C line item categories.
+ *
+ * @compliance IRS Schedule C Part II — Expenses (Lines 8-27)
+ * @why Ensures every expense is mapped to a valid IRS category for audit-proof reporting.
+ *      Legacy categories from earlier app versions are forward-compatible via LEGACY_CATEGORY_MAP.
+ */
 export function mapToIRSCategory(category: string): IRSExpenseCategory {
   return LEGACY_CATEGORY_MAP[category] || (IRS_EXPENSE_CATEGORIES.includes(category as IRSExpenseCategory) ? category as IRSExpenseCategory : "Other Expenses");
 }

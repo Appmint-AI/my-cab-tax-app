@@ -39,6 +39,16 @@ Key architectural and feature specifications include:
 - **Quarterly Estimated Tax Calculator**: Full federal tax bracket calculation (single filer 2026) + 15.3% SE tax; quarterly payment breakdown with deadline tracking on Dashboard.
 - **Smart Summary / Money Saved**: Comprehensive savings breakdown showing mileage, tips exemption, expenses, SE deduction, and SALT savings; displayed before export section on Dashboard.
 
+## Exit-Readiness Package
+- **PLAN.md**: Architectural blueprint with tech stack rationale, data sovereignty logic, data flow diagrams, and module map.
+- **HANDOVER.md**: Technical handover and value summary for acquirers, covering competitive positioning, IP purity, scalability, and revenue model.
+- **LICENSES.md**: Full third-party dependency audit (677 packages, all MIT/Apache/ISC/BSD — zero GPL/copyleft). IP chain-of-custody statement.
+- **CREDENTIALS_MAP.md**: Complete API key and service credential map for ownership transfer (Auth0, Stripe, GCP, PostgreSQL, Resend, Avalara).
+- **Tax Engine Test Suite**: 10 edge-case tests in `tests/tax-engine.test.ts` using Vitest, covering zero-income, net loss, SALT cap, tips exemption, SE tax math, legacy category mapping, multi-source aggregation, mileage rate, quarterly estimates. Run with `npx vitest run`.
+- **JSDoc Compliance Annotations**: All critical tax functions annotated with `@compliance` (IRS section) and `@why` (business rationale) tags.
+- **Admin Dashboard**: Hidden `/admin` route (auth-gated) with Total Users, Pro Subscribers, Verified Users, Taxes Filed, Income/Expense/Mileage Records, Audit Log Entries, and Compliance Alerts. API: `GET /api/admin/metrics`.
+- **Pure Tax Engine**: `server/tax-engine.ts` — extracted, side-effect-free tax calculation function for unit testing without DB.
+
 ## External Dependencies
 - **Auth0**: For OpenID Connect (OIDC) authentication, MFA, and biometric login.
 - **Google Cloud Storage**: Used for storing receipt images.

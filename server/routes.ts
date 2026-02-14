@@ -1704,6 +1704,24 @@ export async function registerRoutes(
     res.json(checkin);
   });
 
+  app.get("/api/admin/metrics", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
+    const user = await storage.getUser(userId);
+    if (!user || !user.email || !adminEmails.includes(user.email)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    try {
+      const metrics = await storage.getAdminMetrics();
+      res.json(metrics);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }
 
