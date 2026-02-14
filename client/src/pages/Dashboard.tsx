@@ -29,7 +29,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info, Send, CheckCircle2, XCircle, Lock, Gauge } from "lucide-react";
+import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info, Send, CheckCircle2, XCircle, Lock, Gauge, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { Link } from "wouter";
@@ -276,7 +276,15 @@ function SubmissionReadinessChecklist() {
   const stateRules: Array<{ code: string; message: string; severity: string }> = data.stateRules || [];
   const tipAdj = data.tipAdjustments || {};
   const stateTax = data.stateTaxEstimate || {};
+  const stateInfo = data.stateInfo || {};
   const filingComponents: string[] = data.filingComponents || [];
+
+  const bucketColors: Record<string, string> = {
+    None: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-700",
+    Flat: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-700",
+    Graduated: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700",
+    Decoupled: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-700",
+  };
 
   return (
     <motion.div
@@ -300,6 +308,24 @@ function SubmissionReadinessChecklist() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Progress value={pct} className="h-2" data-testid="progress-readiness" />
+
+          {stateInfo.stateCode && (
+            <div className={`flex items-center justify-between p-3 rounded-md border ${bucketColors[stateInfo.taxType] || "bg-muted/50"}`} data-testid="state-bucket-banner">
+              <div className="flex items-center gap-2 min-w-0">
+                <MapPin className="h-4 w-4 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium" data-testid="text-state-name">{stateInfo.stateName} ({stateInfo.stateCode})</p>
+                  <p className="text-xs opacity-80" data-testid="text-bucket-label">{stateInfo.bucketLabel}</p>
+                </div>
+              </div>
+              {stateTax.estimate > 0 && (
+                <div className="text-right shrink-0 ml-2">
+                  <p className="text-sm font-bold" data-testid="text-state-tax-amount">${Number(stateTax.estimate).toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+                  <p className="text-xs opacity-70">{stateTax.effectiveRate}% effective</p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {checklist.map((item: any, i: number) => (
@@ -327,7 +353,7 @@ function SubmissionReadinessChecklist() {
 
           {filingComponents.length > 0 && (
             <div className="pt-2 border-t">
-              <p className="text-xs font-medium text-muted-foreground mb-1.5">Filing Bundle Includes:</p>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">$50 Filing Bundle Includes:</p>
               <div className="flex flex-wrap gap-1.5">
                 {filingComponents.map((comp: string, i: number) => (
                   <Badge key={i} variant="outline" className="text-xs" data-testid={`filing-component-${i}`}>
@@ -351,10 +377,15 @@ function SubmissionReadinessChecklist() {
             </div>
           )}
 
-          {stateTax.rate != null && stateTax.estimate != null && (
-            <div className="flex items-center justify-between text-sm pt-2 border-t" data-testid="state-tax-estimate">
-              <span className="text-muted-foreground">Est. State Tax ({stateTax.rate}%)</span>
-              <span className="font-medium">${Number(stateTax.estimate).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+          {stateInfo.requiresStateAdjustment && (
+            <div className="flex items-start gap-2 p-2 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800" data-testid="state-adjustment-warning">
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+              <div className="text-xs">
+                <p className="font-medium text-red-800 dark:text-red-300">State Adjustment Required</p>
+                <p className="text-red-700/80 dark:text-red-400/70 mt-0.5">
+                  {stateInfo.stateName} has decoupled from federal rules. You will be asked about vehicle depreciation and Section 179 deductions during finalization.
+                </p>
+              </div>
             </div>
           )}
 
@@ -374,8 +405,10 @@ function SubmissionReadinessChecklist() {
                 >
                   {rule.severity === "action" ? (
                     <Info className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                  ) : (
+                  ) : rule.severity === "warning" ? (
                     <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
+                  ) : (
+                    <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
                   )}
                   <span>{rule.message}</span>
                 </div>
@@ -472,6 +505,7 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
   const [ack1099k, setAck1099k] = useState(false);
   const [ackFigures, setAckFigures] = useState(false);
   const [ackBookkeeping, setAckBookkeeping] = useState(false);
+  const [ackStateVerified, setAckStateVerified] = useState(false);
   const [perjuryAccepted, setPerjuryAccepted] = useState(false);
   const [selfSelectPin, setSelfSelectPin] = useState("");
   const [validating, setValidating] = useState(false);
@@ -479,8 +513,15 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
   const [validationResult, setValidationResult] = useState<any>(null);
   const [finalizeResult, setFinalizeResult] = useState<any>(null);
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
+  const [stateAdjustmentAck, setStateAdjustmentAck] = useState(false);
+  const [boughtNewVehicle, setBoughtNewVehicle] = useState(false);
 
-  const allChecked = ack1099k && ackFigures && ackBookkeeping && perjuryAccepted;
+  const { data: readinessData } = useQuery<any>({ queryKey: ["/api/submission-readiness"] });
+  const stateInfo = readinessData?.stateInfo || {};
+  const requiresStateAdjustment = stateInfo?.requiresStateAdjustment || false;
+
+  const allChecked = ack1099k && ackFigures && ackBookkeeping && ackStateVerified && perjuryAccepted
+    && (!requiresStateAdjustment || stateAdjustmentAck);
   const pinValid = /^\d{5}$/.test(selfSelectPin);
   const canSubmit = allChecked && pinValid && validationResult?.valid && !finalizing;
   const taxYear = new Date().getFullYear();
@@ -492,11 +533,14 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
     setAck1099k(false);
     setAckFigures(false);
     setAckBookkeeping(false);
+    setAckStateVerified(false);
     setPerjuryAccepted(false);
     setSelfSelectPin("");
     setValidationResult(null);
     setFinalizeResult(null);
     setFinalizeError(null);
+    setStateAdjustmentAck(false);
+    setBoughtNewVehicle(false);
   }
 
   async function handleOpenModal() {
@@ -524,7 +568,12 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
         ack_1099k_verified: ack1099k,
         ack_figures_reviewed: ackFigures,
         ack_bookkeeping_tool: ackBookkeeping,
+        ack_state_verified: ackStateVerified,
         perjury_accepted: perjuryAccepted,
+        stateCode: stateInfo.stateCode || null,
+        stateBucket: stateInfo.taxType || null,
+        stateAdjustmentAck: requiresStateAdjustment ? stateAdjustmentAck : undefined,
+        boughtNewVehicle: requiresStateAdjustment ? boughtNewVehicle : undefined,
       });
       if (!res.ok) {
         const errData = await res.json();
@@ -690,6 +739,19 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
                             </div>
                             <div className="flex items-start gap-3">
                               <Checkbox
+                                id="finalize-ack-state"
+                                checked={ackStateVerified}
+                                onCheckedChange={(c) => setAckStateVerified(c === true)}
+                                data-testid="checkbox-finalize-state"
+                              />
+                              <Label htmlFor="finalize-ack-state" className="text-xs leading-snug cursor-pointer">
+                                {stateInfo.stateCode
+                                  ? `I verify that my filing state is ${stateInfo.stateName} (${stateInfo.stateCode}) — ${stateInfo.bucketLabel}.`
+                                  : "I verify my filing state jurisdiction is correct."}
+                              </Label>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <Checkbox
                                 id="finalize-perjury"
                                 checked={perjuryAccepted}
                                 onCheckedChange={(c) => setPerjuryAccepted(c === true)}
@@ -700,6 +762,44 @@ function FinalizeSubmissionSection({ summary }: { summary: TaxSummary }) {
                               </Label>
                             </div>
                           </div>
+
+                          {requiresStateAdjustment && (
+                            <div className="space-y-3 p-3 rounded-md border bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                              <div className="flex items-start gap-2">
+                                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                                <div className="text-xs">
+                                  <p className="font-medium text-red-800 dark:text-red-300">{stateInfo.stateName} State Adjustment</p>
+                                  <p className="text-red-700/80 dark:text-red-400/70 mt-1">
+                                    {stateInfo.stateName} has decoupled from certain federal deduction rules. Please answer the following to ensure your state filing is accurate.
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="space-y-2 pl-6">
+                                <div className="flex items-start gap-3">
+                                  <Checkbox
+                                    id="finalize-bought-vehicle"
+                                    checked={boughtNewVehicle}
+                                    onCheckedChange={(c) => setBoughtNewVehicle(c === true)}
+                                    data-testid="checkbox-bought-vehicle"
+                                  />
+                                  <Label htmlFor="finalize-bought-vehicle" className="text-xs leading-snug cursor-pointer">
+                                    I purchased a new vehicle this tax year and claimed Section 179 or bonus depreciation.
+                                  </Label>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                  <Checkbox
+                                    id="finalize-state-adj-ack"
+                                    checked={stateAdjustmentAck}
+                                    onCheckedChange={(c) => setStateAdjustmentAck(c === true)}
+                                    data-testid="checkbox-state-adjustment-ack"
+                                  />
+                                  <Label htmlFor="finalize-state-adj-ack" className="text-xs leading-snug cursor-pointer">
+                                    I understand that {stateInfo.stateName} may require separate depreciation schedules and my state deductions may differ from federal.
+                                  </Label>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
                           <div className="space-y-2 pt-2">
                             <Label htmlFor="self-select-pin" className="text-sm font-medium flex items-center gap-2">

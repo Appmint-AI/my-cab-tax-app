@@ -1,6 +1,6 @@
 import type { SubmissionProvider, SubmissionData, SubmissionResult } from "./types";
 import crypto from "crypto";
-import { analyzeJurisdiction, STATE_TAX_RATES_2026, NO_TAX_ON_TIPS_DECOUPLED_STATES } from "./jurisdiction-rules";
+import { analyzeJurisdiction } from "./jurisdiction-rules";
 
 export const NO_INCOME_TAX_STATES = ["AK", "FL", "NV", "NH", "SD", "TN", "TX", "WA", "WY"];
 
@@ -103,8 +103,11 @@ export interface IRSScheduleCPayload {
     stateDecoupled: boolean;
   };
   stateTaxEstimate: {
-    rate: number | null;
-    estimate: number | null;
+    topRate: number | null;
+    effectiveRate: number;
+    estimate: number;
+    taxType: string;
+    bucketLabel: string;
   };
 }
 
@@ -285,10 +288,11 @@ export class InternalIRSAdapter implements SubmissionProvider {
         stateDecoupled: jurisdictionAnalysis.tipsDecoupled,
       },
       stateTaxEstimate: {
-        rate: jurisdictionAnalysis.stateTaxRate,
-        estimate: jurisdictionAnalysis.stateTaxRate
-          ? round2(summary.netProfit * (jurisdictionAnalysis.stateTaxRate / 100))
-          : null,
+        topRate: jurisdictionAnalysis.stateTaxRate,
+        effectiveRate: jurisdictionAnalysis.effectiveRate,
+        estimate: jurisdictionAnalysis.stateTaxOwed,
+        taxType: jurisdictionAnalysis.taxType,
+        bucketLabel: jurisdictionAnalysis.bucketLabel,
       },
     };
   }

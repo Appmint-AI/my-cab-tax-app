@@ -1324,6 +1324,14 @@ export async function registerRoutes(
         checklist,
         stateRules: analysis.stateRules,
         filingComponents: analysis.filingComponents,
+        stateInfo: {
+          stateCode: analysis.stateCode,
+          stateName: analysis.stateName,
+          taxType: analysis.taxType,
+          bucketLabel: analysis.bucketLabel,
+          requiresStateAdjustment: analysis.requiresStateAdjustment,
+          decoupledRules: analysis.decoupledRules,
+        },
         tipAdjustments: {
           federalTipExemption: analysis.federalTipExemption,
           stateTipInclusion: analysis.stateTipInclusion,
@@ -1331,10 +1339,9 @@ export async function registerRoutes(
           stateDecoupled: analysis.tipsDecoupled,
         },
         stateTaxEstimate: {
-          rate: analysis.stateTaxRate,
-          estimate: analysis.stateTaxRate
-            ? Math.round(data.summary.netProfit * (analysis.stateTaxRate / 100) * 100) / 100
-            : null,
+          topRate: analysis.stateTaxRate,
+          effectiveRate: analysis.effectiveRate,
+          estimate: analysis.stateTaxOwed,
         },
       });
     } catch (err: any) {

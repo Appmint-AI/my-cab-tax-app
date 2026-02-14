@@ -1,16 +1,8 @@
 import { NO_INCOME_TAX_STATES, HIGH_LOCAL_TAX_JURISDICTIONS } from "./irs-adapter";
+import { calculateStateTax, getStateConfig, type TaxType, type StateTaxResult } from "./state-engine";
 
-export const STATE_TAX_RATES_2026: Record<string, number> = {
-  AK: 0, AL: 5.0, AZ: 2.5, AR: 4.4, CA: 13.3, CO: 4.4,
-  CT: 6.99, DE: 6.6, FL: 0, GA: 5.49, HI: 11.0, ID: 5.8,
-  IL: 4.95, IN: 2.95, IA: 5.7, KS: 5.7, KY: 3.5,
-  LA: 4.25, ME: 7.15, MD: 5.75, MA: 5.0, MI: 4.25,
-  MN: 9.85, MS: 5.0, MO: 4.8, MT: 6.75, NE: 6.64,
-  NV: 0, NH: 0, NJ: 10.75, NM: 5.9, NY: 10.9, NC: 4.5, ND: 1.95,
-  OH: 2.75, OK: 4.75, OR: 9.9, PA: 3.07, RI: 5.99,
-  SC: 6.5, SD: 0, TN: 0, TX: 0, UT: 4.65, VT: 8.75, VA: 5.75,
-  WA: 0, WV: 6.5, WI: 7.65, WY: 0, DC: 10.75,
-};
+export { calculateStateTax, getStateConfig, getAllStates, getBucketStates } from "./state-engine";
+export type { TaxType, StateTaxResult, StateConfig } from "./state-engine";
 
 export const NO_TAX_ON_TIPS_DECOUPLED_STATES: string[] = [
   "CA", "NY", "NJ", "MA", "MN", "OR", "CT", "HI", "VT", "MD",
@@ -26,9 +18,14 @@ export interface StateRuleResult {
 
 export interface JurisdictionAnalysis {
   stateCode: string;
+  stateName: string;
+  taxType: TaxType;
+  bucketLabel: string;
   hasIncomeTax: boolean;
   cfsfEligible: boolean;
   stateTaxRate: number | null;
+  effectiveRate: number;
+  stateTaxOwed: number;
   stateRules: StateRuleResult[];
   noTaxOnTipsEligible: boolean;
   tipsDecoupled: boolean;
@@ -39,6 +36,9 @@ export interface JurisdictionAnalysis {
   localRate: number | null;
   localTaxEstimate: number | null;
   filingComponents: string[];
+  requiresStateAdjustment: boolean;
+  decoupledRules: string[];
+  stateTaxResult: StateTaxResult;
 }
 
 export function analyzeJurisdiction(params: {
@@ -60,21 +60,64 @@ export function analyzeJurisdiction(params: {
   const rules: StateRuleResult[] = [];
   const filingComponents: string[] = ["Federal 1040 + Schedule C + Schedule SE"];
 
+  const stateConfig = stateCode ? getStateConfig(stateCode) : null;
+  const stateTaxResult = stateCode
+    ? calculateStateTax(stateCode, netProfit)
+    : calculateStateTax("", 0);
+
+  const taxType = stateTaxResult.taxType;
   const hasIncomeTax = stateCode ? !NO_INCOME_TAX_STATES.includes(stateCode) : false;
   const cfsfEligible = hasIncomeTax;
-  const stateTaxRate = stateCode ? (STATE_TAX_RATES_2026[stateCode] ?? null) : null;
 
-  if (stateCode && !hasIncomeTax) {
+  if (stateCode && taxType === "None") {
     rules.push({
       code: "STATE_BYPASS",
       label: "No State Income Tax",
       severity: "info",
-      message: `${stateCode} has no state income tax. State filing step removed from your checklist.`,
+      message: `${stateConfig?.name || stateCode} has no state income tax. Your $50 covers 100% of your tax obligations — no hidden state fees.`,
     });
   }
 
   if (stateCode && hasIncomeTax) {
     filingComponents.push(`State CF/SF Auto-Forward (${stateCode})`);
+  }
+
+  if (stateCode && taxType === "Flat" && hasIncomeTax) {
+    rules.push({
+      code: "FLAT_TAX_CALCULATION",
+      label: `${stateCode} Flat Tax`,
+      severity: "info",
+      message: `${stateConfig?.name || stateCode} charges a flat ${stateTaxResult.topRate}% rate. Estimated state tax: $${stateTaxResult.taxOwed.toFixed(2)} on your Schedule C Line 31 net profit.`,
+      details: { rate: stateTaxResult.topRate, estimate: stateTaxResult.taxOwed },
+    });
+  }
+
+  if (stateCode && taxType === "Graduated" && hasIncomeTax) {
+    rules.push({
+      code: "GRADUATED_TAX_CALCULATION",
+      label: `${stateCode} Graduated Tax`,
+      severity: "info",
+      message: `${stateConfig?.name || stateCode} uses graduated brackets (top rate ${stateTaxResult.topRate}%). Effective rate: ${stateTaxResult.effectiveRate}%. Estimated state tax: $${stateTaxResult.taxOwed.toFixed(2)}.`,
+      details: {
+        topRate: stateTaxResult.topRate,
+        effectiveRate: stateTaxResult.effectiveRate,
+        estimate: stateTaxResult.taxOwed,
+        brackets: stateTaxResult.brackets,
+      },
+    });
+  }
+
+  if (stateCode && taxType === "Decoupled") {
+    rules.push({
+      code: "DECOUPLED_STATE",
+      label: `${stateCode} Decoupled Rules`,
+      severity: "warning",
+      message: `${stateConfig?.name || stateCode} has decoupled from certain federal rules. A State Adjustment review may be required (e.g., vehicle depreciation limits differ from federal). Estimated state tax: $${stateTaxResult.taxOwed.toFixed(2)}.`,
+      details: {
+        decoupledRules: stateTaxResult.decoupledRules,
+        requiresAdjustment: stateTaxResult.requiresStateAdjustment,
+      },
+    });
   }
 
   if (stateCode === "CA" && grossIncome < 32900) {
@@ -159,17 +202,6 @@ export function analyzeJurisdiction(params: {
     });
   }
 
-  if (stateCode && hasIncomeTax && stateTaxRate) {
-    const stateEstimate = netProfit * (stateTaxRate / 100);
-    rules.push({
-      code: "STATE_TAX_ESTIMATE",
-      label: `${stateCode} State Tax Estimate`,
-      severity: "info",
-      message: `Estimated ${stateCode} state income tax at ${stateTaxRate}%: $${stateEstimate.toFixed(2)} (based on net profit).`,
-      details: { rate: stateTaxRate, estimate: stateEstimate },
-    });
-  }
-
   const localJurisdictionInfo = localTaxJurisdiction ? HIGH_LOCAL_TAX_JURISDICTIONS[localTaxJurisdiction] : null;
   const localRate = localJurisdictionInfo?.rate ?? null;
   const localTaxEstimate = localRate ? Math.round(netProfit * (localRate / 100) * 100) / 100 : null;
@@ -182,9 +214,14 @@ export function analyzeJurisdiction(params: {
 
   return {
     stateCode: stateCode || "",
+    stateName: stateConfig?.name || "",
+    taxType,
+    bucketLabel: stateTaxResult.bucketLabel,
     hasIncomeTax,
     cfsfEligible,
-    stateTaxRate,
+    stateTaxRate: stateTaxResult.topRate || null,
+    effectiveRate: stateTaxResult.effectiveRate,
+    stateTaxOwed: stateTaxResult.taxOwed,
     stateRules: rules,
     noTaxOnTipsEligible,
     tipsDecoupled,
@@ -195,6 +232,9 @@ export function analyzeJurisdiction(params: {
     localRate,
     localTaxEstimate,
     filingComponents,
+    requiresStateAdjustment: stateTaxResult.requiresStateAdjustment,
+    decoupledRules: stateTaxResult.decoupledRules,
+    stateTaxResult,
   };
 }
 
@@ -215,9 +255,9 @@ export function getSubmissionReadinessChecklist(analysis: JurisdictionAnalysis):
       label: `State Form (${analysis.stateCode || "Not Set"})`,
       included: analysis.hasIncomeTax && analysis.cfsfEligible,
       description: analysis.hasIncomeTax
-        ? `Personalized for ${analysis.stateCode} via CF/SF auto-forwarding.`
+        ? `${analysis.bucketLabel} — ${analysis.stateName} at ${analysis.effectiveRate}% effective rate via CF/SF auto-forwarding.`
         : analysis.stateCode
-          ? `${analysis.stateCode} has no state income tax — no state form needed.`
+          ? `${analysis.stateName} has no state income tax — no state form needed. Your $50 covers 100%.`
           : "Select your state in Tax Profile to configure.",
     },
     {
@@ -233,6 +273,14 @@ export function getSubmissionReadinessChecklist(analysis: JurisdictionAnalysis):
       description: "Immutable storage of all receipts, logs, and tax documents.",
     },
   ];
+
+  if (analysis.requiresStateAdjustment) {
+    checklist.splice(2, 0, {
+      label: `State Adjustment (${analysis.stateCode})`,
+      included: true,
+      description: `${analysis.stateName} requires review of vehicle depreciation and deduction limits that differ from federal rules.`,
+    });
+  }
 
   return checklist;
 }
