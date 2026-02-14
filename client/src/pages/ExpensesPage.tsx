@@ -22,12 +22,16 @@ import { MoreVertical, Search, Trash2, Pencil, Receipt } from "lucide-react";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/hooks/use-auth";
+import { getSegmentConfig } from "@/lib/segment-config";
 
 export default function ExpensesPage() {
   const { data: expenses, isLoading } = useExpenses();
   const deleteMutation = useDeleteExpense();
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const { user } = useAuth();
+  const segmentConfig = getSegmentConfig(user?.userSegment);
 
   const filteredExpenses = expenses?.filter(e => 
     e.category.toLowerCase().includes(search.toLowerCase()) || 
@@ -38,8 +42,8 @@ export default function ExpensesPage() {
     <Layout>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold">Expenses</h1>
-          <p className="text-muted-foreground">Manage and track your deductible expenses.</p>
+          <h1 className="text-3xl font-display font-bold" data-testid="text-expenses-title">Expenses</h1>
+          <p className="text-muted-foreground">Manage your deductible expenses. {segmentConfig.receiptOptimization}</p>
         </div>
         <ExpenseForm />
       </div>

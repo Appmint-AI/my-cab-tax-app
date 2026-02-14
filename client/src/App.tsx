@@ -23,6 +23,7 @@ import ScanPage from "@/pages/ScanPage";
 import VerifyPage from "@/pages/VerifyPage";
 import AuditCenterPage from "@/pages/AuditCenterPage";
 import AdminPage from "@/pages/AdminPage";
+import IndustryPickerPage from "@/pages/IndustryPickerPage";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -37,6 +38,28 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 
   if (!isAuthenticated) {
     return <Redirect to="/" />;
+  }
+
+  return <Component />;
+}
+
+function SegmentGatedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect to="/" />;
+  }
+
+  if (user && !user.userSegment) {
+    return <Redirect to="/pick-industry" />;
   }
 
   return <Component />;
@@ -57,6 +80,10 @@ function VerifiedRoute({ component: Component }: { component: React.ComponentTyp
     return <Redirect to="/" />;
   }
 
+  if (user && !user.userSegment) {
+    return <Redirect to="/pick-industry" />;
+  }
+
   if (user && !user.isVerified) {
     return <Redirect to="/verify" />;
   }
@@ -72,8 +99,12 @@ function Router() {
       <Route path="/upgrade" component={UpgradePage} />
       <Route path="/support" component={SupportPage} />
       
+      <Route path="/pick-industry">
+        <ProtectedRoute component={IndustryPickerPage} />
+      </Route>
+
       <Route path="/verify">
-        <ProtectedRoute component={VerifyPage} />
+        <SegmentGatedRoute component={VerifyPage} />
       </Route>
 
       <Route path="/dashboard">

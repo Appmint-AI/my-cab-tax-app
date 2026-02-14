@@ -40,6 +40,7 @@ import { jsPDF } from "jspdf";
 import { IRS_MILEAGE_RATE } from "@shared/schema";
 import type { TaxSummary, MileageLog } from "@shared/schema";
 import type { User } from "@shared/models/auth";
+import { getSegmentConfig } from "@/lib/segment-config";
 
 const IRS_1099K_THRESHOLD = 20000;
 const IRS_1099K_TRANSACTIONS = 200;
@@ -310,6 +311,7 @@ export default function Dashboard() {
   const { user } = useAuth();
 
   const isFreeUser = !user?.subscriptionStatus || user.subscriptionStatus === "free" || user.subscriptionStatus === "basic";
+  const segmentConfig = getSegmentConfig(user?.userSegment);
 
   if (isLoading || !summary) {
     return (
@@ -326,7 +328,7 @@ export default function Dashboard() {
 
   const stats = [
     {
-      title: "Gross Income",
+      title: segmentConfig.earningsLabel,
       value: summary.grossIncome,
       icon: Wallet,
       color: "text-green-600 dark:text-green-400",
@@ -364,8 +366,8 @@ export default function Dashboard() {
     <Layout>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-display font-bold" data-testid="text-dashboard-title">Dashboard</h1>
-          <p className="text-muted-foreground">Schedule C summary for the current tax year.</p>
+          <h1 className="text-3xl font-display font-bold" data-testid="text-dashboard-title">{segmentConfig.dashboardHeading}</h1>
+          <p className="text-muted-foreground">{segmentConfig.dashboardSubheading}</p>
         </div>
         <div className="flex gap-3 w-full md:w-auto flex-wrap">
           <IncomeForm />

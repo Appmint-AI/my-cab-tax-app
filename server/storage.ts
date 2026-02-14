@@ -68,6 +68,7 @@ export interface IStorage {
   }): Promise<void>;
   getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined>;
   verifyUser(userId: string): Promise<void>;
+  updateUserSegment(userId: string, segment: string): Promise<void>;
   updateUserJurisdiction(userId: string, data: {
     stateCode?: string | null;
     localTaxEnabled?: boolean;
@@ -462,6 +463,13 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async updateUserSegment(userId: string, segment: string): Promise<void> {
+    await db.update(users).set({
+      userSegment: segment,
+      updatedAt: new Date(),
+    }).where(eq(users.id, userId));
+  }
+
   async verifyUser(userId: string): Promise<void> {
     await db.update(users).set({
       isVerified: true,
@@ -555,7 +563,7 @@ export class DatabaseStorage implements IStorage {
     let activeAlerts = 0;
     try {
       const [alertCount] = await db.select({ count: count() }).from(complianceAlerts)
-        .where(sql`${complianceAlerts.dismissed} = false`);
+        .where(sql`${complianceAlerts.isDismissed} = false`);
       activeAlerts = alertCount.count;
     } catch {}
 

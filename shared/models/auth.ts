@@ -49,6 +49,7 @@ export const users = pgTable("users", {
   movedFromState: varchar("moved_from_state"),
   movedToState: varchar("moved_to_state"),
   movedDate: varchar("moved_date"),
+  userSegment: varchar("user_segment"),
   utilityBillUrl: varchar("utility_bill_url"),
   lastLoginAt: timestamp("last_login_at"),
   inactivityEmailSent: varchar("inactivity_email_sent"),

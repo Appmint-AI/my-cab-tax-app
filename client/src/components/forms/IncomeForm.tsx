@@ -34,6 +34,8 @@ import { useState, useEffect } from "react";
 import { Plus, Loader2, Zap, Lock, DollarSign } from "lucide-react";
 import { z } from "zod";
 import { Link } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
+import { getSegmentConfig } from "@/lib/segment-config";
 
 const formSchema = insertIncomeSchema.extend({
   amount: z.coerce.number().positive("Amount must be positive"),
@@ -72,7 +74,7 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
     resolver: zodResolver(formSchema),
     defaultValues: {
       amount: initialData?.amount ?? ("" as any),
-      source: initialData?.source ?? "Uber",
+      source: initialData?.source ?? "",
       date: initialData?.date ? new Date(initialData.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       description: initialData?.description ?? "",
       miles: initialData?.miles ? Number(initialData.miles) : 0,
@@ -127,7 +129,9 @@ export function IncomeForm({ initialData, open: controlledOpen, onOpenChange: se
     }
   };
 
-  const sources = ["Uber", "Lyft", "Private", "Tips", "Cash", "Other"];
+  const { user } = useAuth();
+  const segmentConfig = getSegmentConfig(user?.userSegment);
+  const sources = [...segmentConfig.incomeSources, "Tips", "Cash", "Other"];
 
   return (
     <Dialog open={isOpen} onOpenChange={setOpen}>

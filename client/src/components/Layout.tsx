@@ -1,12 +1,14 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { getSegmentConfig } from "@/lib/segment-config";
 import { 
   LayoutDashboard, 
   Wallet, 
   Receipt, 
   LogOut, 
   CarFront,
+  Package,
   Menu,
   X,
   Settings,
@@ -16,6 +18,7 @@ import {
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -28,6 +31,9 @@ export function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const segmentConfig = getSegmentConfig(user?.userSegment);
+  const isDelivery = user?.userSegment === "delivery";
+  const BrandIcon = isDelivery ? Package : CarFront;
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,7 +41,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/expenses", label: "Expenses", icon: Receipt },
     { href: "/mileage", label: "Mileage", icon: MapPin },
     { href: "/receipts", label: "Receipts", icon: ScanLine },
-    { href: "/vehicles", label: "Vehicles", icon: CarFront },
+    { href: "/vehicles", label: "Vehicles", icon: isDelivery ? Package : CarFront },
     { href: "/audit-center", label: "Audit Defense", icon: Shield },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
@@ -45,11 +51,13 @@ export function Layout({ children }: LayoutProps) {
       <div className="p-6 border-b border-border/50">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary rounded-lg text-primary-foreground">
-            <CarFront className="h-6 w-6" />
+            <BrandIcon className="h-6 w-6" />
           </div>
           <div>
             <h1 className="font-display font-bold text-lg leading-tight">My Cab Tax</h1>
-            <p className="text-xs text-muted-foreground">Driver Assistant</p>
+            <Badge variant="secondary" className="text-[10px] no-default-active-elevate mt-0.5" data-testid="badge-segment-label">
+              {segmentConfig.shortLabel}
+            </Badge>
           </div>
         </div>
       </div>
@@ -113,7 +121,7 @@ export function Layout({ children }: LayoutProps) {
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-background/80 backdrop-blur-md border-b border-border z-40 px-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-primary rounded-md text-primary-foreground">
-            <CarFront className="h-5 w-5" />
+            <BrandIcon className="h-5 w-5" />
           </div>
           <span className="font-display font-bold text-lg">My Cab Tax</span>
         </div>

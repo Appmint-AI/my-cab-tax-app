@@ -23,12 +23,16 @@ import { MoreVertical, Search, Trash2, Pencil, Wallet } from "lucide-react";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/hooks/use-auth";
+import { getSegmentConfig } from "@/lib/segment-config";
 
 export default function IncomesPage() {
   const { data: incomes, isLoading } = useIncomes();
   const deleteMutation = useDeleteIncome();
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const { user } = useAuth();
+  const segmentConfig = getSegmentConfig(user?.userSegment);
 
   const filteredIncomes = incomes?.filter(i => 
     i.source.toLowerCase().includes(search.toLowerCase()) || 
@@ -40,7 +44,7 @@ export default function IncomesPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold" data-testid="text-incomes-title">Income Logs</h1>
-          <p className="text-muted-foreground">Track your earnings, miles driven, and platform fees.</p>
+          <p className="text-muted-foreground">Track your {segmentConfig.earningsLabel.toLowerCase()}, miles driven, and platform fees.</p>
         </div>
         <IncomeForm />
       </div>

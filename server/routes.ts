@@ -1240,6 +1240,20 @@ export async function registerRoutes(
     });
   });
 
+  app.patch("/api/user/segment", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+
+    const segmentSchema = z.object({
+      segment: z.enum(["taxi", "delivery"]),
+    });
+    const parsed = segmentSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid segment" });
+
+    await storage.updateUserSegment(userId, parsed.data.segment);
+    res.json({ success: true, segment: parsed.data.segment });
+  });
+
   app.patch("/api/jurisdiction", isAuthenticated, async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ message: "Not authenticated" });

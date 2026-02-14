@@ -28,9 +28,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
-import { Plus, Loader2, Info } from "lucide-react";
+import { Plus, Loader2, Info, Lightbulb } from "lucide-react";
 import { z } from "zod";
 import { SALT_DEDUCTION_CAP } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
+import { getSegmentConfig } from "@/lib/segment-config";
 
 const formSchema = insertExpenseSchema.extend({
   amount: z.coerce.number().positive("Amount must be positive"),
@@ -106,6 +108,9 @@ export function ExpenseForm({ initialData, open: controlledOpen, onOpenChange: s
     "Property Tax (SALT)",
     "Other Expenses",
   ];
+
+  const { user } = useAuth();
+  const segmentConfig = getSegmentConfig(user?.userSegment);
 
   const selectedCategory = form.watch("category");
   const isSaltCategory = selectedCategory === "Property Tax (SALT)" || selectedCategory === "Home Office";
@@ -187,6 +192,15 @@ export function ExpenseForm({ initialData, open: controlledOpen, onOpenChange: s
                       : "State and local property taxes are subject to the $40,000 SALT cap for 2026 (increased from $10,000 under the TCJA extension)."}
                   </p>
                 </div>
+              </div>
+            )}
+
+            {segmentConfig.expenseSuggestions.length > 0 && !initialData && (
+              <div className="flex items-start gap-2 p-3 rounded-md border bg-muted/30" data-testid="info-segment-expenses">
+                <Lightbulb className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground">
+                  Common {segmentConfig.label.toLowerCase()} expenses: {segmentConfig.expenseSuggestions.join(", ")}
+                </p>
               </div>
             )}
 
