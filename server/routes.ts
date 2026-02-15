@@ -1754,15 +1754,21 @@ export async function registerRoutes(
     res.json(checkin);
   });
 
-  app.get("/api/admin/metrics", isAuthenticated, async (req: Request, res: Response) => {
-    const userId = (req as any).user?.id;
-    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+  const ADMIN_EMAIL = "admin@mycabtax.com";
 
-    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
+  async function requireAdmin(req: Request, res: Response): Promise<boolean> {
+    const userId = (req as any).user?.id;
+    if (!userId) { res.status(401).json({ message: "Not authenticated" }); return false; }
     const user = await storage.getUser(userId);
-    if (!user || !user.email || !adminEmails.includes(user.email)) {
-      return res.status(403).json({ message: "Forbidden" });
+    if (!user || !user.email || user.email.toLowerCase() !== ADMIN_EMAIL) {
+      res.status(403).json({ message: "Forbidden" });
+      return false;
     }
+    return true;
+  }
+
+  app.get("/api/admin/metrics", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
 
     try {
       const metrics = await storage.getAdminMetrics();
@@ -1773,13 +1779,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/admin/lifecycle-metrics", isAuthenticated, async (req: Request, res: Response) => {
-    const userId = (req as any).user?.id;
-    if (!userId) return res.status(401).json({ message: "Not authenticated" });
-    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
-    const user = await storage.getUser(userId);
-    if (!user || !user.email || !adminEmails.includes(user.email)) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
+    if (!(await requireAdmin(req, res))) return;
 
     try {
       const { lifecycleEmails } = await import("@shared/schema");
@@ -1798,13 +1798,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/admin/email-domain/add", isAuthenticated, async (req: Request, res: Response) => {
-    const userId = (req as any).user?.id;
-    if (!userId) return res.status(401).json({ message: "Not authenticated" });
-    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
-    const user = await storage.getUser(userId);
-    if (!user || !user.email || !adminEmails.includes(user.email)) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
+    if (!(await requireAdmin(req, res))) return;
 
     const { domain } = req.body;
     if (!domain || typeof domain !== "string") {
@@ -1824,13 +1818,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/admin/email-domain/status", isAuthenticated, async (req: Request, res: Response) => {
-    const userId = (req as any).user?.id;
-    if (!userId) return res.status(401).json({ message: "Not authenticated" });
-    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
-    const user = await storage.getUser(userId);
-    if (!user || !user.email || !adminEmails.includes(user.email)) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
+    if (!(await requireAdmin(req, res))) return;
 
     try {
       const { getResendClient } = await import("./resend");
@@ -1843,13 +1831,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/admin/email-domain/verify", isAuthenticated, async (req: Request, res: Response) => {
-    const userId = (req as any).user?.id;
-    if (!userId) return res.status(401).json({ message: "Not authenticated" });
-    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
-    const user = await storage.getUser(userId);
-    if (!user || !user.email || !adminEmails.includes(user.email)) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
+    if (!(await requireAdmin(req, res))) return;
 
     const { domainId } = req.body;
     if (!domainId || typeof domainId !== "string") {
@@ -1867,13 +1849,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/admin/email-domain/dns-records", isAuthenticated, async (req: Request, res: Response) => {
-    const userId = (req as any).user?.id;
-    if (!userId) return res.status(401).json({ message: "Not authenticated" });
-    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
-    const user = await storage.getUser(userId);
-    if (!user || !user.email || !adminEmails.includes(user.email)) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
+    if (!(await requireAdmin(req, res))) return;
 
     try {
       const { getResendClient } = await import("./resend");
@@ -1986,14 +1962,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/admin/ai-chat", isAuthenticated, async (req: Request, res: Response) => {
-    const userId = (req as any).user?.id;
-    if (!userId) return res.status(401).json({ message: "Not authenticated" });
-
-    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
-    const user = await storage.getUser(userId);
-    if (!user || !user.email || !adminEmails.includes(user.email)) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
+    if (!(await requireAdmin(req, res))) return;
 
     const { message, history } = req.body;
     if (!message || typeof message !== "string") {
