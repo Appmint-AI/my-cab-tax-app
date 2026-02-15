@@ -1985,6 +1985,153 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/ai-chat", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
+    const user = await storage.getUser(userId);
+    if (!user || !user.email || !adminEmails.includes(user.email)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const { message, history } = req.body;
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ message: "Message is required" });
+    }
+
+    try {
+      const { GoogleGenAI } = await import("@google/genai");
+      const { count } = await import("drizzle-orm");
+      const { lifecycleEmails } = await import("@shared/schema");
+
+      const ai = new GoogleGenAI({
+        apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+        httpOptions: {
+          apiVersion: "",
+          baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+        },
+      });
+
+      const metrics = await storage.getAdminMetrics();
+
+      const [emailStats] = await db.select({ count: count() }).from(lifecycleEmails);
+
+      let segmentBreakdown = { taxi: 0, delivery: 0, hybrid: 0, unset: 0 };
+      try {
+        const segUsers = await db.select({
+          segment: users.userSegment,
+        }).from(users);
+        for (const u of segUsers) {
+          if (u.segment === "taxi") segmentBreakdown.taxi++;
+          else if (u.segment === "delivery") segmentBreakdown.delivery++;
+          else if (u.segment === "hybrid") segmentBreakdown.hybrid++;
+          else segmentBreakdown.unset++;
+        }
+      } catch {}
+
+      let stateBreakdown: Record<string, number> = {};
+      try {
+        const stateUsers = await db.select({
+          stateCode: users.stateCode,
+        }).from(users);
+        for (const u of stateUsers) {
+          const st = u.stateCode || "Unknown";
+          stateBreakdown[st] = (stateBreakdown[st] || 0) + 1;
+        }
+      } catch {}
+
+      const topStates = Object.entries(stateBreakdown)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([state, ct]) => `${state}: ${ct}`)
+        .join(", ");
+
+      const systemPrompt = `Act as the MCTUSA Executive Assistant. Your goal is to help the owners manage the driver fleet and tax compliance. Follow these rules strictly:
+
+SEGMENT AWARENESS: Always distinguish between 'Taxi/Rideshare' and 'Delivery/Courier'. If an owner asks to send a tip, ensure the content matches the driver's industry. Hybrid drivers use multi-app (e.g., Uber + DoorDash simultaneously).
+
+FINANCIAL GUARDRAILS: You have access to aggregate user counts, deduction totals, and compliance status. You NEVER share raw PII (Social Security Numbers, Full Addresses, phone numbers, or email addresses) in the chat. If asked for individual user details, provide only aggregate or anonymized data.
+
+THE 7-YEAR VAULT: If an owner asks about data safety, emphasize that all records are 'Immutable' and stored for the 7-year IRS statute of limitations.
+
+TONE: Be professional, high-energy, and data-driven. Use 'US English' formatting. Use dollar amounts with commas. Use precise numbers.
+
+CONFIRMATION PROTOCOL: For any action that would send an email, change a user's status, generate codes, or modify data, you must summarize the action and ask: 'Shall I execute this for [X] users?' Note: You cannot actually execute these actions yet - describe what would happen and recommend the owner take the action manually or request the engineering team implement it.
+
+CURRENT LIVE METRICS (real-time from database):
+- Total Users: ${metrics.totalUsers}
+- Pro Subscribers: ${metrics.proUsers}
+- Verified Users: ${metrics.verifiedUsers}
+- Income Records: ${metrics.totalIncomeRecords}
+- Expense Records: ${metrics.totalExpenseRecords}
+- Mileage Logs: ${metrics.totalMileageLogs}
+- Taxes Filed: ${metrics.taxesFiled}
+- Audit Log Entries: ${metrics.auditLogEntries}
+- Active Compliance Alerts: ${metrics.activeComplianceAlerts}
+- Total Lifecycle Emails Sent: ${emailStats.count}
+
+SEGMENT BREAKDOWN:
+- Taxi/Rideshare: ${segmentBreakdown.taxi}
+- Delivery Courier: ${segmentBreakdown.delivery}
+- Hybrid (Multi-App): ${segmentBreakdown.hybrid}
+- Not Yet Selected: ${segmentBreakdown.unset}
+
+TOP STATES BY USER COUNT: ${topStates || "No state data available"}
+
+2026 TAX LAW CONTEXT:
+- IRS Mileage Rate: $0.725/mile (72.5 cents, up 2.5 cents from 2025)
+- SALT Deduction Cap: $40,000 (increased from $10,000)
+- 1099-K Threshold: $20,000 gross / 200+ transactions (reverted from $600)
+- Tips Exemption: No Tax on Tips (OBBBA Sec. 101) - tip income exempt from federal income tax
+- SE Tax Rate: 15.3% (12.4% Social Security + 2.9% Medicare)
+- IRS Direct File: Discontinued for 2026
+- Schedule 1-A: New form for tip income reporting`;
+
+      const chatHistory = Array.isArray(history) ? history.map((h: any) => ({
+        role: h.role === "assistant" ? "model" : "user",
+        parts: [{ text: h.content }],
+      })) : [];
+
+      const contents = [
+        ...chatHistory,
+        { role: "user", parts: [{ text: message }] },
+      ];
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      const stream = await ai.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents,
+        config: {
+          systemInstruction: systemPrompt,
+        },
+      });
+
+      let fullResponse = "";
+      for await (const chunk of stream) {
+        const text = chunk.text || "";
+        if (text) {
+          fullResponse += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+        }
+      }
+
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
+    } catch (error: any) {
+      console.error("Admin AI chat error:", error);
+      if (res.headersSent) {
+        res.write(`data: ${JSON.stringify({ error: "AI request failed" })}\n\n`);
+        res.end();
+      } else {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  });
+
   return httpServer;
 }
 

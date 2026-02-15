@@ -51,6 +51,9 @@ Key architectural and feature specifications include:
 - **Admin Dashboard**: Hidden `/admin` route (auth-gated) with Total Users, Pro Subscribers, Verified Users, Taxes Filed, Income/Expense/Mileage Records, Audit Log Entries, and Compliance Alerts. API: `GET /api/admin/metrics`.
 - **Pure Tax Engine**: `server/tax-engine.ts` — extracted, side-effect-free tax calculation function for unit testing without DB.
 
+- **AI Command Center (Admin)**: A Gemini-powered Executive Assistant chatbot on the `/admin` page. Endpoint: `POST /api/admin/ai-chat` (admin-gated, streaming SSE). The system prompt injects real-time fleet metrics, segment breakdowns, state data, and 2026 tax law context. Includes PII guardrails (no raw SSN/address/email in responses) and a confirmation protocol for destructive actions. Quick command buttons for common fleet queries. Chat history is maintained client-side per session.
+- **Tax Season Countdown Emails**: Two lifecycle emails (30-day on March 15, 15-day on April 1) with 14-day bounded windows. Suppressed when `hasExported2026` is true (set server-side on CSV export for tax year 2026). Templates are segment-aware with 2026-specific tax context.
+
 ## External Dependencies
 - **Auth0**: For OpenID Connect (OIDC) authentication, MFA, and biometric login.
 - **Google Cloud Storage**: Used for storing receipt images.

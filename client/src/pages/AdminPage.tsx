@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, FileText, DollarSign, AlertTriangle, Car, Receipt, Shield, Activity, Mail, Globe, CheckCircle, XCircle, Clock, Copy, RefreshCw } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Users, FileText, DollarSign, AlertTriangle, Car, Receipt, Shield, Activity, Mail, Globe, CheckCircle, XCircle, Clock, Copy, RefreshCw, Bot, Send, Sparkles, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -310,6 +311,242 @@ function LifecycleEmailSection() {
   );
 }
 
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+const QUICK_COMMANDS = [
+  "How many active users do we have right now?",
+  "What's the segment breakdown across our driver fleet?",
+  "Check if compliance alerts need attention.",
+  "Summarize our email engagement metrics.",
+  "What 2026 tax law changes should I tell drivers about?",
+];
+
+function AICommandCenter() {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const sendMessage = useCallback(async (messageText: string) => {
+    if (!messageText.trim() || isStreaming) return;
+
+    const trimmed = messageText.trim();
+    const userMsg: ChatMessage = { role: "user", content: trimmed };
+
+    const historySnapshot = [...messages, userMsg];
+    setMessages(historySnapshot);
+    setInput("");
+    setIsStreaming(true);
+
+    const withAssistant = [...historySnapshot, { role: "assistant" as const, content: "" }];
+    setMessages(withAssistant);
+
+    try {
+      const response = await fetch("/api/admin/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          message: trimmed,
+          history: messages,
+        }),
+      });
+
+      if (response.status === 403) {
+        throw new Error("Access denied. Admin privileges required.");
+      }
+      if (!response.ok) {
+        throw new Error("Failed to connect to AI assistant");
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) throw new Error("No response stream");
+
+      let accumulated = "";
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(trimmedLine.slice(6));
+            if (data.done) continue;
+            if (data.error) {
+              toast({ title: "AI Error", description: data.error, variant: "destructive" });
+              continue;
+            }
+            if (data.content) {
+              accumulated += data.content;
+              setMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: "assistant", content: accumulated };
+                return updated;
+              });
+            }
+          } catch {}
+        }
+      }
+
+      if (buffer.trim().startsWith("data: ")) {
+        try {
+          const data = JSON.parse(buffer.trim().slice(6));
+          if (data.content) {
+            accumulated += data.content;
+            setMessages(prev => {
+              const updated = [...prev];
+              updated[updated.length - 1] = { role: "assistant", content: accumulated };
+              return updated;
+            });
+          }
+        } catch {}
+      }
+    } catch (error: any) {
+      toast({ title: "Connection Error", description: error.message, variant: "destructive" });
+      setMessages(historySnapshot);
+    } finally {
+      setIsStreaming(false);
+    }
+  }, [isStreaming, messages, toast]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    sendMessage(input);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input);
+    }
+  };
+
+  return (
+    <Card data-testid="card-ai-command-center" className="overflow-visible">
+      <CardHeader>
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <Bot className="h-4 w-4" />
+          AI Command Center
+          <Badge variant="secondary">
+            <Sparkles className="h-3 w-3 mr-1" />
+            Gemini
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Your MCTUSA Executive Assistant has real-time access to fleet metrics, segment data, and 2026 tax law context. Ask anything about your driver base, compliance status, or engagement.
+        </p>
+
+        {messages.length === 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Quick Commands</p>
+            <div className="flex flex-wrap gap-2">
+              {QUICK_COMMANDS.map((cmd, idx) => (
+                <Button
+                  key={idx}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => sendMessage(cmd)}
+                  disabled={isStreaming}
+                  data-testid={`button-quick-cmd-${idx}`}
+                >
+                  {cmd}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {messages.length > 0 && (
+          <div
+            ref={scrollRef}
+            className="border rounded-md p-3 max-h-96 overflow-y-auto space-y-3"
+            data-testid="container-chat-messages"
+          >
+            {messages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                data-testid={`chat-message-${msg.role}-${idx}`}
+              >
+                <div
+                  className={`max-w-[85%] rounded-md px-3 py-2 text-sm whitespace-pre-wrap ${
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted"
+                  }`}
+                >
+                  {msg.content || (isStreaming && idx === messages.length - 1 ? (
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Thinking...
+                    </span>
+                  ) : null)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <Textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask your Executive Assistant..."
+            className="resize-none text-sm min-h-[40px] max-h-[80px]"
+            disabled={isStreaming}
+            data-testid="input-ai-chat"
+          />
+          <div className="flex flex-col gap-1">
+            <Button
+              type="submit"
+              size="icon"
+              disabled={!input.trim() || isStreaming}
+              data-testid="button-send-ai-chat"
+            >
+              {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+            {messages.length > 0 && (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => setMessages([])}
+                disabled={isStreaming}
+                data-testid="button-clear-chat"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminPage() {
   const { data: metrics, isLoading, error } = useQuery<AdminMetrics>({
     queryKey: ["/api/admin/metrics"],
@@ -410,6 +647,8 @@ export default function AdminPage() {
             </CardContent>
           </Card>
         </div>
+
+        <AICommandCenter />
 
         <EmailDomainSection />
       </div>
