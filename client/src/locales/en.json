@@ -59,7 +59,17 @@
     "logMileage": "Log Mileage",
     "scanReceipt": "Scan Receipt",
     "moneySaved": "Money Saved",
-    "filingReadiness": "Filing Readiness"
+    "filingReadiness": "Filing Readiness",
+    "auditSentinel": "Audit Sentinel",
+    "penaltyProtection": "Penalty Protection",
+    "daysLeft": "{{count}} days left",
+    "wealthForecast": "Tax Optimization — Retirement Savings",
+    "taxSaved": "Save ${{amount}} in taxes",
+    "highRisk": "HIGH AUDIT RISK",
+    "mediumRisk": "MEDIUM AUDIT RISK",
+    "lowRisk": "LOW AUDIT RISK",
+    "categoriesAboveAverage": "{{count}} categories above regional average",
+    "auditProof": "Your expenses are within normal ranges. You're audit-proof."
   },
   "expenses": {
     "title": "Expenses",
@@ -185,5 +195,29 @@
     "taxi": "Taxi/Rideshare",
     "delivery": "Delivery",
     "hybrid": "Hybrid"
+  },
+  "settings": {
+    "title": "Settings",
+    "displayPreferences": "Display Preferences",
+    "simplifiedView": "Simplified View",
+    "simplifiedDesc": "Replace text labels with icons for a visual-first experience",
+    "highAccessibility": "High-Accessibility Mode",
+    "highAccessibilityDesc": "Larger icons with tooltips for easier navigation"
+  },
+  "wealth": {
+    "title": "Tax Optimization — Retirement Savings",
+    "solo401k": "Solo 401(k)",
+    "traditionalIra": "Traditional IRA",
+    "sepIra": "SEP-IRA",
+    "saveTax": "Save ${{amount}} in taxes",
+    "contribution": "on ${{amount}} contribution",
+    "disclaimer": "Estimated tax savings. Consult a CPA before making contributions."
+  },
+  "penalty": {
+    "title": "Penalty Protection",
+    "daysLeft": "{{count}} days left",
+    "nextDeadline": "Next: {{desc}} — Due {{date}}",
+    "urgent": "Filing deadline approaching!",
+    "safe": "You're on track. Next deadline is well ahead."
   }
 }

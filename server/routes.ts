@@ -131,7 +131,20 @@ export async function registerRoutes(
       const input = api.expenses.create.input.parse(req.body);
       const lockMsg = await checkYearLock(userId, input.date);
       if (lockMsg) return res.status(403).json({ message: lockMsg, locked: true });
-      const expense = await storage.createExpense({ ...input, userId });
+      const expenseData: any = { ...input, userId };
+      const reqCurrency = req.body.currency || input.anchorCurrency;
+      if (reqCurrency && reqCurrency !== "USD") {
+        try {
+          const { getRate } = await import("./currency-engine");
+          const rate = await getRate(reqCurrency, "USD");
+          if (rate) {
+            expenseData.anchorCurrency = reqCurrency;
+            expenseData.anchoredUsdAmount = String(Number((parseFloat(String(input.amount)) * rate).toFixed(2)));
+            expenseData.anchoredAt = new Date();
+          }
+        } catch {}
+      }
+      const expense = await storage.createExpense(expenseData);
       res.status(201).json(expense);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -210,7 +223,20 @@ export async function registerRoutes(
       const input = api.incomes.create.input.parse(req.body);
       const lockMsg = await checkYearLock(userId, input.date);
       if (lockMsg) return res.status(403).json({ message: lockMsg, locked: true });
-      const income = await storage.createIncome({ ...input, userId });
+      const incomeData: any = { ...input, userId };
+      const reqCurrency = req.body.currency || input.anchorCurrency;
+      if (reqCurrency && reqCurrency !== "USD") {
+        try {
+          const { getRate } = await import("./currency-engine");
+          const rate = await getRate(reqCurrency, "USD");
+          if (rate) {
+            incomeData.anchorCurrency = reqCurrency;
+            incomeData.anchoredUsdAmount = String(Number((parseFloat(String(input.amount)) * rate).toFixed(2)));
+            incomeData.anchoredAt = new Date();
+          }
+        } catch {}
+      }
+      const income = await storage.createIncome(incomeData);
       res.status(201).json(income);
     } catch (err) {
       if (err instanceof z.ZodError) {

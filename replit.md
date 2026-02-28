@@ -37,7 +37,20 @@ The application utilizes a React, Vite, TailwindCSS, shadcn/ui, and Recharts fro
     -   **Currency Anchor**: Background task (`server/currency-anchor.ts`) converts all unanchored expense/income entries to Stable USD using current exchange rates. Adds `anchorCurrency`, `anchoredUsdAmount`, `anchoredAt` fields to both `expenses` and `incomes` tables. UI on `/currency` page with anchor status dashboard. API: `GET /api/anchor/status`, `POST /api/anchor/run`.
     -   **Multi-Gig Bridge**: Dedicated `/sync` page (`client/src/pages/SyncPage.tsx`) for uploading earnings CSVs from Uber, Bolt, Lyft, DoorDash, or other platforms. Smart column detection maps platform-specific CSV headers. Parsed entries stored in `gig_sync_entries` table with platform breakdown. Merge into unified timeline with import-to-income capability. API: `GET /api/gig-sync/entries`, `POST /api/gig-sync/upload`, `POST /api/gig-sync/import-to-income`, `DELETE /api/gig-sync/entries`.
     -   **Simplified View**: Toggle in Settings (Display Preferences) switches sidebar to icon-only mode. Uses `simplifiedView` boolean field on users table. Icons: Gas/Fuel, Tools/Wrench, Route for contextual visual cues. API: `PATCH /api/user/simplified-view`.
-    -   **Audit Sentinel**: Risk analysis engine (`server/audit-sentinel.ts`) compares user expense categories against regional averages for rideshare/delivery drivers. Displays Audit Risk Level (Low/Medium/High) with score, per-category deviation bars, and actionable recommendations. Integrated into Audit Defense Center page. Regional averages defined in `REGIONAL_EXPENSE_AVERAGES` constant. API: `GET /api/audit-risk`.
+    -   **Audit Sentinel**: Risk analysis engine (`server/audit-sentinel.ts`) compares user expense categories against regional averages for rideshare/delivery drivers. Displays Audit Risk Level (Low/Medium/High) with score, per-category deviation bars, and actionable recommendations. Integrated into Audit Defense Center page AND Dashboard (AuditRiskBadge). Regional averages defined in `REGIONAL_EXPENSE_AVERAGES` constant. API: `GET /api/audit-risk`.
+-   **Global Security Manifesto Features**:
+    -   **Auto USD Anchoring on Save**: When creating expenses/incomes with a non-USD `anchorCurrency`, the server automatically fetches the live exchange rate and stores the `anchoredUsdAmount` at creation time. No batch anchoring required — inflation protection is instant.
+    -   **Penalty Protection Countdown**: Dashboard component (`PenaltyCountdown`) displays a real-time countdown to the next IRS filing deadline (quarterly 1040-ES or annual return). Color-coded urgency: red (<14 days), amber (<30 days), green (safe).
+    -   **Wealth Forecast / Retirement Calculator**: Dashboard component (`WealthForecast`) suggests Solo 401(k), Traditional IRA, and SEP-IRA contributions based on net profit. Shows estimated tax savings at the user's marginal rate. Appears when net profit > $5,000.
+    -   **Auth0 Multi-Language**: Login route passes `ui_locales` parameter to Auth0 based on browser language or `?lang=` query parameter. Supports English, Urdu, Arabic, Vietnamese.
+-   **Internationalization (i18n)**:
+    -   **i18next** with browser language detection and localStorage persistence.
+    -   4 languages: English (`en`), Urdu (`ur`), Arabic (`ar`), Vietnamese (`vi`).
+    -   RTL support for Arabic and Urdu (auto-sets `dir="rtl"` on `<html>`).
+    -   Language switcher in sidebar (Layout.tsx).
+    -   Locale files: `client/src/locales/{en,ur,ar,vi}.json`.
+-   **GPS Geofencing**: `RegionDetector` component uses `navigator.geolocation` + BigDataCloud reverse geocoding to detect user's country. Shows dismissable banner if country differs from profile.
+-   **DAC7 CSV Comparison Tool**: `/dac7` page for uploading Uber/Bolt/Lyft platform CSVs. Smart column detection, date/amount matching against expense log. Shows matched, missing, and extra records. One-click "Add Missing" to create expenses from unmatched rows.
 
 ## External Dependencies
 -   **Auth0**: For OpenID Connect (OIDC) authentication.

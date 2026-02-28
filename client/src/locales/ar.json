@@ -59,7 +59,17 @@
     "logMileage": "تسجيل المسافة",
     "scanReceipt": "مسح إيصال",
     "moneySaved": "المال الموفر",
-    "filingReadiness": "جاهزية التقديم"
+    "filingReadiness": "جاهزية التقديم",
+    "auditSentinel": "حارس التدقيق",
+    "penaltyProtection": "حماية من الغرامات",
+    "daysLeft": "{{count}} أيام متبقية",
+    "wealthForecast": "تحسين الضرائب — مدخرات التقاعد",
+    "taxSaved": "وفر ${{amount}} في الضرائب",
+    "highRisk": "خطر تدقيق عالي",
+    "mediumRisk": "خطر تدقيق متوسط",
+    "lowRisk": "خطر تدقيق منخفض",
+    "categoriesAboveAverage": "{{count}} فئات أعلى من المتوسط الإقليمي",
+    "auditProof": "مصروفاتك ضمن النطاقات الطبيعية. أنت محمي من التدقيق."
   },
   "expenses": {
     "title": "المصروفات",
@@ -185,5 +195,29 @@
     "taxi": "تاكسي/مشاركة الركوب",
     "delivery": "توصيل",
     "hybrid": "هجين"
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "displayPreferences": "تفضيلات العرض",
+    "simplifiedView": "عرض مبسط",
+    "simplifiedDesc": "استبدال النصوص بأيقونات لتجربة بصرية",
+    "highAccessibility": "وضع إمكانية الوصول العالية",
+    "highAccessibilityDesc": "أيقونات أكبر مع تلميحات لتسهيل التنقل"
+  },
+  "wealth": {
+    "title": "تحسين الضرائب — مدخرات التقاعد",
+    "solo401k": "Solo 401(k)",
+    "traditionalIra": "IRA تقليدي",
+    "sepIra": "SEP-IRA",
+    "saveTax": "وفر ${{amount}} في الضرائب",
+    "contribution": "على مساهمة ${{amount}}",
+    "disclaimer": "تقديرات توفير الضرائب. استشر محاسب قبل المساهمة."
+  },
+  "penalty": {
+    "title": "حماية من الغرامات",
+    "daysLeft": "{{count}} أيام متبقية",
+    "nextDeadline": "التالي: {{desc}} — الموعد {{date}}",
+    "urgent": "الموعد النهائي للتقديم يقترب!",
+    "safe": "أنت على المسار الصحيح. الموعد النهائي التالي بعيد."
   }
 }

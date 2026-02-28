@@ -59,7 +59,17 @@
     "logMileage": "مائلیج ریکارڈ",
     "scanReceipt": "رسید اسکین",
     "moneySaved": "بچت",
-    "filingReadiness": "فائلنگ تیاری"
+    "filingReadiness": "فائلنگ تیاری",
+    "auditSentinel": "آڈٹ سینٹینل",
+    "penaltyProtection": "جرمانے سے تحفظ",
+    "daysLeft": "{{count}} دن باقی",
+    "wealthForecast": "ٹیکس بہتری — ریٹائرمنٹ بچت",
+    "taxSaved": "ٹیکس میں ${{amount}} بچائیں",
+    "highRisk": "زیادہ آڈٹ خطرہ",
+    "mediumRisk": "درمیانہ آڈٹ خطرہ",
+    "lowRisk": "کم آڈٹ خطرہ",
+    "categoriesAboveAverage": "{{count}} زمرے علاقائی اوسط سے اوپر",
+    "auditProof": "آپ کے اخراجات عام حدود میں ہیں۔ آپ آڈٹ پروف ہیں۔"
   },
   "expenses": {
     "title": "اخراجات",
@@ -185,5 +195,29 @@
     "taxi": "ٹیکسی/رائیڈ شیئر",
     "delivery": "ڈیلیوری",
     "hybrid": "ہائبرڈ"
+  },
+  "settings": {
+    "title": "ترتیبات",
+    "displayPreferences": "ڈسپلے ترجیحات",
+    "simplifiedView": "آسان منظر",
+    "simplifiedDesc": "بصری تجربے کے لیے متن کی جگہ آئیکنز",
+    "highAccessibility": "اعلیٰ رسائی موڈ",
+    "highAccessibilityDesc": "آسان نیویگیشن کے لیے بڑے آئیکنز اور ٹول ٹپس"
+  },
+  "wealth": {
+    "title": "ٹیکس بہتری — ریٹائرمنٹ بچت",
+    "solo401k": "Solo 401(k)",
+    "traditionalIra": "روایتی IRA",
+    "sepIra": "SEP-IRA",
+    "saveTax": "ٹیکس میں ${{amount}} بچائیں",
+    "contribution": "${{amount}} شراکت پر",
+    "disclaimer": "تخمینی ٹیکس بچت۔ شراکت سے پہلے CPA سے مشورہ کریں۔"
+  },
+  "penalty": {
+    "title": "جرمانے سے تحفظ",
+    "daysLeft": "{{count}} دن باقی",
+    "nextDeadline": "اگلا: {{desc}} — آخری تاریخ {{date}}",
+    "urgent": "فائلنگ کی آخری تاریخ قریب ہے!",
+    "safe": "آپ صحیح راستے پر ہیں۔ اگلی آخری تاریخ دور ہے۔"
   }
 }

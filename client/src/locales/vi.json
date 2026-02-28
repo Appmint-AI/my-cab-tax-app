@@ -59,7 +59,17 @@
     "logMileage": "Ghi số dặm",
     "scanReceipt": "Quét biên lai",
     "moneySaved": "Tiền tiết kiệm",
-    "filingReadiness": "Sẵn sàng nộp"
+    "filingReadiness": "Sẵn sàng nộp",
+    "auditSentinel": "Lính canh kiểm toán",
+    "penaltyProtection": "Bảo vệ khỏi phạt",
+    "daysLeft": "Còn {{count}} ngày",
+    "wealthForecast": "Tối ưu thuế — Tiết kiệm hưu trí",
+    "taxSaved": "Tiết kiệm ${{amount}} thuế",
+    "highRisk": "RỦI RO KIỂM TOÁN CAO",
+    "mediumRisk": "RỦI RO KIỂM TOÁN TRUNG BÌNH",
+    "lowRisk": "RỦI RO KIỂM TOÁN THẤP",
+    "categoriesAboveAverage": "{{count}} danh mục trên mức trung bình khu vực",
+    "auditProof": "Chi phí của bạn nằm trong phạm vi bình thường. Bạn an toàn trước kiểm toán."
   },
   "expenses": {
     "title": "Chi phí",
@@ -185,5 +195,29 @@
     "taxi": "Taxi/Xe công nghệ",
     "delivery": "Giao hàng",
     "hybrid": "Kết hợp"
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "displayPreferences": "Tùy chọn hiển thị",
+    "simplifiedView": "Chế độ đơn giản",
+    "simplifiedDesc": "Thay thế nhãn văn bản bằng biểu tượng cho trải nghiệm trực quan",
+    "highAccessibility": "Chế độ dễ truy cập",
+    "highAccessibilityDesc": "Biểu tượng lớn hơn với chú thích để dễ dàng điều hướng"
+  },
+  "wealth": {
+    "title": "Tối ưu thuế — Tiết kiệm hưu trí",
+    "solo401k": "Solo 401(k)",
+    "traditionalIra": "IRA truyền thống",
+    "sepIra": "SEP-IRA",
+    "saveTax": "Tiết kiệm ${{amount}} thuế",
+    "contribution": "trên khoản đóng góp ${{amount}}",
+    "disclaimer": "Ước tính tiết kiệm thuế. Tham khảo CPA trước khi đóng góp."
+  },
+  "penalty": {
+    "title": "Bảo vệ khỏi phạt",
+    "daysLeft": "Còn {{count}} ngày",
+    "nextDeadline": "Tiếp theo: {{desc}} — Hạn {{date}}",
+    "urgent": "Hạn nộp đang đến gần!",
+    "safe": "Bạn đang đi đúng hướng. Hạn nộp tiếp theo còn xa."
   }
 }

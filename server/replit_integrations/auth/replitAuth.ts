@@ -143,9 +143,11 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/login", (req, res, next) => {
     ensureStrategy(req.hostname);
+    const uiLocales = (req.query.lang as string) || req.acceptsLanguages("en", "ur", "ar", "vi") || "en";
     passport.authenticate(`auth0:${req.hostname}`, {
       prompt: "login",
       scope: ["openid", "email", "profile", "offline_access"],
+      ui_locales: uiLocales,
     })(req, res, next);
   });
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Layout } from "@/components/Layout";
 import { useTaxSummary } from "@/hooks/use-tax";
 import { useAuth } from "@/hooks/use-auth";
@@ -392,6 +393,174 @@ function TaxHealthBar({ summary, user }: { summary: TaxSummary; user: User | nul
   );
 }
 
+interface AuditRiskResult {
+  overallRisk: "low" | "medium" | "high";
+  riskScore: number;
+  totalExpenses: number;
+  categoryBreakdown: { category: string; amount: number; average: number; deviation: number; flag: string }[];
+  recommendations: string[];
+}
+
+function AuditRiskBadge() {
+  const { t } = useTranslation();
+  const { data: riskData } = useQuery<AuditRiskResult>({ queryKey: ["/api/audit-risk"] });
+
+  if (!riskData || riskData.totalExpenses === 0) return null;
+
+  const riskColors = {
+    low: { bg: "bg-green-50 dark:bg-green-950/20", border: "border-green-200 dark:border-green-800", text: "text-green-700 dark:text-green-400", badge: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+    medium: { bg: "bg-amber-50 dark:bg-amber-950/20", border: "border-amber-200 dark:border-amber-800", text: "text-amber-700 dark:text-amber-400", badge: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+    high: { bg: "bg-red-50 dark:bg-red-950/20", border: "border-red-200 dark:border-red-800", text: "text-red-700 dark:text-red-400", badge: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+  };
+  const colors = riskColors[riskData.overallRisk];
+  const riskLabel = { low: t("dashboard.lowRisk"), medium: t("dashboard.mediumRisk"), high: t("dashboard.highRisk") };
+  const flaggedCategories = riskData.categoryBreakdown.filter(c => c.deviation > 20);
+
+  return (
+    <div className={`rounded-md border ${colors.border} ${colors.bg} p-4`} data-testid="banner-audit-risk">
+      <div className="flex items-center gap-3">
+        <div className={`p-2 rounded-full ${colors.badge}`}>
+          <Shield className="h-4 w-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-sm font-medium ${colors.text}`}>{t("dashboard.auditSentinel")}</span>
+            <Badge variant="outline" className={`text-[10px] no-default-active-elevate ${colors.badge}`} data-testid="badge-audit-risk-level">
+              {riskLabel[riskData.overallRisk]} — Score {riskData.riskScore}
+            </Badge>
+          </div>
+          {flaggedCategories.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-1" data-testid="text-audit-warning">
+              {t("dashboard.categoriesAboveAverage", { count: flaggedCategories.length })}.{" "}
+              <Link href="/audit-center" className="underline text-primary hover:text-primary/80">{t("common.actions")}</Link>
+            </p>
+          )}
+          {riskData.overallRisk === "low" && (
+            <p className="text-xs text-muted-foreground mt-1">{t("dashboard.auditProof")}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PenaltyCountdown() {
+  const { t } = useTranslation();
+  const today = new Date();
+  const taxYear = today.getFullYear();
+  const deadlines = [
+    { label: "Q1", date: `${taxYear}-04-15`, desc: "1040-ES Payment 1" },
+    { label: "Q2", date: `${taxYear}-06-15`, desc: "1040-ES Payment 2" },
+    { label: "Q3", date: `${taxYear}-09-15`, desc: "1040-ES Payment 3" },
+    { label: "Q4", date: `${taxYear + 1}-01-15`, desc: "1040-ES Payment 4" },
+    { label: "Annual", date: `${taxYear + 1}-04-15`, desc: "Annual Return (1040)" },
+  ];
+
+  const nextDeadline = deadlines.find(d => parseISO(d.date) > today);
+  if (!nextDeadline) return null;
+
+  const daysLeft = differenceInDays(parseISO(nextDeadline.date), today);
+  const isUrgent = daysLeft <= 14;
+  const isWarning = daysLeft <= 30;
+
+  return (
+    <div
+      className={`rounded-md border p-3 flex items-center gap-3 ${
+        isUrgent
+          ? "border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/20"
+          : isWarning
+          ? "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20"
+          : "border-border bg-card"
+      }`}
+      data-testid="banner-penalty-countdown"
+    >
+      <div className={`p-2 rounded-full shrink-0 ${
+        isUrgent ? "bg-red-100 dark:bg-red-900/30" : isWarning ? "bg-amber-100 dark:bg-amber-900/30" : "bg-muted"
+      }`}>
+        <Calendar className={`h-4 w-4 ${
+          isUrgent ? "text-red-600 dark:text-red-400" : isWarning ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
+        }`} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium">{t("penalty.title")}</span>
+          <Badge
+            variant={isUrgent ? "destructive" : "outline"}
+            className="text-[10px] no-default-active-elevate"
+            data-testid="badge-days-until-deadline"
+          >
+            {t("penalty.daysLeft", { count: daysLeft })}
+          </Badge>
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5" data-testid="text-next-deadline">
+          {t("penalty.nextDeadline", { desc: nextDeadline.desc, date: format(parseISO(nextDeadline.date), "MMMM d, yyyy") })}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function WealthForecast({ summary }: { summary: TaxSummary }) {
+  const { t } = useTranslation();
+  const netProfit = summary.netProfit;
+  const seDeduction = summary.seDeduction;
+  const tipExemption = summary.tipExemption || 0;
+  const taxableIncome = netProfit - seDeduction - tipExemption;
+
+  const solo401kLimit = Math.min(23500, netProfit * 0.25);
+  const iraLimit = 7000;
+  const sepLimit = Math.min(69000, netProfit * 0.25);
+
+  const options = [
+    { name: t("wealth.solo401k"), maxContribution: solo401kLimit },
+    { name: t("wealth.traditionalIra"), maxContribution: iraLimit },
+    { name: t("wealth.sepIra"), maxContribution: sepLimit },
+  ];
+
+  const effectiveRate = taxableIncome > 0 ? (summary.selfEmploymentTax / taxableIncome) * 100 + 22 : 22;
+  const marginalRate = effectiveRate / 100;
+
+  if (netProfit < 5000) return null;
+
+  return (
+    <Card className="border-border/60 shadow-sm" data-testid="card-wealth-forecast">
+      <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+        <CardTitle className="text-base font-medium flex items-center gap-2">
+          <Lightbulb className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          {t("wealth.title")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {options.filter(o => o.maxContribution > 0).map((opt) => {
+            const taxSaved = opt.maxContribution * marginalRate;
+            return (
+              <div key={opt.name} className="p-3 rounded-md bg-muted/30 border border-border/40" data-testid={`card-retirement-${opt.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium">{opt.name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400" data-testid={`text-tax-saved-${opt.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}>
+                      {t("wealth.saveTax", { amount: taxSaved.toLocaleString(undefined, { maximumFractionDigits: 0 }) })}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {t("wealth.contribution", { amount: opt.maxContribution.toLocaleString(undefined, { maximumFractionDigits: 0 }) })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            {t("wealth.disclaimer")}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Dashboard() {
   const { data: summary, isLoading } = useTaxSummary();
   const { data: mileageData } = useMileageLogs();
@@ -466,6 +635,10 @@ export default function Dashboard() {
       </div>
 
       <TaxHealthBar summary={summary} user={user} />
+
+      <AuditRiskBadge />
+
+      <PenaltyCountdown />
 
       <ComplianceAlertsBanner />
 
@@ -572,6 +745,8 @@ export default function Dashboard() {
       <SmallEarnerGate grossIncome={summary.grossIncome} />
 
       <QuarterlyEstimatedTaxCalculator summary={summary} />
+
+      <WealthForecast summary={summary} />
 
       <div className="mt-8 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
         <DashboardCharts summary={summary} />
