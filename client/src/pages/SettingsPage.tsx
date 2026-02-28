@@ -30,7 +30,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Trash2, User, FileText, AlertTriangle, XCircle, MessageSquare, MapPin, Building, Download, Loader2, CheckCircle, CarFront, Package, ArrowLeftRight, Layers } from "lucide-react";
+import { Shield, Trash2, User, FileText, AlertTriangle, XCircle, MessageSquare, MapPin, Building, Download, Loader2, CheckCircle, CarFront, Package, ArrowLeftRight, Layers, Eye, EyeOff } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "wouter";
 
@@ -127,6 +127,8 @@ export default function SettingsPage() {
       </Card>
 
       <IndustrySegmentSettings />
+
+      <DisplayPreferences />
 
       <TaxJurisdictionSettings />
 
@@ -374,6 +376,58 @@ interface JurisdictionData {
   localTaxJurisdiction: string | null;
   noIncomeTaxStates: string[];
   localJurisdictions: Record<string, { name: string; rate: number; portalUrl: string }>;
+}
+
+function DisplayPreferences() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (enabled: boolean) =>
+      apiRequest("PATCH", "/api/user/simplified-view", { enabled }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Display Updated", description: "Your view preference has been saved." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update display preference.", variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          {user?.simplifiedView ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+          Display Preferences
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label htmlFor="simplified-view" className="text-sm font-medium">Simplified View</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Use icons instead of text labels in the sidebar navigation
+            </p>
+          </div>
+          <Switch
+            id="simplified-view"
+            checked={user?.simplifiedView || false}
+            onCheckedChange={(val) => mutation.mutate(val)}
+            disabled={mutation.isPending}
+            data-testid="switch-simplified-view"
+          />
+        </div>
+        {user?.simplifiedView && (
+          <div className="p-3 rounded-md bg-muted/50 text-xs text-muted-foreground flex items-center gap-2">
+            <EyeOff className="h-3.5 w-3.5" />
+            Simplified View is active — sidebar shows icons only. Hover over icons to see labels.
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function IndustrySegmentSettings() {

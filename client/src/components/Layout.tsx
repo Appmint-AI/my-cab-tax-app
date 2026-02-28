@@ -22,6 +22,12 @@ import {
   Globe,
   FileSpreadsheet,
   Banknote,
+  RefreshCw,
+  Fuel,
+  Wrench,
+  Route,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -51,18 +57,21 @@ export function Layout({ children }: LayoutProps) {
     };
   }, [user?.userSegment]);
 
+  const isSimplified = user?.simplifiedView || false;
+
   const navItems = [
-    { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard },
-    { href: "/incomes", label: t("nav.income"), icon: Wallet },
-    { href: "/expenses", label: t("nav.expenses"), icon: Receipt },
-    { href: "/mileage", label: t("nav.mileage"), icon: MapPin },
-    { href: "/receipts", label: t("nav.receipts"), icon: ScanLine },
-    { href: "/vehicles", label: t("nav.vehicles"), icon: CarFront },
-    { href: "/export", label: t("nav.export"), icon: Download, desktopOnly: true },
-    { href: "/audit-center", label: t("nav.auditDefense"), icon: Shield },
-    { href: "/dac7", label: t("nav.dac7"), icon: FileSpreadsheet },
-    { href: "/currency", label: t("nav.currency"), icon: Banknote },
-    { href: "/settings", label: t("nav.settings"), icon: Settings },
+    { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, simplifiedIcon: LayoutDashboard },
+    { href: "/incomes", label: t("nav.income"), icon: Wallet, simplifiedIcon: Wallet },
+    { href: "/expenses", label: t("nav.expenses"), icon: Receipt, simplifiedIcon: Receipt },
+    { href: "/mileage", label: t("nav.mileage"), icon: MapPin, simplifiedIcon: Route },
+    { href: "/receipts", label: t("nav.receipts"), icon: ScanLine, simplifiedIcon: ScanLine },
+    { href: "/vehicles", label: t("nav.vehicles"), icon: CarFront, simplifiedIcon: Fuel },
+    { href: "/export", label: t("nav.export"), icon: Download, simplifiedIcon: Download, desktopOnly: true },
+    { href: "/audit-center", label: t("nav.auditDefense"), icon: Shield, simplifiedIcon: Shield },
+    { href: "/sync", label: t("nav.sync"), icon: RefreshCw, simplifiedIcon: RefreshCw },
+    { href: "/dac7", label: t("nav.dac7"), icon: FileSpreadsheet, simplifiedIcon: FileSpreadsheet },
+    { href: "/currency", label: t("nav.currency"), icon: Banknote, simplifiedIcon: Banknote },
+    { href: "/settings", label: t("nav.settings"), icon: Settings, simplifiedIcon: Wrench },
   ];
 
   const handleLanguageChange = (lang: string) => {
@@ -88,6 +97,7 @@ export function Layout({ children }: LayoutProps) {
       <nav className="flex-1 p-3 space-y-0.5">
         {navItems.map((item) => {
           const isActive = location === item.href;
+          const IconComponent = isSimplified ? (item as any).simplifiedIcon || item.icon : item.icon;
           return (
             <Link key={item.href} href={item.href}>
               <div
@@ -97,13 +107,15 @@ export function Layout({ children }: LayoutProps) {
                   isActive
                     ? "bg-sidebar-accent text-white font-medium"
                     : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-                  (item as any).desktopOnly && "hidden md:flex"
+                  (item as any).desktopOnly && "hidden md:flex",
+                  isSimplified && "justify-center md:justify-start"
                 )}
                 onClick={() => setMobileMenuOpen(false)}
+                title={isSimplified ? item.label : undefined}
               >
-                <item.icon className={cn("h-4 w-4", isActive ? "text-white" : "text-sidebar-foreground/50")} />
-                {item.label}
-                {isActive && (
+                <IconComponent className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-white" : "text-sidebar-foreground/50", isSimplified && "h-5 w-5")} />
+                {!isSimplified && item.label}
+                {isActive && !isSimplified && (
                   <div className="ml-auto w-1.5 h-1.5 rounded-full bg-segment-accent" />
                 )}
               </div>

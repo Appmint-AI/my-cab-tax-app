@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   RefreshCw, Shield, TrendingUp, Lock, AlertTriangle,
-  ArrowRightLeft, Loader2, Activity, DollarSign
+  ArrowRightLeft, Loader2, Activity, DollarSign, Anchor
 } from "lucide-react";
 
 const CURRENCIES = [
@@ -66,9 +66,28 @@ export default function CurrencyPage() {
     convertMutation.mutate({ amount: amt, from: convertFrom, to: convertTo });
   };
 
+  const [anchorCurrency, setAnchorCurrency] = useState("PKR");
+
+  const anchorStatusQuery = useQuery<any>({
+    queryKey: ["/api/anchor/status"],
+  });
+
+  const anchorMutation = useMutation({
+    mutationFn: (currency: string) => apiRequest("POST", "/api/anchor/run", { currency }),
+    onSuccess: async (res) => {
+      const data = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/anchor/status"] });
+      toast({ title: "Anchoring Complete", description: `${data.anchored} transactions anchored to USD` });
+    },
+    onError: () => {
+      toast({ title: "Anchoring Failed", variant: "destructive" });
+    },
+  });
+
   const status = statusQuery.data;
   const rates = ratesQuery.data || [];
   const locks = locksQuery.data || [];
+  const anchorStatus = anchorStatusQuery.data;
 
   return (
     <Layout>
@@ -140,6 +159,63 @@ export default function CurrencyPage() {
             </CardContent>
           </Card>
         )}
+
+        <Card className="border-blue-200 dark:border-blue-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Anchor className="h-5 w-5 text-blue-500" />
+              Stable USD Anchor
+            </CardTitle>
+            <CardDescription>
+              Convert all local currency entries to their USD equivalent using today's exchange rate
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-3 items-end">
+              <div className="flex-1">
+                <label className="text-xs text-muted-foreground mb-1 block">Source Currency</label>
+                <Select value={anchorCurrency} onValueChange={setAnchorCurrency}>
+                  <SelectTrigger data-testid="select-anchor-currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.filter(c => c !== "USD").map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                onClick={() => anchorMutation.mutate(anchorCurrency)}
+                disabled={anchorMutation.isPending}
+                data-testid="button-anchor-run"
+              >
+                {anchorMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <Anchor className="h-4 w-4 mr-1" />
+                )}
+                Anchor to USD
+              </Button>
+            </div>
+            {anchorStatus && (
+              <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
+                <div className="p-2 bg-muted/50 rounded">
+                  <p className="text-lg font-bold" data-testid="text-anchor-expenses">{anchorStatus.anchoredExpenses}/{anchorStatus.totalExpenses}</p>
+                  <p className="text-[10px] text-muted-foreground">Expenses Anchored</p>
+                </div>
+                <div className="p-2 bg-muted/50 rounded">
+                  <p className="text-lg font-bold" data-testid="text-anchor-incomes">{anchorStatus.anchoredIncomes}/{anchorStatus.totalIncomes}</p>
+                  <p className="text-[10px] text-muted-foreground">Incomes Anchored</p>
+                </div>
+                <div className="p-2 bg-muted/50 rounded col-span-2">
+                  <p className="text-lg font-bold" data-testid="text-anchor-pending">{anchorStatus.unanchoredCount}</p>
+                  <p className="text-[10px] text-muted-foreground">Pending Anchor</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">

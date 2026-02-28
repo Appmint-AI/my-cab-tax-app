@@ -33,6 +33,11 @@ The application utilizes a React, Vite, TailwindCSS, shadcn/ui, and Recharts fro
 -   **AI Command Center (Admin)**: A Gemini-powered Executive Assistant chatbot on the `/admin` page, injecting real-time fleet metrics and tax law context with PII guardrails.
 -   **Tax Season Countdown Emails**: Automated, segment-aware emails sent before tax deadlines, suppressed upon export.
 -   **Global Platform Features**: Includes GPS Geofencing for country detection, OCR Receipt Scanning (Pro), a DAC7 CSV Comparison Tool for platform exports, and a DHIP Currency Engine for real-time exchange rates, inflation warnings, and historical vault locking for expenses/incomes.
+-   **Global Elite Features**:
+    -   **Currency Anchor**: Background task (`server/currency-anchor.ts`) converts all unanchored expense/income entries to Stable USD using current exchange rates. Adds `anchorCurrency`, `anchoredUsdAmount`, `anchoredAt` fields to both `expenses` and `incomes` tables. UI on `/currency` page with anchor status dashboard. API: `GET /api/anchor/status`, `POST /api/anchor/run`.
+    -   **Multi-Gig Bridge**: Dedicated `/sync` page (`client/src/pages/SyncPage.tsx`) for uploading earnings CSVs from Uber, Bolt, Lyft, DoorDash, or other platforms. Smart column detection maps platform-specific CSV headers. Parsed entries stored in `gig_sync_entries` table with platform breakdown. Merge into unified timeline with import-to-income capability. API: `GET /api/gig-sync/entries`, `POST /api/gig-sync/upload`, `POST /api/gig-sync/import-to-income`, `DELETE /api/gig-sync/entries`.
+    -   **Simplified View**: Toggle in Settings (Display Preferences) switches sidebar to icon-only mode. Uses `simplifiedView` boolean field on users table. Icons: Gas/Fuel, Tools/Wrench, Route for contextual visual cues. API: `PATCH /api/user/simplified-view`.
+    -   **Audit Sentinel**: Risk analysis engine (`server/audit-sentinel.ts`) compares user expense categories against regional averages for rideshare/delivery drivers. Displays Audit Risk Level (Low/Medium/High) with score, per-category deviation bars, and actionable recommendations. Integrated into Audit Defense Center page. Regional averages defined in `REGIONAL_EXPENSE_AVERAGES` constant. API: `GET /api/audit-risk`.
 
 ## External Dependencies
 -   **Auth0**: For OpenID Connect (OIDC) authentication.

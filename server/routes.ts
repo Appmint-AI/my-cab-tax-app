@@ -2218,6 +2218,166 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
     }
   });
 
+  // ==================== Currency Anchor Routes ====================
+
+  app.get("/api/anchor/status", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { getAnchorStatus } = await import("./currency-anchor");
+      const status = await getAnchorStatus(userId);
+      res.json(status);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/anchor/run", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { SUPPORTED_CURRENCIES } = await import("@shared/schema");
+      const { currency } = z.object({
+        currency: z.string().min(3).max(3).refine(
+          (c) => (SUPPORTED_CURRENCIES as readonly string[]).includes(c),
+          { message: "Unsupported currency code" }
+        ),
+      }).parse(req.body);
+      const { anchorUserTransactions } = await import("./currency-anchor");
+      const result = await anchorUserTransactions(userId, currency);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ==================== Audit Sentinel Routes ====================
+
+  app.get("/api/audit-risk", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { analyzeAuditRisk } = await import("./audit-sentinel");
+      const result = await analyzeAuditRisk(userId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== Multi-Gig Bridge (Sync) Routes ====================
+
+  app.get("/api/gig-sync/entries", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { gigSyncEntries } = await import("@shared/schema");
+      const entries = await db.select().from(gigSyncEntries).where(eq(gigSyncEntries.userId, userId));
+      res.json(entries);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/gig-sync/upload", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const schema = z.object({
+        platform: z.string().min(1),
+        entries: z.array(z.object({
+          date: z.string(),
+          amount: z.string(),
+          description: z.string().optional().default(""),
+          tips: z.string().optional().default("0"),
+          platformFees: z.string().optional().default("0"),
+          miles: z.string().optional().default("0"),
+          tripType: z.string().optional().default(""),
+          rawCsvRow: z.any().optional(),
+        })),
+      });
+      const { platform, entries } = schema.parse(req.body);
+      const { gigSyncEntries } = await import("@shared/schema");
+
+      const inserted = [];
+      for (const entry of entries) {
+        const [row] = await db.insert(gigSyncEntries).values({
+          userId,
+          platform,
+          date: entry.date,
+          amount: entry.amount,
+          description: entry.description,
+          tips: entry.tips,
+          platformFees: entry.platformFees,
+          miles: entry.miles,
+          tripType: entry.tripType,
+          rawCsvRow: entry.rawCsvRow || null,
+        }).returning();
+        inserted.push(row);
+      }
+      res.json({ imported: inserted.length, entries: inserted });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/gig-sync/import-to-income", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { entryIds } = z.object({ entryIds: z.array(z.number()) }).parse(req.body);
+      const { gigSyncEntries } = await import("@shared/schema");
+
+      let imported = 0;
+      for (const id of entryIds) {
+        const [entry] = await db.select().from(gigSyncEntries)
+          .where(and(eq(gigSyncEntries.id, id), eq(gigSyncEntries.userId, userId)));
+        if (!entry || entry.importedToIncome) continue;
+
+        await storage.createIncome({
+          userId,
+          date: entry.date,
+          amount: entry.amount,
+          source: entry.platform,
+          description: entry.description || `${entry.platform} earnings`,
+          miles: entry.miles || "0",
+          platformFees: entry.platformFees || "0",
+          isTips: false,
+        });
+
+        await db.update(gigSyncEntries)
+          .set({ importedToIncome: true })
+          .where(eq(gigSyncEntries.id, id));
+        imported++;
+      }
+
+      if (parseFloat((await db.select().from(gigSyncEntries).where(and(eq(gigSyncEntries.userId, userId))))[0]?.tips || "0") > 0) {
+      }
+
+      res.json({ imported });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/gig-sync/entries", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { gigSyncEntries } = await import("@shared/schema");
+      await db.delete(gigSyncEntries).where(eq(gigSyncEntries.userId, userId));
+      res.json({ message: "All sync entries cleared" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== Simplified View Toggle ====================
+
+  app.patch("/api/user/simplified-view", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
+      await storage.updateUser(userId, { simplifiedView: enabled });
+      res.json({ simplifiedView: enabled });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }
 

@@ -24,7 +24,11 @@ import {
   Lock,
   Crown,
   ArrowRight,
+  BarChart3,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
+import type { AuditRiskResult } from "@shared/schema";
 
 export default function AuditCenterPage() {
   const { user } = useAuth();
@@ -49,6 +53,7 @@ export default function AuditCenterPage() {
       </div>
 
       <CertificateOfProtection isPro={isPro} />
+      <AuditRiskSentinel />
 
       {isPro ? (
         <>
@@ -361,6 +366,157 @@ function NoticeUploadSection() {
             </div>
           ))}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AuditRiskSentinel() {
+  const { data: riskData, isLoading } = useQuery<AuditRiskResult>({
+    queryKey: ["/api/audit-risk"],
+  });
+
+  const riskColors: Record<string, string> = {
+    low: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+    medium: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
+    high: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+  };
+
+  const riskBorders: Record<string, string> = {
+    low: "border-green-200 dark:border-green-800",
+    medium: "border-yellow-200 dark:border-yellow-800",
+    high: "border-red-200 dark:border-red-800",
+  };
+
+  const riskIcons: Record<string, typeof CheckCircle> = {
+    low: CheckCircle,
+    medium: AlertTriangle,
+    high: AlertTriangle,
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="border-border/60 shadow-sm mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <BarChart3 className="h-5 w-5" />
+            Audit Risk Sentinel
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-8 w-1/2" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!riskData) return null;
+
+  const RiskIcon = riskIcons[riskData.overallRisk] || CheckCircle;
+  const categoriesWithActivity = riskData.categoryRisks.filter(c => c.userAmount > 0 || c.deviationPct > 20);
+  const sortedCategories = [...(categoriesWithActivity.length > 0 ? categoriesWithActivity : riskData.categoryRisks)]
+    .sort((a, b) => b.deviationPct - a.deviationPct);
+
+  return (
+    <Card className={`border shadow-sm mb-6 ${riskBorders[riskData.overallRisk]}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <CardTitle className="flex items-center gap-2 text-lg" data-testid="text-audit-risk-title">
+            <BarChart3 className="h-5 w-5" />
+            Audit Risk Sentinel
+          </CardTitle>
+          <Badge className={`${riskColors[riskData.overallRisk]} gap-1.5 px-3 py-1`} data-testid="badge-overall-risk">
+            <RiskIcon className="h-3.5 w-3.5" />
+            {riskData.overallRisk.toUpperCase()} RISK
+          </Badge>
+        </div>
+        <p className="text-sm text-muted-foreground mt-1">
+          Your expense categories compared against the regional average for rideshare/delivery drivers
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="p-3 rounded-lg bg-muted/50 text-center">
+            <p className="text-2xl font-bold" data-testid="text-risk-score">{riskData.totalScore}</p>
+            <p className="text-xs text-muted-foreground">Risk Score</p>
+          </div>
+          <div className="p-3 rounded-lg bg-muted/50 text-center">
+            <p className="text-2xl font-bold" data-testid="text-flagged-categories">
+              {riskData.categoryRisks.filter(c => c.risk !== "low").length}
+            </p>
+            <p className="text-xs text-muted-foreground">Flagged Categories</p>
+          </div>
+          <div className="p-3 rounded-lg bg-muted/50 text-center">
+            <p className="text-2xl font-bold" data-testid="text-total-categories">{riskData.categoryRisks.length}</p>
+            <p className="text-xs text-muted-foreground">Categories Analyzed</p>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <h4 className="text-sm font-medium">Category Analysis</h4>
+          <div className="space-y-2">
+            {sortedCategories.map((cat) => {
+              const pct = Math.min(Math.max(cat.deviationPct, -100), 200);
+              const barWidth = Math.abs(pct) / 2;
+              const isOver = cat.deviationPct > 0;
+
+              return (
+                <div key={cat.category} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/30" data-testid={`row-risk-${cat.category.replace(/\s+/g, "-").toLowerCase()}`}>
+                  <div className="w-40 flex-shrink-0">
+                    <p className="text-xs font-medium truncate">{cat.category}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      ${cat.userAmount.toLocaleString()} / ${cat.regionalAverage.toLocaleString()} avg
+                    </p>
+                  </div>
+                  <div className="flex-1 flex items-center gap-2">
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          cat.risk === "high" ? "bg-red-500" : cat.risk === "medium" ? "bg-yellow-500" : "bg-green-500"
+                        }`}
+                        style={{ width: `${Math.min(barWidth, 100)}%` }}
+                      />
+                    </div>
+                    {isOver ? (
+                      <TrendingUp className={`h-3.5 w-3.5 flex-shrink-0 ${cat.risk === "high" ? "text-red-500" : cat.risk === "medium" ? "text-yellow-500" : "text-muted-foreground"}`} />
+                    ) : (
+                      <TrendingDown className="h-3.5 w-3.5 flex-shrink-0 text-green-500" />
+                    )}
+                    <span className={`text-xs font-mono w-14 text-right flex-shrink-0 ${cat.risk === "high" ? "text-red-500 font-bold" : cat.risk === "medium" ? "text-yellow-600" : "text-muted-foreground"}`}>
+                      {cat.deviationPct > 0 ? "+" : ""}{cat.deviationPct.toFixed(0)}%
+                    </span>
+                  </div>
+                  <Badge variant="outline" className={`text-[10px] ${riskColors[cat.risk]}`}>
+                    {cat.risk}
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {riskData.recommendations.length > 0 && (
+          <>
+            <Separator />
+            <div>
+              <h4 className="text-sm font-medium mb-2">Recommendations</h4>
+              <ul className="space-y-1.5">
+                {riskData.recommendations.map((rec, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground" data-testid={`text-recommendation-${i}`}>
+                    <ArrowRight className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-primary" />
+                    {rec}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

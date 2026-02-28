@@ -128,6 +128,9 @@ export const expenses = pgTable("expenses", {
   category: text("category").notNull(),
   description: text("description"),
   receiptUrl: text("receipt_url"),
+  anchorCurrency: text("anchor_currency"),
+  anchoredUsdAmount: numeric("anchored_usd_amount"),
+  anchoredAt: timestamp("anchored_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -143,6 +146,9 @@ export const incomes = pgTable("incomes", {
   platformFees: numeric("platform_fees").default("0"),
   payeeState: text("payee_state"),
   isTips: boolean("is_tips").notNull().default(false),
+  anchorCurrency: text("anchor_currency"),
+  anchoredUsdAmount: numeric("anchored_usd_amount"),
+  anchoredAt: timestamp("anchored_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -487,6 +493,58 @@ export const lifecycleEmails = pgTable("lifecycle_emails", {
 
 export type LifecycleEmail = typeof lifecycleEmails.$inferSelect;
 export type InsertLifecycleEmail = typeof lifecycleEmails.$inferInsert;
+
+// Gig Sync Entries - Multi-Gig Bridge merged timeline
+export const gigSyncEntries = pgTable("gig_sync_entries", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  platform: text("platform").notNull(),
+  date: date("date").notNull(),
+  amount: numeric("amount").notNull(),
+  description: text("description"),
+  tips: numeric("tips").default("0"),
+  platformFees: numeric("platform_fees").default("0"),
+  miles: numeric("miles").default("0"),
+  tripType: text("trip_type"),
+  rawCsvRow: jsonb("raw_csv_row"),
+  importedToIncome: boolean("imported_to_income").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type GigSyncEntry = typeof gigSyncEntries.$inferSelect;
+export type InsertGigSyncEntry = typeof gigSyncEntries.$inferInsert;
+
+export const insertGigSyncEntrySchema = createInsertSchema(gigSyncEntries).omit({ id: true, createdAt: true });
+export type InsertGigSyncEntryRequest = z.infer<typeof insertGigSyncEntrySchema>;
+
+// Regional expense averages for Audit Sentinel risk analysis
+export const REGIONAL_EXPENSE_AVERAGES: Record<string, number> = {
+  "Car and Truck Expenses": 8500,
+  "Commissions and Fees": 3200,
+  "Home Office": 1800,
+  "Insurance": 2400,
+  "Interest": 1200,
+  "Legal and Professional Services": 800,
+  "Office Expense": 600,
+  "Property Tax (SALT)": 3500,
+  "Other Expenses": 1500,
+};
+
+export type AuditRiskLevel = "low" | "medium" | "high";
+
+export interface AuditRiskResult {
+  overallRisk: AuditRiskLevel;
+  totalScore: number;
+  categoryRisks: Array<{
+    category: string;
+    userAmount: number;
+    regionalAverage: number;
+    deviationPct: number;
+    risk: AuditRiskLevel;
+    flag: string;
+  }>;
+  recommendations: string[];
+}
 
 export const SUPPORTED_CURRENCIES = [
   "USD", "EUR", "GBP", "PKR", "AED", "SAR", "VND", "INR", "BDT", "NGN", "KES",
