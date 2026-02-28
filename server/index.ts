@@ -28,14 +28,46 @@ app.use(
 app.use(express.urlencoded({ extended: false }));
 
 export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
+  if (process.env.NODE_ENV === "production") {
+    const entry = {
+      severity: "INFO",
+      message,
+      source,
+      timestamp: new Date().toISOString(),
+      serviceContext: { service: "mycabtax-usa", version: "1.0.0" },
+    };
+    console.log(JSON.stringify(entry));
+  } else {
+    const formattedTime = new Date().toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+    console.log(`${formattedTime} [${source}] ${message}`);
+  }
+}
 
-  console.log(`${formattedTime} [${source}] ${message}`);
+export function logError(message: string, error?: any, source = "express") {
+  if (process.env.NODE_ENV === "production") {
+    const entry = {
+      severity: "ERROR",
+      message,
+      source,
+      timestamp: new Date().toISOString(),
+      serviceContext: { service: "mycabtax-usa", version: "1.0.0" },
+      error: error ? { message: error.message, stack: error.stack } : undefined,
+    };
+    console.error(JSON.stringify(entry));
+  } else {
+    const formattedTime = new Date().toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+    console.error(`${formattedTime} [${source}] ERROR: ${message}`, error || "");
+  }
 }
 
 app.use((req, res, next) => {
@@ -62,6 +94,16 @@ app.use((req, res, next) => {
   });
 
   next();
+});
+
+app.get("/health", (_req, res) => {
+  res.status(200).json({
+    status: "healthy",
+    service: "mycabtax-usa",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || "development",
+  });
 });
 
 (async () => {

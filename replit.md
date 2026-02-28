@@ -49,6 +49,10 @@ The application uses a React, Vite, TailwindCSS, shadcn/ui, and Recharts fronten
 -   **Final Declaration (5th Return)**: One-time £29 Stripe payment to unlock year-end tax filing with sales pitch card and various states.
 -   **Tax Overview (2026/27 Edition)**: Live tax summary page at `/tax-overview` with UK 2026/27 tax band calculations and various income sources.
 -   **Billing Setup ("Secure Your Head Office")**: Premium upgrade page at `/upgrade` for monthly subscription with Stripe integration.
+-   **Health Check & Structured Logging**: `/health` endpoint for GCP readiness; production mode outputs Cloud Logging-compatible JSON with severity levels; `logError()` helper for structured error reporting.
+-   **PDF Tax Year Certificate**: Server-side PDFKit generation at `GET /api/final-declaration/:taxYear/certificate` with full tax breakdown, HMRC submission ID, and "Shield of Accuracy" branding.
+-   **January 1st Final Declaration Email**: Lifecycle-managed email sent to Pro users in first week of January, promoting £29 Final Declaration with HMRC deadline urgency.
+-   **Confetti Animation**: canvas-confetti celebration on successful Final Declaration submission and Stripe payment return.
 
 ## External Dependencies
 -   **Auth0**: OpenID Connect (OIDC) authentication.

@@ -14,7 +14,8 @@ type EmailType =
   | "payment_receipt"
   | "abandoned_checkout"
   | "tax_season_30day"
-  | "tax_season_15day";
+  | "tax_season_15day"
+  | "final_declaration_jan1";
 
 type Segment = "taxi" | "delivery" | "hybrid" | null;
 
@@ -352,6 +353,42 @@ function buildTaxSeason15DayEmail(name: string, segment: Segment): { subject: st
   };
 }
 
+function buildFinalDeclarationJan1Email(name: string, segment: Segment): { subject: string; html: string } {
+  const label = getSegmentLabel(segment);
+
+  return {
+    subject: `Tax Year 2026/27: Ready to Close? 📗`,
+    html: `
+      <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a;">
+        <div style="background:linear-gradient(135deg,#065f46,#047857);padding:32px 24px;border-radius:8px 8px 0 0;">
+          <h1 style="color:#fff;margin:0;font-size:22px;">Tax Year 2026/27: Ready to Close?</h1>
+          <p style="color:#6ee7b7;margin:8px 0 0;font-size:14px;">${label} Driver</p>
+        </div>
+        <div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+          <p style="font-size:15px;line-height:1.6;">Hi ${name},</p>
+          <p style="font-size:15px;line-height:1.6;">Great job on your quarterly updates! Your <strong>Final Declaration</strong> is now ready.</p>
+          <p style="font-size:15px;line-height:1.6;">For a one-off <strong>£29 fee</strong>, we'll consolidate your driving, PAYE, and dividends into your 5th and final HMRC return. Tap to finalise and beat the <strong>Jan 31st deadline</strong> today!</p>
+          <div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:20px;margin:20px 0;">
+            <p style="font-size:14px;font-weight:700;margin:0 0 12px;color:#065f46;">What's included:</p>
+            <ul style="font-size:14px;line-height:1.8;margin:0;padding-left:20px;color:#047857;">
+              <li><strong>Income Consolidation</strong> — We pull in your PAYE employment, pensions, and dividends.</li>
+              <li><strong>Allowance Optimisation</strong> — £12,570 Personal Allowance and relevant tax reliefs auto-applied.</li>
+              <li><strong>Error Shield</strong> — AI cross-check of your 4 quarters for double-entries or missed expenses.</li>
+              <li><strong>Legal Receipt</strong> — Official HMRC submission ID and Tax Year Certificate.</li>
+            </ul>
+          </div>
+          <div style="text-align:center;margin:24px 0;">
+            <a href="https://mycabtaxusa.com/tax-overview?taxYear=2026%2F27" style="display:inline-block;background:#059669;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px;">🚀 Unlock Final Filing — £29.00</a>
+          </div>
+          <p style="font-size:13px;color:#6b7280;text-align:center;margin-top:16px;">Don't leave it to the last minute — the Jan 31st deadline is fast approaching.</p>
+          <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;"/>
+          <p style="font-size:12px;color:#9ca3af;text-align:center;">My Cab Tax USA &bull; Your Digital Tax Head Office</p>
+        </div>
+      </div>
+    `,
+  };
+}
+
 export async function triggerWelcomeEmail(userId: string): Promise<void> {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user?.email) return;
@@ -415,9 +452,11 @@ export async function runLifecycleCycle(): Promise<void> {
     let day30Count = 0;
     let taxSeason30Count = 0;
     let taxSeason15Count = 0;
+    let jan1Count = 0;
 
     const is30DayWindow = isWithinWindow(3, 15);
     const is15DayWindow = isWithinWindow(4, 1);
+    const isJan1Window = isWithinWindow(1, 1, 7);
 
     for (const user of allUsers) {
       if (!user.email || !user.createdAt) continue;
@@ -462,9 +501,16 @@ export async function runLifecycleCycle(): Promise<void> {
           taxSeason15Count++;
         }
       }
+
+      if (isJan1Window && user.subscriptionStatus === "pro" && !(await hasAlreadySent(user.id, "final_declaration_jan1"))) {
+        const emailData = buildFinalDeclarationJan1Email(name, segment);
+        if (await sendLifecycleEmail(user.email, emailData, user.id, "final_declaration_jan1", segment)) {
+          jan1Count++;
+        }
+      }
     }
 
-    log(`Lifecycle cycle complete: ${welcomeCount} welcome, ${day7Count} day-7 nudges, ${day30Count} day-30 milestones, ${taxSeason30Count} tax-30day, ${taxSeason15Count} tax-15day`, "lifecycle");
+    log(`Lifecycle cycle complete: ${welcomeCount} welcome, ${day7Count} day-7 nudges, ${day30Count} day-30 milestones, ${taxSeason30Count} tax-30day, ${taxSeason15Count} tax-15day, ${jan1Count} jan1-final`, "lifecycle");
   } catch (error) {
     log(`Lifecycle cycle error: ${error}`, "lifecycle");
   }

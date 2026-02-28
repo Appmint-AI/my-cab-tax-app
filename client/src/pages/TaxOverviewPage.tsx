@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearch } from "wouter";
+import confetti from "canvas-confetti";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +90,19 @@ export default function TaxOverviewPage() {
   const [successDismissed, setSuccessDismissed] = useState(false);
   const [cancelledDismissed, setCancelledDismissed] = useState(false);
 
+  useEffect(() => {
+    if (declarationSuccess && !successDismissed) {
+      const duration = 3000;
+      const end = Date.now() + duration;
+      const frame = () => {
+        confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 } });
+        confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 } });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      };
+      frame();
+    }
+  }, [declarationSuccess, successDismissed]);
+
   const { data: overview, isLoading } = useQuery<TaxOverviewData>({
     queryKey: ["/api/tax-overview", selectedTaxYear],
     queryFn: async () => {
@@ -137,6 +151,14 @@ export default function TaxOverviewPage() {
         title: "Final Declaration Submitted",
         description: `HMRC Submission ID: ${data.hmrcSubmissionId}`,
       });
+      const duration = 3000;
+      const end = Date.now() + duration;
+      const frame = () => {
+        confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 } });
+        confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 } });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      };
+      frame();
     },
     onError: (err: any) => {
       toast({ title: "Submission Error", description: err.message, variant: "destructive" });

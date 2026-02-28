@@ -2774,14 +2774,96 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
 
       const hmrcId = `HMRC-${taxYear.replace("/", "")}-${Date.now().toString(36).toUpperCase()}`;
 
+      const allIncomes = await storage.getIncomes(userId);
+      const allExpenses = await storage.getExpenses(userId);
+      let periodStart: string, periodEnd: string;
+      if (taxYear === "2026/27") {
+        periodStart = "2026-04-06"; periodEnd = "2027-04-05";
+      } else {
+        periodStart = "2025-04-06"; periodEnd = "2026-04-05";
+      }
+      const periodIncomes = allIncomes.filter(i => i.date >= periodStart && i.date <= periodEnd);
+      const periodExpenses = allExpenses.filter(e => e.date >= periodStart && e.date <= periodEnd);
+      const privateHireIncome = periodIncomes.reduce((sum, i) => sum + Number(i.amount || 0), 0);
+      const totalExpenses = periodExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+      const netBusinessProfit = privateHireIncome - totalExpenses;
+      const payeIncome = Number(decl.otherIncomePaye || 0);
+      const dividendIncome = Number(decl.otherIncomeDividends || 0);
+      const totalGrossIncome = netBusinessProfit + payeIncome + dividendIncome;
+      const personalAllowance = totalGrossIncome > 125140 ? 0 :
+        totalGrossIncome > 100000 ? Math.max(0, 12570 - Math.floor((totalGrossIncome - 100000) / 2)) : 12570;
+      const taxableIncome = Math.max(0, totalGrossIncome - personalAllowance);
+      let estimatedTax = 0;
+      let remaining = taxableIncome;
+      const taxBands = [
+        { width: 50270 - 12570, rate: 0.20 },
+        { width: 125140 - 50270, rate: 0.40 },
+        { width: Infinity, rate: 0.45 },
+      ];
+      for (const band of taxBands) {
+        if (remaining <= 0) break;
+        const t = Math.min(remaining, band.width);
+        estimatedTax += t * band.rate;
+        remaining -= t;
+      }
+      estimatedTax = Math.round(estimatedTax * 100) / 100;
+      const taxAlreadyPaid = payeIncome > 0 ? Math.round(Math.max(0, payeIncome - 12570) * 0.20 * 100) / 100 : 0;
+      const balanceDue = Math.max(0, Math.round((estimatedTax - taxAlreadyPaid) * 100) / 100);
+
+      const user = await storage.getUser(userId);
+      const driverName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Driver" : "Driver";
+
       await db.update(finalDeclarations).set({
         status: "submitted",
         submittedAt: new Date(),
         hmrcSubmissionId: hmrcId,
+        totalGrossIncome: String(Math.round(totalGrossIncome * 100) / 100),
+        personalAllowance: String(personalAllowance),
+        taxableIncome: String(Math.round(taxableIncome * 100) / 100),
+        estimatedTax: String(estimatedTax),
+        taxAlreadyPaid: String(taxAlreadyPaid),
+        balanceDue: String(balanceDue),
       }).where(eq(finalDeclarations.id, decl.id));
 
       const [updated] = await db.select().from(finalDeclarations).where(eq(finalDeclarations.id, decl.id));
       res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/final-declaration/:taxYear/certificate", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const taxYear = req.params.taxYear;
+      const { finalDeclarations } = await import("@shared/schema");
+      const [decl] = await db.select().from(finalDeclarations)
+        .where(and(eq(finalDeclarations.userId, userId), eq(finalDeclarations.taxYear, taxYear)));
+
+      if (!decl || decl.status !== "submitted") {
+        return res.status(400).json({ message: "Declaration not yet submitted" });
+      }
+
+      const user = await storage.getUser(userId);
+      const driverName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Driver" : "Driver";
+
+      const { generateTaxCertificatePDF } = await import("./tax-certificate");
+      const pdfBuffer = await generateTaxCertificatePDF({
+        driverName,
+        taxYear,
+        hmrcSubmissionId: decl.hmrcSubmissionId || "N/A",
+        totalGrossIncome: Number(decl.totalGrossIncome || 0),
+        personalAllowance: Number(decl.personalAllowance || 12570),
+        taxableIncome: Number(decl.taxableIncome || 0),
+        estimatedTax: Number(decl.estimatedTax || 0),
+        taxAlreadyPaid: Number(decl.taxAlreadyPaid || 0),
+        balanceDue: Number(decl.balanceDue || 0),
+        submittedAt: decl.submittedAt || new Date(),
+      });
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename=MCTUSA_Tax_Certificate_${taxYear.replace("/", "-")}.pdf`);
+      res.send(pdfBuffer);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
