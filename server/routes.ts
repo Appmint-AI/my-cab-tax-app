@@ -1187,10 +1187,15 @@ export async function registerRoutes(
       const sessionConfig: any = {
         mode: "subscription",
         line_items: [{ price: priceId, quantity: 1 }],
-        success_url: `${appUrl}/dashboard?upgrade=success`,
+        success_url: `${appUrl}/upgrade?upgrade=success`,
         cancel_url: `${appUrl}/upgrade?cancelled=true`,
         metadata: { userId },
         automatic_tax: { enabled: true },
+        invoice_creation: undefined,
+        subscription_data: {
+          metadata: { userId },
+        },
+        tax_id_collection: { enabled: true },
       };
 
       if (user.stripeCustomerId) {
@@ -1250,8 +1255,20 @@ export async function registerRoutes(
               dataRetentionUntil: retentionDate,
               vaultEnabled: true,
             });
-            const amountTotal = session.amount_total ? `$${(session.amount_total / 100).toFixed(2)}` : "your subscription";
+            const amountTotal = session.amount_total ? `£${(session.amount_total / 100).toFixed(2)}` : "your subscription";
             triggerPaymentReceiptEmail(userId, amountTotal).catch(() => {});
+
+            try {
+              await stripe.customers.update(session.customer as string, {
+                invoice_settings: {
+                  custom_fields: [
+                    { name: "VAT Number", value: "GB-PENDING" },
+                  ],
+                },
+              });
+            } catch (custErr: any) {
+              console.warn("[stripe] Could not update customer invoice settings:", custErr?.message);
+            }
           }
           break;
         }

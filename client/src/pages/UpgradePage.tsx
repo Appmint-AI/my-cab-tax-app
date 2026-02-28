@@ -1,22 +1,118 @@
-import { Link } from "wouter";
+import { useState, useEffect } from "react";
+import { Link, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCreateCheckoutSession, useSubscription } from "@/hooks/use-subscription";
-import { CarFront, ArrowLeft, Shield, Crown, CheckCircle, X, AlertTriangle, Clock, FileText, Camera, Lock, Loader2, Zap } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  CarFront,
+  ArrowLeft,
+  Shield,
+  Crown,
+  CheckCircle,
+  Lock,
+  Loader2,
+  Zap,
+  CreditCard,
+  ShieldCheck,
+  CalendarDays,
+  XCircle,
+  FileText,
+  Sparkles,
+  PartyPopper,
+} from "lucide-react";
+import { SiStripe } from "react-icons/si";
 
-const comparisonRows = [
-  { feature: "Manual Expense Entry", basic: true, pro: true },
-  { feature: "Mileage Tracking", basic: true, pro: true },
-  { feature: "Auto-Grossing (25% Rule)", basic: false, pro: true },
-  { feature: "1099-K Matcher", basic: false, pro: true },
-  { feature: "Data Retention", basicText: "90 Days", proText: "7 Years" },
-];
+function formatNextBillingDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function SuccessOverlay({ name }: { name: string }) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      window.location.href = "/dashboard";
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" data-testid="overlay-success">
+      <Card className="max-w-lg w-full mx-4 p-0 overflow-hidden border-0 shadow-2xl">
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 p-8 text-center text-white">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/20 mb-4">
+            <PartyPopper className="h-8 w-8" />
+          </div>
+          <h2 className="font-bold text-2xl sm:text-3xl mb-2" data-testid="text-success-title">
+            Welcome to the Head Office{name ? `, ${name}` : ""}.
+          </h2>
+          <p className="text-emerald-100 text-lg font-medium" data-testid="text-success-subtitle">
+            Your HMRC Shield is now ACTIVE.
+          </p>
+        </div>
+        <CardContent className="p-6 bg-background text-center space-y-3">
+          <div className="flex items-center justify-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+            <ShieldCheck className="h-5 w-5" />
+            <span className="font-medium">7-Year Digital Vault Activated</span>
+          </div>
+          <div className="flex items-center justify-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+            <CalendarDays className="h-5 w-5" />
+            <span className="font-medium">Automated MTD Filing Unlocked</span>
+          </div>
+          <div className="flex items-center justify-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+            <Zap className="h-5 w-5" />
+            <span className="font-medium">Universal Credit Sync Ready</span>
+          </div>
+          <Link href="/dashboard">
+            <Button className="mt-4 w-full" size="lg" data-testid="button-go-dashboard">
+              Go to Dashboard
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function CancelledBanner() {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+
+  return (
+    <div className="mb-6 p-4 border border-amber-300/50 bg-amber-50/50 dark:bg-amber-900/10 dark:border-amber-600/30 rounded-lg flex items-start gap-3" data-testid="banner-cancelled">
+      <XCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+      <div className="flex-1">
+        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Payment setup was cancelled</p>
+        <p className="text-xs text-amber-700/80 dark:text-amber-400/70 mt-0.5">No charges were made. You can try again whenever you're ready.</p>
+      </div>
+      <button onClick={() => setDismissed(true)} className="text-amber-600/60 hover:text-amber-600 dark:text-amber-400/60" data-testid="button-dismiss-cancelled">
+        <XCircle className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
 
 export default function UpgradePage() {
   const checkoutMutation = useCreateCheckoutSession();
   const { data: subscription } = useSubscription();
+  const { user } = useAuth();
   const isPro = subscription?.tier === "pro";
+  const searchParams = useSearch();
+  const params = new URLSearchParams(searchParams);
+  const showSuccess = params.get("upgrade") === "success" || params.get("session_id") !== null;
+  const showCancelled = params.get("cancelled") === "true";
+
+  const userName = user?.firstName || "";
+
+  if (showSuccess) {
+    return <SuccessOverlay name={userName} />;
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -37,136 +133,146 @@ export default function UpgradePage() {
         </div>
       </nav>
 
-      <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto flex-1 w-full">
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <Shield className="h-8 w-8 text-primary" />
+      <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-2xl mx-auto flex-1 w-full">
+        {showCancelled && <CancelledBanner />}
+
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-4">
+            <Shield className="h-7 w-7 text-primary" />
           </div>
           <h1 className="font-display font-bold text-3xl sm:text-4xl mb-3" data-testid="text-upgrade-title">
-            {isPro ? "You're a Pro Member" : "Stop Guessing Your 1099-K."}
+            {isPro ? "Your Head Office is Active" : "Secure Your Head Office"}
           </h1>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">
+          <p className="text-muted-foreground text-base sm:text-lg max-w-xl mx-auto leading-relaxed" data-testid="text-upgrade-subtitle">
             {isPro
-              ? "You have full access to Auto-Grossing, 1099-K Matching, and 7-year Tax Vault storage."
-              : "Uber and Lyft report your \"Gross Fares\" to the IRS, but only pay you the \"Net.\" If these don't match on your tax return, you risk an audit."
-            }
+              ? "You have full access to Automated HMRC MTD Filing, Universal Credit Sync, and your 7-Year Digital Vault."
+              : "Connect your payment method to activate Automated HMRC MTD Filing, Universal Credit Sync, and your 7-Year Digital Vault."}
           </p>
         </div>
 
-        {!isPro && (
-          <Card className="p-5 sm:p-6 mb-8 border-yellow-500/40 bg-yellow-50/50 dark:bg-yellow-900/10" data-testid="card-irs-warning">
+        <Card className="mb-6 border-emerald-200/50 dark:border-emerald-800/30 bg-emerald-50/30 dark:bg-emerald-950/10" data-testid="card-trust-box">
+          <CardContent className="p-5 sm:p-6">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
+              <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 shrink-0">
+                <Lock className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+              </div>
               <div>
-                <h2 className="font-semibold text-base mb-1 text-yellow-800 dark:text-yellow-300">IRS Recordkeeping Requirement</h2>
-                <p className="text-sm leading-relaxed text-yellow-700/90 dark:text-yellow-400/80">
-                  The IRS requires self-employed individuals to keep records that support items reported on their tax returns until the statute of limitations expires &mdash; typically 3 years, but up to 6 years if income is underreported by more than 25%. With the Free Tier's 90-day retention, you may not have your records when you need them.
+                <h3 className="font-semibold text-base mb-1.5 text-emerald-900 dark:text-emerald-300" data-testid="text-security-title">
+                  Bank-Level Security
+                </h3>
+                <p className="text-sm leading-relaxed text-emerald-800/80 dark:text-emerald-400/80" data-testid="text-security-description">
+                  We use Stripe to process payments. MCTUSA never sees or stores your full card details. Your data is encrypted using 256-bit SSL — the same standard used by the UK's leading banks.
                 </p>
               </div>
             </div>
-          </Card>
-        )}
-
-        <Card className="p-0 mb-10 overflow-visible" data-testid="card-feature-comparison">
-          <div className="grid grid-cols-3 text-sm font-medium border-b border-border/60">
-            <div className="p-4">Feature</div>
-            <div className="p-4 text-center">Basic (Free)</div>
-            <div className="p-4 text-center text-primary">Pro (Paid)</div>
-          </div>
-          {comparisonRows.map((row) => (
-            <div key={row.feature} className="grid grid-cols-3 text-sm border-b border-border/30 last:border-0">
-              <div className="p-4 font-medium">{row.feature}</div>
-              <div className="p-4 flex items-center justify-center">
-                {row.basicText ? (
-                  <span className="text-muted-foreground">{row.basicText}</span>
-                ) : row.basic ? (
-                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                ) : (
-                  <X className="h-4 w-4 text-muted-foreground/50" />
-                )}
-              </div>
-              <div className="p-4 flex items-center justify-center">
-                {row.proText ? (
-                  <span className="font-medium text-primary">{row.proText}</span>
-                ) : row.pro ? (
-                  <CheckCircle className="h-4 w-4 text-primary" />
-                ) : (
-                  <X className="h-4 w-4 text-muted-foreground/50" />
-                )}
-              </div>
-            </div>
-          ))}
+          </CardContent>
         </Card>
 
-        <div className="text-center space-y-6">
-          <Card className="p-6 sm:p-8 border-primary/30 bg-primary/5 max-w-xl mx-auto" data-testid="card-cta">
-            <Crown className="h-8 w-8 text-primary mx-auto mb-3" />
-            <h2 className="font-display font-bold text-2xl mb-2">
-              {isPro ? "Pro Features Unlocked" : "Unlock Pro Today"}
-            </h2>
-            <p className="text-sm text-muted-foreground mb-1" data-testid="text-pro-pitch">
-              {isPro
-                ? "Your records are secured in the Tax Vault with 7-year guaranteed retention."
-                : "Upgrade to Pro to unlock Automatic 1099-K Matching and 7-year Tax Vault."
-              }
-            </p>
-            <ul className="text-sm text-left max-w-sm mx-auto mb-4 space-y-1.5 mt-3">
-              <li className="flex items-start gap-2">
-                <Zap className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                <span><strong>Automatically Gross-Up:</strong> Match your records to your 1099-K perfectly.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Zap className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                <span><strong>Auto-Deduct Fees:</strong> Instantly categorize platform commissions.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Zap className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                <span><strong>7-Year Vault:</strong> Secure storage as long as the IRS statute of limitations.</span>
-              </li>
-            </ul>
+        <Card className="mb-6 border-primary/20" data-testid="card-payment-action">
+          <CardContent className="p-5 sm:p-8">
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Subscription</p>
+                  <p className="text-2xl sm:text-3xl font-bold" data-testid="text-price">
+                    £17.99<span className="text-base font-normal text-muted-foreground"> / month</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">(VAT Inclusive)</p>
+                </div>
+                <div className="p-3 rounded-full bg-primary/10">
+                  <Crown className="h-6 w-6 text-primary" />
+                </div>
+              </div>
 
-            {isPro ? (
-              <Badge className="no-default-active-elevate">
-                <Crown className="h-3 w-3 mr-1" />
-                Active Pro Member
-              </Badge>
-            ) : (
-              <Button
-                size="lg"
-                data-testid="button-upgrade-checkout"
-                onClick={() => checkoutMutation.mutate()}
-                disabled={checkoutMutation.isPending}
-              >
-                {checkoutMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Lock className="h-4 w-4 mr-2" />
-                )}
-                Upgrade to Pro
-              </Button>
-            )}
-          </Card>
+              <div className="border-t border-border/50 pt-4 space-y-3">
+                <div className="flex items-center gap-3 text-sm">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span>
+                    <span className="text-muted-foreground">Next Billing Date: </span>
+                    <span className="font-medium" data-testid="text-next-billing">{formatNextBillingDate()}</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <XCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-muted-foreground">No contracts. Cancel anytime with one tap.</span>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
-            <Card className="p-4 text-center" data-testid="card-benefit-vault">
-              <Lock className="h-6 w-6 text-primary mx-auto mb-2" />
-              <h4 className="font-semibold text-sm mb-1">Tax Vault</h4>
-              <p className="text-xs text-muted-foreground">7-year encrypted storage that exceeds IRS requirements</p>
-            </Card>
-            <Card className="p-4 text-center" data-testid="card-benefit-exports">
-              <FileText className="h-6 w-6 text-primary mx-auto mb-2" />
-              <h4 className="font-semibold text-sm mb-1">Audit-Ready Exports</h4>
-              <p className="text-xs text-muted-foreground">One-click PDF reports with integrity certificates</p>
-            </Card>
-            <Card className="p-4 text-center" data-testid="card-benefit-receipts">
-              <Camera className="h-6 w-6 text-primary mx-auto mb-2" />
-              <h4 className="font-semibold text-sm mb-1">Receipt Backup</h4>
-              <p className="text-xs text-muted-foreground">Unlimited photo storage for every receipt</p>
-            </Card>
-          </div>
-        </div>
+              <div className="space-y-4 border-t border-border/50 pt-4">
+                <h4 className="text-sm font-semibold">Everything included:</h4>
+                <div className="grid gap-2.5">
+                  {[
+                    { icon: ShieldCheck, text: "Automated HMRC MTD Filing" },
+                    { icon: Zap, text: "Universal Credit Sync" },
+                    { icon: FileText, text: "7-Year Digital Vault" },
+                    { icon: Sparkles, text: "AI Receipt Scanner with OCR" },
+                    { icon: CreditCard, text: "Auto-Grossing (25% Rule)" },
+                    { icon: Shield, text: "Audit Defence Centre Access" },
+                  ].map(({ icon: Icon, text }) => (
+                    <div key={text} className="flex items-center gap-2.5 text-sm">
+                      <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10">
+                        <Icon className="h-3 w-3 text-primary" />
+                      </div>
+                      <span>{text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-        <div className="mt-10 text-center">
+              {isPro ? (
+                <div className="text-center pt-2">
+                  <Badge className="text-sm py-1.5 px-4 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
+                    <CheckCircle className="h-4 w-4 mr-1.5" />
+                    Head Office Active
+                  </Badge>
+                </div>
+              ) : (
+                <div className="space-y-3 pt-2">
+                  <Button
+                    size="lg"
+                    className="w-full h-12 text-base font-semibold"
+                    data-testid="button-upgrade-checkout"
+                    onClick={() => checkoutMutation.mutate()}
+                    disabled={checkoutMutation.isPending}
+                  >
+                    {checkoutMutation.isPending ? (
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    ) : (
+                      <CreditCard className="h-5 w-5 mr-2" />
+                    )}
+                    Set Up Secure Payment
+                  </Button>
+
+                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                    <Lock className="h-3.5 w-3.5" />
+                    <span>Powered by</span>
+                    <SiStripe className="h-8 w-auto text-[#635BFF] dark:text-[#A39BFF]" />
+                  </div>
+
+                  <p className="text-xs text-center text-muted-foreground leading-relaxed" data-testid="text-redirect-notice">
+                    By clicking, you will be redirected to our secure payment partner, Stripe, to finalise your setup.
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-blue-200/30 dark:border-blue-800/20 bg-blue-50/20 dark:bg-blue-950/5" data-testid="card-vat-notice">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-1">VAT Invoicing</h4>
+                <p className="text-xs leading-relaxed text-blue-800/70 dark:text-blue-400/70">
+                  A UK-compliant VAT invoice is automatically emailed to you after every payment. This is a deductible business expense — keep it for your records.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="mt-8 text-center">
           <p className="text-xs text-muted-foreground">
             Questions? Visit our{" "}
             <Link href="/legal?tab=subscriptions" className="text-primary underline">Subscription Terms</Link>
