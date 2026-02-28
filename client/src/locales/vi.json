@@ -13,7 +13,8 @@
     "currency": "Tiền tệ",
     "sync": "Đồng bộ",
     "signOut": "Đăng xuất",
-    "quarterly": "Nộp thuế hàng quý"
+    "quarterly": "Nộp thuế hàng quý",
+    "taxOverview": "Tổng quan thuế"
   },
   "common": {
     "save": "Lưu",

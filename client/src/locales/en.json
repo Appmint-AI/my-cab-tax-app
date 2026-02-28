@@ -13,7 +13,8 @@
     "currency": "Currency",
     "sync": "Gig Sync",
     "signOut": "Sign Out",
-    "quarterly": "Quarterly Filing"
+    "quarterly": "Quarterly Filing",
+    "taxOverview": "Tax Overview"
   },
   "common": {
     "save": "Save",

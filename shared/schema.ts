@@ -712,6 +712,39 @@ export const REFERRAL_TIERS = [
   { minReferrals: 20, discount: 20, label: "Gold" },
 ] as const;
 
+export const finalDeclarations = pgTable("final_declarations", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  taxYear: text("tax_year").notNull(),
+  status: text("status").notNull().default("unpaid"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripeSessionId: text("stripe_session_id"),
+  paidAt: timestamp("paid_at"),
+  submittedAt: timestamp("submitted_at"),
+  hmrcSubmissionId: text("hmrc_submission_id"),
+  totalGrossIncome: numeric("total_gross_income").default("0"),
+  personalAllowance: numeric("personal_allowance").default("12570"),
+  taxableIncome: numeric("taxable_income").default("0"),
+  estimatedTax: numeric("estimated_tax").default("0"),
+  taxAlreadyPaid: numeric("tax_already_paid").default("0"),
+  balanceDue: numeric("balance_due").default("0"),
+  otherIncomePaye: numeric("other_income_paye").default("0"),
+  otherIncomeDividends: numeric("other_income_dividends").default("0"),
+  certificateUrl: text("certificate_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFinalDeclarationSchema = createInsertSchema(finalDeclarations).omit({ id: true, createdAt: true });
+export type InsertFinalDeclaration = z.infer<typeof insertFinalDeclarationSchema>;
+export type FinalDeclaration = typeof finalDeclarations.$inferSelect;
+
+export const UK_TAX_BANDS_2026_27 = [
+  { min: 0, max: 12570, rate: 0, label: "Personal Allowance" },
+  { min: 12571, max: 50270, rate: 0.20, label: "Basic Rate (20%)" },
+  { min: 50271, max: 125140, rate: 0.40, label: "Higher Rate (40%)" },
+  { min: 125141, max: Infinity, rate: 0.45, label: "Additional Rate (45%)" },
+] as const;
+
 export const UK_MTD_QUARTERLY_PERIODS: Record<string, { start: string; end: string; deadline: string }> = {
   "2026-Q1": { start: "2026-04-06", end: "2026-07-05", deadline: "2026-08-05" },
   "2026-Q2": { start: "2026-07-06", end: "2026-10-05", deadline: "2026-11-05" },

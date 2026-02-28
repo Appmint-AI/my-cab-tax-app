@@ -1245,6 +1245,20 @@ export async function registerRoutes(
         case "checkout.session.completed": {
           const session = event.data.object as Stripe.Checkout.Session;
           const userId = session.metadata?.userId;
+
+          if (session.metadata?.type === "final_declaration" && userId) {
+            const { finalDeclarations } = await import("@shared/schema");
+            const taxYear = session.metadata.taxYear;
+            await db.update(finalDeclarations)
+              .set({
+                status: "paid",
+                paidAt: new Date(),
+                stripePaymentIntentId: session.payment_intent as string,
+              })
+              .where(and(eq(finalDeclarations.userId, userId), eq(finalDeclarations.taxYear, taxYear)));
+            break;
+          }
+
           if (userId && session.customer) {
             const retentionDate = new Date();
             retentionDate.setFullYear(retentionDate.getFullYear() + 7);
@@ -2539,6 +2553,235 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
         submissions: allSubs,
       };
       res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== Final Declaration (5th Return) & Tax Overview ====================
+
+  app.get("/api/tax-overview", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const taxYear = (req.query.taxYear as string) || "2026/27";
+
+      const { finalDeclarations, UK_TAX_BANDS_2026_27 } = await import("@shared/schema");
+
+      const allIncomes = await storage.getIncomes(userId);
+      const allExpenses = await storage.getExpenses(userId);
+
+      let periodStart: string, periodEnd: string;
+      if (taxYear === "2026/27") {
+        periodStart = "2026-04-06";
+        periodEnd = "2027-04-05";
+      } else {
+        periodStart = "2025-04-06";
+        periodEnd = "2026-04-05";
+      }
+
+      const periodIncomes = allIncomes.filter(i => i.date >= periodStart && i.date <= periodEnd);
+      const periodExpenses = allExpenses.filter(e => e.date >= periodStart && e.date <= periodEnd);
+
+      const privateHireIncome = periodIncomes.reduce((sum, i) => sum + Number(i.amount || 0), 0);
+      const totalExpenses = periodExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+      const netBusinessProfit = privateHireIncome - totalExpenses;
+
+      const [decl] = await db.select().from(finalDeclarations)
+        .where(and(eq(finalDeclarations.userId, userId), eq(finalDeclarations.taxYear, taxYear)));
+
+      const payeIncome = decl ? Number(decl.otherIncomePaye || 0) : 0;
+      const dividendIncome = decl ? Number(decl.otherIncomeDividends || 0) : 0;
+      const totalGrossIncome = netBusinessProfit + payeIncome + dividendIncome;
+
+      const personalAllowance = totalGrossIncome > 125140 ? 0 :
+        totalGrossIncome > 100000 ? Math.max(0, 12570 - Math.floor((totalGrossIncome - 100000) / 2)) : 12570;
+
+      const taxableIncome = Math.max(0, totalGrossIncome - personalAllowance);
+
+      let estimatedTax = 0;
+      let remaining = taxableIncome;
+      const taxBands = [
+        { width: 50270 - 12570, rate: 0.20 },
+        { width: 125140 - 50270, rate: 0.40 },
+        { width: Infinity, rate: 0.45 },
+      ];
+      for (const band of taxBands) {
+        if (remaining <= 0) break;
+        const taxableInBand = Math.min(remaining, band.width);
+        estimatedTax += taxableInBand * band.rate;
+        remaining -= taxableInBand;
+      }
+      estimatedTax = Math.round(estimatedTax * 100) / 100;
+
+      const taxAlreadyPaid = payeIncome > 0 ? Math.round(Math.max(0, payeIncome - 12570) * 0.20 * 100) / 100 : 0;
+      const balanceDue = Math.max(0, Math.round((estimatedTax - taxAlreadyPaid) * 100) / 100);
+
+      const incomeSources = [
+        { label: "Private Hire (MCTUSA)", amount: netBusinessProfit, status: "Synced", icon: "taxi" },
+        { label: "Part-time Job (PAYE)", amount: payeIncome, status: payeIncome > 0 ? "Manual Entry" : "Not Added", icon: "briefcase" },
+        { label: "Dividends/Savings", amount: dividendIncome, status: dividendIncome > 0 ? "Manual Entry" : "Not Added", icon: "trending-up" },
+      ];
+
+      res.json({
+        taxYear,
+        incomeSources,
+        totalGrossIncome: Math.round(totalGrossIncome * 100) / 100,
+        totalExpenses: Math.round(totalExpenses * 100) / 100,
+        netBusinessProfit: Math.round(netBusinessProfit * 100) / 100,
+        personalAllowance,
+        taxableIncome: Math.round(taxableIncome * 100) / 100,
+        estimatedTax,
+        taxAlreadyPaid,
+        balanceDue,
+        declaration: decl || null,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/tax-overview/other-income", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { taxYear, payeIncome, dividendIncome } = req.body;
+      if (!taxYear) return res.status(400).json({ message: "taxYear required" });
+
+      const { finalDeclarations } = await import("@shared/schema");
+      const [existing] = await db.select().from(finalDeclarations)
+        .where(and(eq(finalDeclarations.userId, userId), eq(finalDeclarations.taxYear, taxYear)));
+
+      if (existing) {
+        await db.update(finalDeclarations)
+          .set({
+            otherIncomePaye: String(Number(payeIncome || 0)),
+            otherIncomeDividends: String(Number(dividendIncome || 0)),
+          })
+          .where(eq(finalDeclarations.id, existing.id));
+      } else {
+        await db.insert(finalDeclarations).values({
+          userId,
+          taxYear,
+          status: "unpaid",
+          otherIncomePaye: String(Number(payeIncome || 0)),
+          otherIncomeDividends: String(Number(dividendIncome || 0)),
+        });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/final-declaration/:taxYear", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const taxYear = req.params.taxYear;
+      const { finalDeclarations } = await import("@shared/schema");
+      const [decl] = await db.select().from(finalDeclarations)
+        .where(and(eq(finalDeclarations.userId, userId), eq(finalDeclarations.taxYear, taxYear)));
+      res.json(decl || null);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/final-declaration/checkout", isAuthenticated, async (req: Request, res: Response) => {
+    const stripe = await getStripeClient();
+    if (!stripe) return res.status(503).json({ message: "Payment processing is not configured yet." });
+
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { taxYear } = req.body;
+      if (!taxYear) return res.status(400).json({ message: "taxYear required" });
+
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const { finalDeclarations } = await import("@shared/schema");
+      const [existing] = await db.select().from(finalDeclarations)
+        .where(and(eq(finalDeclarations.userId, userId), eq(finalDeclarations.taxYear, taxYear)));
+
+      if (existing && existing.status === "paid") {
+        return res.status(400).json({ message: "Final Declaration already paid for this tax year." });
+      }
+
+      const appUrl = process.env.REPLIT_DEV_DOMAIN
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : process.env.APP_URL || `http://localhost:5000`;
+
+      const sessionConfig: any = {
+        mode: "payment",
+        line_items: [{
+          price_data: {
+            currency: "gbp",
+            product_data: {
+              name: `Final Declaration — Tax Year ${taxYear}`,
+              description: "Income consolidation, allowance optimisation, AI error shield, and HMRC submission ID.",
+            },
+            unit_amount: 2900,
+          },
+          quantity: 1,
+        }],
+        success_url: `${appUrl}/tax-overview?taxYear=${encodeURIComponent(taxYear)}&declaration=success`,
+        cancel_url: `${appUrl}/tax-overview?taxYear=${encodeURIComponent(taxYear)}&declaration=cancelled`,
+        metadata: { userId, taxYear, type: "final_declaration" },
+        automatic_tax: { enabled: true },
+        tax_id_collection: { enabled: true },
+      };
+
+      if (user.stripeCustomerId) {
+        sessionConfig.customer = user.stripeCustomerId;
+      } else if (user.email) {
+        sessionConfig.customer_email = user.email;
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionConfig);
+
+      if (!existing) {
+        await db.insert(finalDeclarations).values({
+          userId,
+          taxYear,
+          status: "unpaid",
+          stripeSessionId: session.id,
+        });
+      } else {
+        await db.update(finalDeclarations)
+          .set({ stripeSessionId: session.id })
+          .where(eq(finalDeclarations.id, existing.id));
+      }
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("[final-declaration] Checkout error:", error);
+      res.status(500).json({ message: "Failed to create checkout session." });
+    }
+  });
+
+  app.post("/api/final-declaration/submit", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { taxYear } = req.body;
+      if (!taxYear) return res.status(400).json({ message: "taxYear required" });
+
+      const { finalDeclarations } = await import("@shared/schema");
+      const [decl] = await db.select().from(finalDeclarations)
+        .where(and(eq(finalDeclarations.userId, userId), eq(finalDeclarations.taxYear, taxYear)));
+
+      if (!decl) return res.status(404).json({ message: "No declaration found" });
+      if (decl.status !== "paid") return res.status(400).json({ message: "Payment required before submission." });
+      if (decl.status === "submitted") return res.status(400).json({ message: "Already submitted." });
+
+      const hmrcId = `HMRC-${taxYear.replace("/", "")}-${Date.now().toString(36).toUpperCase()}`;
+
+      await db.update(finalDeclarations).set({
+        status: "submitted",
+        submittedAt: new Date(),
+        hmrcSubmissionId: hmrcId,
+      }).where(eq(finalDeclarations.id, decl.id));
+
+      const [updated] = await db.select().from(finalDeclarations).where(eq(finalDeclarations.id, decl.id));
+      res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

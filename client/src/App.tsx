@@ -29,6 +29,7 @@ import DAC7Page from "@/pages/DAC7Page";
 import CurrencyPage from "@/pages/CurrencyPage";
 import SyncPage from "@/pages/SyncPage";
 import QuarterlyPage from "@/pages/QuarterlyPage";
+import TaxOverviewPage from "@/pages/TaxOverviewPage";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -168,6 +169,9 @@ function Router() {
 
       <Route path="/quarterly">
         <VerifiedRoute component={QuarterlyPage} />
+      </Route>
+      <Route path="/tax-overview">
+        <VerifiedRoute component={TaxOverviewPage} />
       </Route>
 
       <Route path="/settings">
