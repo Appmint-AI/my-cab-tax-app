@@ -612,3 +612,64 @@ export interface DHIPStatus {
   benchmarkAsset: string;
   lockedTransactions: number;
 }
+
+export const quarterlySubmissions = pgTable("quarterly_submissions", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  taxYear: integer("tax_year").notNull(),
+  quarter: integer("quarter").notNull(),
+  jurisdiction: text("jurisdiction").notNull().default("US"),
+  status: text("status").notNull().default("pending"),
+  totalIncome: numeric("total_income").default("0"),
+  totalExpenses: numeric("total_expenses").default("0"),
+  netProfit: numeric("net_profit").default("0"),
+  submittedAt: timestamp("submitted_at"),
+  confirmedAt: timestamp("confirmed_at"),
+  referenceId: text("reference_id"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertQuarterlySubmissionSchema = createInsertSchema(quarterlySubmissions).omit({ id: true, createdAt: true });
+export type InsertQuarterlySubmission = z.infer<typeof insertQuarterlySubmissionSchema>;
+export type QuarterlySubmission = typeof quarterlySubmissions.$inferSelect;
+
+export const eInvoices = pgTable("e_invoices", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  vaultEmail: text("vault_email").notNull(),
+  senderEmail: text("sender_email"),
+  senderName: text("sender_name"),
+  invoiceNumber: text("invoice_number"),
+  amount: numeric("amount"),
+  currency: text("currency").default("USD"),
+  description: text("description"),
+  category: text("category"),
+  invoiceDate: text("invoice_date"),
+  rawPayload: jsonb("raw_payload"),
+  status: text("status").notNull().default("pending"),
+  linkedExpenseId: integer("linked_expense_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEInvoiceSchema = createInsertSchema(eInvoices).omit({ id: true, createdAt: true });
+export type InsertEInvoice = z.infer<typeof insertEInvoiceSchema>;
+export type EInvoice = typeof eInvoices.$inferSelect;
+
+export const QUARTERLY_PERIODS: Record<string, { start: string; end: string; deadline: string }> = {
+  "2025-Q1": { start: "2025-01-01", end: "2025-03-31", deadline: "2025-04-15" },
+  "2025-Q2": { start: "2025-04-01", end: "2025-06-30", deadline: "2025-06-15" },
+  "2025-Q3": { start: "2025-07-01", end: "2025-09-30", deadline: "2025-09-15" },
+  "2025-Q4": { start: "2025-10-01", end: "2025-12-31", deadline: "2026-01-15" },
+  "2026-Q1": { start: "2026-01-01", end: "2026-03-31", deadline: "2026-04-15" },
+  "2026-Q2": { start: "2026-04-01", end: "2026-06-30", deadline: "2026-06-15" },
+  "2026-Q3": { start: "2026-07-01", end: "2026-09-30", deadline: "2026-09-15" },
+  "2026-Q4": { start: "2026-10-01", end: "2026-12-31", deadline: "2027-01-15" },
+};
+
+export const UK_MTD_QUARTERLY_PERIODS: Record<string, { start: string; end: string; deadline: string }> = {
+  "2026-Q1": { start: "2026-04-06", end: "2026-07-05", deadline: "2026-08-05" },
+  "2026-Q2": { start: "2026-07-06", end: "2026-10-05", deadline: "2026-11-05" },
+  "2026-Q3": { start: "2026-10-06", end: "2027-01-05", deadline: "2027-02-05" },
+  "2026-Q4": { start: "2027-01-06", end: "2027-04-05", deadline: "2027-05-05" },
+};

@@ -28,6 +28,7 @@ import {
   Route,
   Eye,
   EyeOff,
+  CalendarClock,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/sync", label: t("nav.sync"), icon: RefreshCw, simplifiedIcon: RefreshCw },
     { href: "/dac7", label: t("nav.dac7"), icon: FileSpreadsheet, simplifiedIcon: FileSpreadsheet },
     { href: "/currency", label: t("nav.currency"), icon: Banknote, simplifiedIcon: Banknote },
+    { href: "/quarterly", label: t("nav.quarterly"), icon: CalendarClock, simplifiedIcon: CalendarClock },
     { href: "/settings", label: t("nav.settings"), icon: Settings, simplifiedIcon: Wrench },
   ];
 

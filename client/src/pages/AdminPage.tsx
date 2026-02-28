@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, FileText, DollarSign, AlertTriangle, Car, Receipt, Shield, Activity, Mail, Globe, CheckCircle, XCircle, Clock, Copy, RefreshCw, Bot, Send, Sparkles, Loader2, Trash2 } from "lucide-react";
+import { Users, FileText, DollarSign, AlertTriangle, Car, Receipt, Shield, Activity, Mail, Globe, CheckCircle, XCircle, Clock, Copy, RefreshCw, Bot, Send, Sparkles, Loader2, Trash2, CalendarClock, Inbox, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -547,6 +547,229 @@ function AICommandCenter() {
   );
 }
 
+interface QuarterlySub {
+  id: number;
+  userId: string;
+  taxYear: number;
+  quarter: number;
+  jurisdiction: string;
+  status: string;
+  totalIncome: string;
+  totalExpenses: string;
+  netProfit: string;
+  submittedAt: string | null;
+  referenceId: string | null;
+  createdAt: string;
+}
+
+interface QuarterlyOverview {
+  total: number;
+  pending: number;
+  ready: number;
+  submitted: number;
+  submissions: QuarterlySub[];
+}
+
+function MTDQuarterlySection() {
+  const { toast } = useToast();
+  const { data: overview, isLoading } = useQuery<QuarterlyOverview>({
+    queryKey: ["/api/admin/quarterly-overview"],
+  });
+
+  const statusColor = (s: string) => {
+    if (s === "submitted") return "default";
+    if (s === "ready") return "secondary";
+    return "outline";
+  };
+
+  if (isLoading) return null;
+
+  return (
+    <Card data-testid="card-mtd-quarterly">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CalendarClock className="h-5 w-5 text-primary" />
+            <CardTitle className="text-sm font-medium">MTD Quarterly Submissions</CardTitle>
+          </div>
+          <div className="flex gap-2">
+            <Badge variant="outline" data-testid="badge-quarterly-total">{overview?.total || 0} Total</Badge>
+            <Badge variant="secondary" data-testid="badge-quarterly-ready">{overview?.ready || 0} Ready</Badge>
+            <Badge data-testid="badge-quarterly-submitted">{overview?.submitted || 0} Filed</Badge>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          2026 Compliance: IRS Quarterly (1040-ES) &amp; UK Making Tax Digital. Auto-scan vault data per quarter.
+        </p>
+      </CardHeader>
+      <CardContent>
+        {overview && overview.submissions.length > 0 ? (
+          <div className="space-y-2">
+            <div className="grid grid-cols-7 text-xs font-medium text-muted-foreground border-b pb-2">
+              <span>User</span>
+              <span>Period</span>
+              <span>Region</span>
+              <span className="text-right">Income</span>
+              <span className="text-right">Expenses</span>
+              <span className="text-right">Net</span>
+              <span className="text-center">Status</span>
+            </div>
+            {overview.submissions.slice(0, 20).map((sub) => (
+              <div key={sub.id} className="grid grid-cols-7 text-sm items-center py-1.5 border-b border-muted/30" data-testid={`row-quarterly-${sub.id}`}>
+                <span className="truncate text-xs font-mono">{sub.userId.slice(0, 8)}...</span>
+                <span>Q{sub.quarter} {sub.taxYear}</span>
+                <Badge variant="outline" className="w-fit text-xs">{sub.jurisdiction}</Badge>
+                <span className="text-right">${Number(sub.totalIncome).toLocaleString()}</span>
+                <span className="text-right text-destructive">${Number(sub.totalExpenses).toLocaleString()}</span>
+                <span className="text-right font-medium">${Number(sub.netProfit).toLocaleString()}</span>
+                <div className="text-center">
+                  <Badge variant={statusColor(sub.status)} data-testid={`badge-status-${sub.id}`}>{sub.status}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <CalendarClock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No quarterly submissions yet</p>
+            <p className="text-xs mt-1">Users can generate submissions from their dashboard quarterly filing section</p>
+          </div>
+        )}
+        <div className="mt-4 p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1 font-medium mb-1">
+            <Shield className="h-3 w-3" /> API Integration Status
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3 text-yellow-500" />
+              <span>HMRC MTD: Awaiting credentials</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3 text-yellow-500" />
+              <span>IRS Direct: Awaiting API access</span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface EInvoiceItem {
+  id: number;
+  userId: string;
+  vaultEmail: string;
+  senderEmail: string | null;
+  senderName: string | null;
+  invoiceNumber: string | null;
+  amount: string | null;
+  currency: string;
+  description: string | null;
+  status: string;
+  linkedExpenseId: number | null;
+  createdAt: string;
+}
+
+interface EInvoiceOverview {
+  total: number;
+  pending: number;
+  received: number;
+  approved: number;
+  invoices: EInvoiceItem[];
+}
+
+function EInvoiceSection() {
+  const { data: overview, isLoading } = useQuery<EInvoiceOverview>({
+    queryKey: ["/api/admin/e-invoices-overview"],
+  });
+
+  if (isLoading) return null;
+
+  return (
+    <Card data-testid="card-e-invoice">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Inbox className="h-5 w-5 text-primary" />
+            <CardTitle className="text-sm font-medium">E-Invoice Bridge</CardTitle>
+          </div>
+          <div className="flex gap-2">
+            <Badge variant="outline" data-testid="badge-einvoice-total">{overview?.total || 0} Total</Badge>
+            <Badge variant="secondary" data-testid="badge-einvoice-received">{overview?.received || 0} Received</Badge>
+            <Badge data-testid="badge-einvoice-approved">{overview?.approved || 0} Approved</Badge>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Structured E-Invoicing: vendors send digital invoices directly to user vault emails. 100% accurate — no OCR needed.
+        </p>
+      </CardHeader>
+      <CardContent>
+        {overview && overview.invoices.length > 0 ? (
+          <div className="space-y-2">
+            <div className="grid grid-cols-6 text-xs font-medium text-muted-foreground border-b pb-2">
+              <span>Vault Email</span>
+              <span>Sender</span>
+              <span>Invoice #</span>
+              <span className="text-right">Amount</span>
+              <span className="text-center">Status</span>
+              <span className="text-center">Linked</span>
+            </div>
+            {overview.invoices.slice(0, 20).map((inv) => (
+              <div key={inv.id} className="grid grid-cols-6 text-sm items-center py-1.5 border-b border-muted/30" data-testid={`row-einvoice-${inv.id}`}>
+                <span className="truncate text-xs font-mono">{inv.vaultEmail}</span>
+                <span className="truncate text-xs">{inv.senderName || inv.senderEmail || "—"}</span>
+                <span className="text-xs">{inv.invoiceNumber || "—"}</span>
+                <span className="text-right">{inv.amount ? `${inv.currency} ${Number(inv.amount).toLocaleString()}` : "—"}</span>
+                <div className="text-center">
+                  <Badge variant={inv.status === "approved" ? "default" : inv.status === "received" ? "secondary" : "outline"}>
+                    {inv.status}
+                  </Badge>
+                </div>
+                <div className="text-center">
+                  {inv.linkedExpenseId ? (
+                    <CheckCircle className="h-4 w-4 text-green-500 mx-auto" />
+                  ) : (
+                    <span className="text-muted-foreground text-xs">—</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <Inbox className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No e-invoices intercepted yet</p>
+            <p className="text-xs mt-1">Each user gets a unique vault email (e.g. user123@vault.mctusa.com)</p>
+          </div>
+        )}
+        <div className="mt-4 p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1 font-medium mb-1">
+            <Mail className="h-3 w-3" /> E-Invoice System
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+            <div className="flex items-center gap-1">
+              <CheckCircle className="h-3 w-3 text-green-500" />
+              <span>Vault Email Generation: Active</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <CheckCircle className="h-3 w-3 text-green-500" />
+              <span>Manual Invoice Simulation: Active</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3 text-yellow-500" />
+              <span>Inbound Email Parsing: Awaiting MX setup</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3 text-yellow-500" />
+              <span>Peppol/ZUGFeRD: Awaiting integration</span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminPage() {
   const { data: metrics, isLoading, error } = useQuery<AdminMetrics>({
     queryKey: ["/api/admin/metrics"],
@@ -649,6 +872,10 @@ export default function AdminPage() {
         </div>
 
         <AICommandCenter />
+
+        <MTDQuarterlySection />
+
+        <EInvoiceSection />
 
         <EmailDomainSection />
       </div>

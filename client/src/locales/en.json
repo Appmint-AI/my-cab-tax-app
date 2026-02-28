@@ -12,7 +12,8 @@
     "dac7": "DAC7 Tool",
     "currency": "Currency",
     "sync": "Gig Sync",
-    "signOut": "Sign Out"
+    "signOut": "Sign Out",
+    "quarterly": "Quarterly Filing"
   },
   "common": {
     "save": "Save",

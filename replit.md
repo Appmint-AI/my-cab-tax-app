@@ -51,6 +51,9 @@ The application utilizes a React, Vite, TailwindCSS, shadcn/ui, and Recharts fro
     -   Locale files: `client/src/locales/{en,ur,ar,vi}.json`.
 -   **GPS Geofencing**: `RegionDetector` component uses `navigator.geolocation` + BigDataCloud reverse geocoding to detect user's country. Shows dismissable banner if country differs from profile.
 -   **DAC7 CSV Comparison Tool**: `/dac7` page for uploading Uber/Bolt/Lyft platform CSVs. Smart column detection, date/amount matching against expense log. Shows matched, missing, and extra records. One-click "Add Missing" to create expenses from unmatched rows.
+-   **Next-Gen 2026 Compliance Features**:
+    -   **MTD Quarterly Submissions**: User-facing `/quarterly` page for generating and submitting quarterly tax summaries. Supports IRS 1040-ES (US) and HMRC Making Tax Digital (UK). Auto-scans vault data per quarter period. Admin overview on Admin Dashboard with fleet-wide filing status. DB: `quarterly_submissions` table. API: `GET /api/quarterly-submissions`, `POST /api/quarterly-submissions/generate`, `POST /api/quarterly-submissions/:id/submit`, `GET /api/admin/quarterly-overview`.
+    -   **E-Invoice Bridge**: Structured e-invoicing system. Each user gets a unique vault email (e.g. `user123@vault.mctusa.com`). Vendors send digital invoices directly — bypasses OCR entirely with 100% accurate data. Users can approve invoices to auto-create expenses. Admin overview on Admin Dashboard. DB: `e_invoices` table. API: `GET /api/vault-email`, `GET /api/e-invoices`, `POST /api/e-invoices/simulate`, `POST /api/e-invoices/:id/approve`, `GET /api/admin/e-invoices-overview`.
 
 ## External Dependencies
 -   **Auth0**: For OpenID Connect (OIDC) authentication.

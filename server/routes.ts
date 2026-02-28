@@ -2404,6 +2404,244 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
     }
   });
 
+  // ==================== MTD Quarterly Submissions ====================
+
+  app.get("/api/quarterly-submissions", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { quarterlySubmissions } = await import("@shared/schema");
+      const subs = await db.select().from(quarterlySubmissions).where(eq(quarterlySubmissions.userId, userId)).orderBy(quarterlySubmissions.taxYear, quarterlySubmissions.quarter);
+      res.json(subs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/quarterly-submissions/generate", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { taxYear, quarter, jurisdiction } = z.object({
+        taxYear: z.number().int().min(2024).max(2030),
+        quarter: z.number().int().min(1).max(4),
+        jurisdiction: z.string().default("US"),
+      }).parse(req.body);
+
+      const { quarterlySubmissions, QUARTERLY_PERIODS, UK_MTD_QUARTERLY_PERIODS } = await import("@shared/schema");
+
+      const periodKey = `${taxYear}-Q${quarter}`;
+      const periods = jurisdiction === "UK" ? UK_MTD_QUARTERLY_PERIODS : QUARTERLY_PERIODS;
+      const period = periods[periodKey];
+      if (!period) return res.status(400).json({ message: `No period data for ${periodKey}` });
+
+      const allIncomes = await storage.getIncomes(userId);
+      const allExpenses = await storage.getExpenses(userId);
+
+      const periodIncomes = allIncomes.filter(i => i.date >= period.start && i.date <= period.end);
+      const periodExpenses = allExpenses.filter(e => e.date >= period.start && e.date <= period.end);
+
+      const totalIncome = periodIncomes.reduce((sum, i) => sum + Number(i.amount), 0);
+      const totalExpenses_ = periodExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+      const netProfit = totalIncome - totalExpenses_;
+
+      const [existing] = await db.select().from(quarterlySubmissions)
+        .where(and(
+          eq(quarterlySubmissions.userId, userId),
+          eq(quarterlySubmissions.taxYear, taxYear),
+          eq(quarterlySubmissions.quarter, quarter),
+          eq(quarterlySubmissions.jurisdiction, jurisdiction),
+        ));
+
+      if (existing) {
+        await db.update(quarterlySubmissions)
+          .set({
+            totalIncome: String(totalIncome.toFixed(2)),
+            totalExpenses: String(totalExpenses_.toFixed(2)),
+            netProfit: String(netProfit.toFixed(2)),
+            status: "ready",
+          })
+          .where(eq(quarterlySubmissions.id, existing.id));
+        const [updated] = await db.select().from(quarterlySubmissions).where(eq(quarterlySubmissions.id, existing.id));
+        return res.json(updated);
+      }
+
+      const [created] = await db.insert(quarterlySubmissions).values({
+        userId,
+        taxYear,
+        quarter,
+        jurisdiction,
+        totalIncome: String(totalIncome.toFixed(2)),
+        totalExpenses: String(totalExpenses_.toFixed(2)),
+        netProfit: String(netProfit.toFixed(2)),
+        status: "ready",
+      }).returning();
+
+      res.status(201).json(created);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) return res.status(400).json({ errors: error.errors });
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/quarterly-submissions/:id/submit", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const id = parseInt(req.params.id);
+      const { quarterlySubmissions } = await import("@shared/schema");
+
+      const [sub] = await db.select().from(quarterlySubmissions)
+        .where(and(eq(quarterlySubmissions.id, id), eq(quarterlySubmissions.userId, userId)));
+      if (!sub) return res.status(404).json({ message: "Submission not found" });
+      if (sub.status === "submitted") return res.status(400).json({ message: "Already submitted" });
+
+      const referenceId = `MCTUSA-${sub.jurisdiction}-${sub.taxYear}-Q${sub.quarter}-${Date.now().toString(36).toUpperCase()}`;
+
+      await db.update(quarterlySubmissions)
+        .set({ status: "submitted", submittedAt: new Date(), referenceId })
+        .where(eq(quarterlySubmissions.id, id));
+
+      const [updated] = await db.select().from(quarterlySubmissions).where(eq(quarterlySubmissions.id, id));
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/quarterly-overview", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const { quarterlySubmissions } = await import("@shared/schema");
+      const allSubs = await db.select().from(quarterlySubmissions).orderBy(quarterlySubmissions.taxYear, quarterlySubmissions.quarter);
+      const stats = {
+        total: allSubs.length,
+        pending: allSubs.filter(s => s.status === "pending").length,
+        ready: allSubs.filter(s => s.status === "ready").length,
+        submitted: allSubs.filter(s => s.status === "submitted").length,
+        submissions: allSubs,
+      };
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== E-Invoice Vault Email System ====================
+
+  app.get("/api/vault-email", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      const slug = userId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toLowerCase();
+      const vaultEmail = `${slug}@vault.mctusa.com`;
+      res.json({ vaultEmail, userId: slug });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/e-invoices", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { eInvoices } = await import("@shared/schema");
+      const invoices = await db.select().from(eInvoices).where(eq(eInvoices.userId, userId)).orderBy(eInvoices.createdAt);
+      res.json(invoices);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/e-invoices/simulate", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const input = z.object({
+        senderEmail: z.string().email(),
+        senderName: z.string().optional(),
+        invoiceNumber: z.string().optional(),
+        amount: z.string(),
+        currency: z.string().default("USD"),
+        description: z.string(),
+        category: z.string().optional(),
+        invoiceDate: z.string(),
+      }).parse(req.body);
+
+      const { eInvoices } = await import("@shared/schema");
+      const slug = userId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toLowerCase();
+      const vaultEmail = `${slug}@vault.mctusa.com`;
+
+      const [invoice] = await db.insert(eInvoices).values({
+        userId,
+        vaultEmail,
+        senderEmail: input.senderEmail,
+        senderName: input.senderName || null,
+        invoiceNumber: input.invoiceNumber || null,
+        amount: input.amount,
+        currency: input.currency,
+        description: input.description,
+        category: input.category || null,
+        invoiceDate: input.invoiceDate,
+        status: "received",
+        rawPayload: input as any,
+      }).returning();
+
+      res.status(201).json(invoice);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) return res.status(400).json({ errors: error.errors });
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/e-invoices/:id/approve", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const id = parseInt(req.params.id);
+      const { eInvoices } = await import("@shared/schema");
+
+      const [inv] = await db.select().from(eInvoices)
+        .where(and(eq(eInvoices.id, id), eq(eInvoices.userId, userId)));
+      if (!inv) return res.status(404).json({ message: "Invoice not found" });
+      if (inv.status === "approved") return res.status(400).json({ message: "Already approved" });
+
+      const expenseDate = inv.invoiceDate || new Date().toISOString().split("T")[0];
+      const lockMsg = await checkYearLock(userId, expenseDate);
+      if (lockMsg) return res.status(403).json({ message: lockMsg, locked: true });
+
+      const expense = await storage.createExpense({
+        userId,
+        date: expenseDate,
+        amount: inv.amount || "0",
+        category: inv.category || "Other Expenses",
+        description: `E-Invoice #${inv.invoiceNumber || inv.id}: ${inv.description || ""}`.trim(),
+      });
+
+      await db.update(eInvoices)
+        .set({ status: "approved", linkedExpenseId: expense.id })
+        .where(eq(eInvoices.id, id));
+
+      const [updated] = await db.select().from(eInvoices).where(eq(eInvoices.id, id));
+      res.json({ invoice: updated, expense });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/e-invoices-overview", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const { eInvoices } = await import("@shared/schema");
+      const allInvoices = await db.select().from(eInvoices).orderBy(eInvoices.createdAt);
+      const stats = {
+        total: allInvoices.length,
+        pending: allInvoices.filter(i => i.status === "pending").length,
+        received: allInvoices.filter(i => i.status === "received").length,
+        approved: allInvoices.filter(i => i.status === "approved").length,
+        invoices: allInvoices,
+      };
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }
 
