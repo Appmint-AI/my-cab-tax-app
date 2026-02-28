@@ -55,6 +55,13 @@ The application utilizes a React, Vite, TailwindCSS, shadcn/ui, and Recharts fro
     -   **MTD Quarterly Submissions**: User-facing `/quarterly` page for generating and submitting quarterly tax summaries. Supports IRS 1040-ES (US) and HMRC Making Tax Digital (UK). Auto-scans vault data per quarter period. Admin overview on Admin Dashboard with fleet-wide filing status. DB: `quarterly_submissions` table. API: `GET /api/quarterly-submissions`, `POST /api/quarterly-submissions/generate`, `POST /api/quarterly-submissions/:id/submit`, `GET /api/admin/quarterly-overview`.
     -   **E-Invoice Bridge**: Structured e-invoicing system. Each user gets a unique vault email (e.g. `user123@vault.mctusa.com`). Vendors send digital invoices directly — bypasses OCR entirely with 100% accurate data. Users can approve invoices to auto-create expenses. Admin overview on Admin Dashboard. DB: `e_invoices` table. API: `GET /api/vault-email`, `GET /api/e-invoices`, `POST /api/e-invoices/simulate`, `POST /api/e-invoices/:id/approve`, `GET /api/admin/e-invoices-overview`.
 
+-   **Driver-Support Referral System**:
+    -   **Ghost Tracking**: Pending list of invited-but-unpaid users with "Nudge on WhatsApp" button generating pre-filled messages. Admin visibility on Admin Dashboard.
+    -   **Double-Credit Toggle**: Admin switch `double_credit_active` in `admin_settings` table. When TRUE, every referral conversion awards 2 credits instead of 1. Toggleable from Admin Dashboard.
+    -   **Safety Net Worker**: Background worker (`server/referral-worker.ts`) checks active referral counts daily. Alerts when users are within 3 drivers of losing their Bronze (10%), Silver (15%), or Gold (20%) tier.
+    -   **Annual Reset**: On Jan 1 (US) and Apr 6 (UK), archives the old season and resets counts. Creates new `referral_seasons` record. DB: `referrals`, `referral_seasons`, `admin_settings` tables.
+    -   API: `GET /api/referrals`, `GET /api/referrals/code`, `POST /api/referrals/invite`, `GET /api/referrals/stats`, `POST /api/referrals/:id/convert`, `GET /api/referrals/whatsapp-nudge/:id`, `GET /api/admin/referrals`, `GET/PATCH /api/admin/referral-settings`, `GET /api/admin/referral-seasons`.
+
 ## External Dependencies
 -   **Auth0**: For OpenID Connect (OIDC) authentication.
 -   **Google Cloud Storage**: For storing receipt images.

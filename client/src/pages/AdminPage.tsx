@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, FileText, DollarSign, AlertTriangle, Car, Receipt, Shield, Activity, Mail, Globe, CheckCircle, XCircle, Clock, Copy, RefreshCw, Bot, Send, Sparkles, Loader2, Trash2, CalendarClock, Inbox, ArrowRight } from "lucide-react";
+import { Users, FileText, DollarSign, AlertTriangle, Car, Receipt, Shield, Activity, Mail, Globe, CheckCircle, XCircle, Clock, Copy, RefreshCw, Bot, Send, Sparkles, Loader2, Trash2, CalendarClock, Inbox, ArrowRight, UserPlus, ToggleLeft, ToggleRight, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -770,6 +770,181 @@ function EInvoiceSection() {
   );
 }
 
+interface ReferralOverview {
+  total: number;
+  pending: number;
+  converted: number;
+  ghost: Array<{
+    id: number;
+    referrerId: string;
+    referredEmail: string;
+    referralCode: string;
+    status: string;
+    createdAt: string;
+  }>;
+  topReferrers: Array<{
+    userId: string;
+    total: number;
+    converted: number;
+    credits: number;
+  }>;
+}
+
+interface ReferralSettings {
+  doubleCreditActive: boolean;
+}
+
+function ReferralAdminSection() {
+  const { toast } = useToast();
+
+  const { data: overview } = useQuery<ReferralOverview>({
+    queryKey: ["/api/admin/referrals"],
+  });
+
+  const { data: settings } = useQuery<ReferralSettings>({
+    queryKey: ["/api/admin/referral-settings"],
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async (active: boolean) => {
+      const res = await apiRequest("PATCH", "/api/admin/referral-settings", { doubleCreditActive: active });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/referral-settings"] });
+      toast({ title: `Double Credit ${data.doubleCreditActive ? "Activated" : "Deactivated"}` });
+    },
+  });
+
+  const isDouble = settings?.doubleCreditActive || false;
+
+  return (
+    <Card data-testid="card-referral-admin">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5 text-primary" />
+            <CardTitle className="text-sm font-medium">Driver Referral System</CardTitle>
+          </div>
+          <div className="flex gap-2">
+            <Badge variant="outline" data-testid="badge-referrals-total">{overview?.total || 0} Total</Badge>
+            <Badge variant="secondary" data-testid="badge-referrals-pending">{overview?.pending || 0} Ghost</Badge>
+            <Badge data-testid="badge-referrals-converted">{overview?.converted || 0} Converted</Badge>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between p-3 rounded-lg border" data-testid="toggle-double-credit">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Double Credit Mode</span>
+            <Badge variant={isDouble ? "default" : "outline"} className="text-xs">
+              {isDouble ? "ACTIVE — 2x credits per conversion" : "Standard — 1x credit"}
+            </Badge>
+          </div>
+          <Button
+            size="sm"
+            variant={isDouble ? "default" : "outline"}
+            onClick={() => toggleMutation.mutate(!isDouble)}
+            disabled={toggleMutation.isPending}
+            data-testid="button-toggle-double-credit"
+          >
+            {isDouble ? <ToggleRight className="h-4 w-4 mr-1" /> : <ToggleLeft className="h-4 w-4 mr-1" />}
+            {isDouble ? "On" : "Off"}
+          </Button>
+        </div>
+
+        {overview && overview.ghost.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
+              <MessageCircle className="h-4 w-4" />
+              Ghost Tracking — Pending Signups ({overview.ghost.length})
+            </h4>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {overview.ghost.slice(0, 15).map((g) => (
+                <div key={g.id} className="flex items-center justify-between text-sm p-2 rounded bg-muted/50" data-testid={`row-ghost-${g.id}`}>
+                  <div>
+                    <span className="font-mono text-xs">{g.referredEmail}</span>
+                    <span className="text-xs text-muted-foreground ml-2">via {g.referralCode}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const msg = encodeURIComponent(
+                        `Hey! You were invited to My Cab Tax USA — the app that tracks every mile and locks receipts in a 7-year vault. Join with code ${g.referralCode}: https://mycabtax.com/signup?ref=${g.referralCode}`
+                      );
+                      window.open(`https://wa.me/?text=${msg}`, "_blank");
+                    }}
+                    data-testid={`button-nudge-${g.id}`}
+                  >
+                    <MessageCircle className="h-3 w-3 mr-1" />
+                    Nudge on WhatsApp
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {overview && overview.topReferrers.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2">Top Referrers</h4>
+            <div className="grid grid-cols-4 text-xs font-medium text-muted-foreground border-b pb-2">
+              <span>User</span>
+              <span className="text-right">Total</span>
+              <span className="text-right">Converted</span>
+              <span className="text-right">Credits</span>
+            </div>
+            {overview.topReferrers.map((r, i) => (
+              <div key={i} className="grid grid-cols-4 text-sm py-1.5 border-b border-muted/30" data-testid={`row-top-referrer-${i}`}>
+                <span className="truncate font-mono text-xs">{r.userId.slice(0, 10)}...</span>
+                <span className="text-right">{r.total}</span>
+                <span className="text-right">{r.converted}</span>
+                <span className="text-right font-medium">{r.credits}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(!overview || (overview.ghost.length === 0 && overview.topReferrers.length === 0)) && (
+          <div className="text-center py-6 text-muted-foreground">
+            <UserPlus className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No referrals yet</p>
+            <p className="text-xs mt-1">Users can share their referral codes from their dashboard</p>
+          </div>
+        )}
+
+        <div className="p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1 font-medium mb-1">
+            <Shield className="h-3 w-3" /> Safety Net & Annual Reset
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+            <div className="flex items-center gap-1">
+              <CheckCircle className="h-3 w-3 text-green-500" />
+              <span>Safety Net: Active (daily check)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <CheckCircle className="h-3 w-3 text-green-500" />
+              <span>Annual Reset: Jan 1 (US) / Apr 6 (UK)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <CheckCircle className="h-3 w-3 text-green-500" />
+              <span>Tiers: Bronze (5+), Silver (10+), Gold (20+)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {isDouble ? (
+                <><CheckCircle className="h-3 w-3 text-green-500" /><span>Double Credit: Active</span></>
+              ) : (
+                <><Clock className="h-3 w-3 text-yellow-500" /><span>Double Credit: Inactive</span></>
+              )}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminPage() {
   const { data: metrics, isLoading, error } = useQuery<AdminMetrics>({
     queryKey: ["/api/admin/metrics"],
@@ -876,6 +1051,8 @@ export default function AdminPage() {
         <MTDQuarterlySection />
 
         <EInvoiceSection />
+
+        <ReferralAdminSection />
 
         <EmailDomainSection />
       </div>

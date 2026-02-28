@@ -667,6 +667,51 @@ export const QUARTERLY_PERIODS: Record<string, { start: string; end: string; dea
   "2026-Q4": { start: "2026-10-01", end: "2026-12-31", deadline: "2027-01-15" },
 };
 
+export const referrals = pgTable("referrals", {
+  id: serial("id").primaryKey(),
+  referrerId: text("referrer_id").notNull().references(() => users.id),
+  referredEmail: text("referred_email").notNull(),
+  referredUserId: text("referred_user_id"),
+  referralCode: text("referral_code").notNull(),
+  status: text("status").notNull().default("pending"),
+  creditAwarded: integer("credit_awarded").default(0),
+  season: text("season").notNull(),
+  convertedAt: timestamp("converted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertReferralSchema = createInsertSchema(referrals).omit({ id: true, createdAt: true });
+export type InsertReferral = z.infer<typeof insertReferralSchema>;
+export type Referral = typeof referrals.$inferSelect;
+
+export const referralSeasons = pgTable("referral_seasons", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  jurisdiction: text("jurisdiction").notNull().default("US"),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  archivedAt: timestamp("archived_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type ReferralSeason = typeof referralSeasons.$inferSelect;
+
+export const adminSettings = pgTable("admin_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type AdminSetting = typeof adminSettings.$inferSelect;
+
+export const REFERRAL_TIERS = [
+  { minReferrals: 5, discount: 10, label: "Bronze" },
+  { minReferrals: 10, discount: 15, label: "Silver" },
+  { minReferrals: 20, discount: 20, label: "Gold" },
+] as const;
+
 export const UK_MTD_QUARTERLY_PERIODS: Record<string, { start: string; end: string; deadline: string }> = {
   "2026-Q1": { start: "2026-04-06", end: "2026-07-05", deadline: "2026-08-05" },
   "2026-Q2": { start: "2026-07-06", end: "2026-10-05", deadline: "2026-11-05" },

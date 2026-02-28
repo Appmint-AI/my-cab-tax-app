@@ -2642,6 +2642,225 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
     }
   });
 
+  // ==================== Referral System ====================
+
+  app.get("/api/referrals", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { referrals } = await import("@shared/schema");
+      const userReferrals = await db.select().from(referrals).where(eq(referrals.referrerId, userId)).orderBy(referrals.createdAt);
+      res.json(userReferrals);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/referrals/code", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const code = `MCTUSA-${userId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toUpperCase()}`;
+      res.json({ code });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/referrals/invite", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { email } = z.object({ email: z.string().email() }).parse(req.body);
+      const { referrals } = await import("@shared/schema");
+
+      const now = new Date();
+      const year = now.getFullYear();
+      const season = `US-${year}`;
+      const code = `MCTUSA-${userId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toUpperCase()}`;
+
+      const [existing] = await db.select().from(referrals).where(and(
+        eq(referrals.referrerId, userId),
+        eq(referrals.referredEmail, email),
+        eq(referrals.season, season),
+      ));
+      if (existing) return res.status(400).json({ message: "Already invited this email this season" });
+
+      const [ref] = await db.insert(referrals).values({
+        referrerId: userId,
+        referredEmail: email,
+        referralCode: code,
+        status: "pending",
+        season,
+        creditAwarded: 0,
+      }).returning();
+
+      res.status(201).json(ref);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) return res.status(400).json({ errors: error.errors });
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/referrals/stats", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { referrals, REFERRAL_TIERS } = await import("@shared/schema");
+
+      const now = new Date();
+      const season = `US-${now.getFullYear()}`;
+
+      const userReferrals = await db.select().from(referrals).where(and(
+        eq(referrals.referrerId, userId),
+        eq(referrals.season, season),
+      ));
+
+      const total = userReferrals.length;
+      const pending = userReferrals.filter(r => r.status === "pending").length;
+      const converted = userReferrals.filter(r => r.status === "converted").length;
+      const totalCredits = userReferrals.reduce((sum, r) => sum + (r.creditAwarded || 0), 0);
+
+      let currentTier = null;
+      let nextTier = null;
+      for (const t of REFERRAL_TIERS) {
+        if (converted >= t.minReferrals) currentTier = t;
+        else if (!nextTier) nextTier = t;
+      }
+
+      const safetyMargin = currentTier ? converted - currentTier.minReferrals : null;
+
+      res.json({
+        total,
+        pending,
+        converted,
+        totalCredits,
+        season,
+        currentTier: currentTier ? { ...currentTier } : null,
+        nextTier: nextTier ? { ...nextTier, remaining: nextTier.minReferrals - converted } : null,
+        safetyMargin,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/referrals/:id/convert", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const id = parseInt(req.params.id);
+      const { referrals } = await import("@shared/schema");
+      const { getAdminSetting } = await import("./referral-worker");
+
+      const [ref] = await db.select().from(referrals).where(and(eq(referrals.id, id), eq(referrals.referrerId, userId)));
+      if (!ref) return res.status(404).json({ message: "Referral not found" });
+      if (ref.status === "converted") return res.status(400).json({ message: "Already converted" });
+
+      const doubleCredit = await getAdminSetting("double_credit_active");
+      const creditAmount = doubleCredit === "true" ? 2 : 1;
+
+      await db.update(referrals)
+        .set({ status: "converted", creditAwarded: creditAmount, convertedAt: new Date() })
+        .where(eq(referrals.id, id));
+
+      const [updated] = await db.select().from(referrals).where(eq(referrals.id, id));
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/referrals/whatsapp-nudge/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const id = parseInt(req.params.id);
+      const { referrals } = await import("@shared/schema");
+
+      const [ref] = await db.select().from(referrals).where(and(eq(referrals.id, id), eq(referrals.referrerId, userId)));
+      if (!ref) return res.status(404).json({ message: "Referral not found" });
+
+      const user = await storage.getUser(userId);
+      const name = user?.firstName || "A friend";
+      const message = encodeURIComponent(
+        `Hey! ${name} invited you to try My Cab Tax USA — the app that tracks every mile, locks receipts in a 7-year vault, and maximizes your deductions. Use my code ${ref.referralCode} to get started: https://mycabtax.com/signup?ref=${ref.referralCode}`
+      );
+
+      res.json({ whatsappUrl: `https://wa.me/?text=${message}`, message: decodeURIComponent(message) });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== Admin Referral Routes ====================
+
+  app.get("/api/admin/referrals", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const { referrals } = await import("@shared/schema");
+      const allReferrals = await db.select().from(referrals).orderBy(referrals.createdAt);
+
+      const pending = allReferrals.filter(r => r.status === "pending");
+      const converted = allReferrals.filter(r => r.status === "converted");
+
+      const referrerStats: Record<string, { total: number; converted: number; credits: number }> = {};
+      for (const r of allReferrals) {
+        if (!referrerStats[r.referrerId]) referrerStats[r.referrerId] = { total: 0, converted: 0, credits: 0 };
+        referrerStats[r.referrerId].total++;
+        if (r.status === "converted") {
+          referrerStats[r.referrerId].converted++;
+          referrerStats[r.referrerId].credits += r.creditAwarded || 0;
+        }
+      }
+
+      res.json({
+        total: allReferrals.length,
+        pending: pending.length,
+        converted: converted.length,
+        ghost: pending,
+        referrals: allReferrals,
+        topReferrers: Object.entries(referrerStats)
+          .map(([userId, stats]) => ({ userId, ...stats }))
+          .sort((a, b) => b.credits - a.credits)
+          .slice(0, 10),
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/referral-settings", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const { getAdminSetting } = await import("./referral-worker");
+      const doubleCreditActive = await getAdminSetting("double_credit_active");
+      res.json({
+        doubleCreditActive: doubleCreditActive === "true",
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/referral-settings", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const { doubleCreditActive } = z.object({ doubleCreditActive: z.boolean() }).parse(req.body);
+      const { setAdminSetting } = await import("./referral-worker");
+      await setAdminSetting("double_credit_active", doubleCreditActive ? "true" : "false");
+      res.json({ doubleCreditActive });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) return res.status(400).json({ errors: error.errors });
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/referral-seasons", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const { referralSeasons } = await import("@shared/schema");
+      const seasons = await db.select().from(referralSeasons).orderBy(referralSeasons.startDate);
+      res.json(seasons);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }
 

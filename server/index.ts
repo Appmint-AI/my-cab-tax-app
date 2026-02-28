@@ -6,6 +6,7 @@ import { startCleanupWorker } from "./cleanup-worker";
 import { startSentinel } from "./submission/compliance-sentinel";
 import { startLifecycleWorker } from "./lifecycle-manager";
 import { startForexSyncWorker } from "./currency-engine";
+import { startReferralWorker } from "./referral-worker";
 
 const app = express();
 const httpServer = createServer(app);
@@ -106,6 +107,7 @@ app.use((req, res, next) => {
       startSentinel(6);
       startLifecycleWorker();
       startForexSyncWorker();
+      startReferralWorker();
     },
   );
 })();
