@@ -54,6 +54,12 @@ Key architectural and feature specifications include:
 - **AI Command Center (Admin)**: A Gemini-powered Executive Assistant chatbot on the `/admin` page. Endpoint: `POST /api/admin/ai-chat` (admin-gated, streaming SSE). The system prompt injects real-time fleet metrics, segment breakdowns, state data, and 2026 tax law context. Includes PII guardrails (no raw SSN/address/email in responses) and a confirmation protocol for destructive actions. Quick command buttons for common fleet queries. Chat history is maintained client-side per session.
 - **Tax Season Countdown Emails**: Two lifecycle emails (30-day on March 15, 15-day on April 1) with 14-day bounded windows. Suppressed when `hasExported2026` is true (set server-side on CSV export for tax year 2026). Templates are segment-aware with 2026-specific tax context.
 
+### Global Platform Features (Recent Expansion)
+- **i18next Localization**: Multi-language support via `i18next` + `react-i18next` with browser language detection. Supported languages: English (`en`), Urdu (`ur`), Arabic (`ar`), Vietnamese (`vi`). Translation files in `client/src/locales/*.json`. RTL support auto-applied for Arabic and Urdu via `dir` attribute on `<html>`. Language switcher in sidebar. Config: `client/src/lib/i18n.ts`, initialized in `client/src/main.tsx`.
+- **GPS Geofencing**: `RegionDetector` component (`client/src/components/RegionDetector.tsx`) uses `navigator.geolocation` + BigDataCloud reverse geocoding API (free, no key) to detect user's country. Displays a dismissable banner if detected country differs from user profile (US). Session-persisted dismissal.
+- **OCR Receipt Scanning**: Already integrated via Gemini AI (`server/receipt-ocr.ts`). Pro-only feature at `/scan` with camera capture and AI extraction of merchant, date, total, and category. Endpoint: `POST /api/scan-receipt`.
+- **DAC7 CSV Comparison Tool**: Dedicated `/dac7` page (`client/src/pages/DAC7Page.tsx`) for comparing platform CSV exports (Uber, Bolt, Lyft) against expense logs. Uses `papaparse` for CSV parsing with smart column detection (date, amount, description). Comparison by date+amount match. Features: matched/missing/extra counts, "Add Missing" and "Add All Missing" buttons to create expense records from unmatched CSV rows. Nav item in sidebar.
+
 ## External Dependencies
 - **Auth0**: For OpenID Connect (OIDC) authentication, MFA, and biometric login.
 - **Google Cloud Storage**: Used for storing receipt images.

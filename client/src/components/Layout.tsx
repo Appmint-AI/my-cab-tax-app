@@ -1,7 +1,10 @@
 import { ReactNode, useEffect } from "react";
 import { Link, useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
 import { getSegmentConfig } from "@/lib/segment-config";
+import { SUPPORTED_LANGUAGES } from "@/lib/i18n";
+import { RegionDetector } from "@/components/RegionDetector";
 import { 
   LayoutDashboard, 
   Wallet, 
@@ -16,11 +19,14 @@ import {
   ScanLine,
   Shield,
   Download,
+  Globe,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -31,6 +37,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const { t, i18n } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const segmentConfig = getSegmentConfig(user?.userSegment);
   const BrandIcon = user?.userSegment === "hybrid" ? Layers : user?.userSegment === "delivery" ? Package : CarFront;
@@ -44,16 +51,21 @@ export function Layout({ children }: LayoutProps) {
   }, [user?.userSegment]);
 
   const navItems = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/incomes", label: "Income", icon: Wallet },
-    { href: "/expenses", label: "Expenses", icon: Receipt },
-    { href: "/mileage", label: "Mileage", icon: MapPin },
-    { href: "/receipts", label: "Receipts", icon: ScanLine },
-    { href: "/vehicles", label: "Vehicles", icon: CarFront },
-    { href: "/export", label: "Export", icon: Download, desktopOnly: true },
-    { href: "/audit-center", label: "Audit Defense", icon: Shield },
-    { href: "/settings", label: "Settings", icon: Settings },
+    { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard },
+    { href: "/incomes", label: t("nav.income"), icon: Wallet },
+    { href: "/expenses", label: t("nav.expenses"), icon: Receipt },
+    { href: "/mileage", label: t("nav.mileage"), icon: MapPin },
+    { href: "/receipts", label: t("nav.receipts"), icon: ScanLine },
+    { href: "/vehicles", label: t("nav.vehicles"), icon: CarFront },
+    { href: "/export", label: t("nav.export"), icon: Download, desktopOnly: true },
+    { href: "/audit-center", label: t("nav.auditDefense"), icon: Shield },
+    { href: "/dac7", label: t("nav.dac7"), icon: FileSpreadsheet },
+    { href: "/settings", label: t("nav.settings"), icon: Settings },
   ];
+
+  const handleLanguageChange = (lang: string) => {
+    i18n.changeLanguage(lang);
+  };
 
   const NavContent = () => (
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
@@ -77,7 +89,7 @@ export function Layout({ children }: LayoutProps) {
           return (
             <Link key={item.href} href={item.href}>
               <div
-                data-testid={`link-nav-${item.label.toLowerCase()}`}
+                data-testid={`link-nav-${item.href.replace("/", "")}`}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors duration-150 cursor-pointer",
                   isActive
@@ -99,6 +111,28 @@ export function Layout({ children }: LayoutProps) {
       </nav>
 
       <div className="p-3 border-t border-sidebar-border">
+        <div className="px-2 mb-3">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Globe className="h-3.5 w-3.5 text-sidebar-foreground/50" />
+            <span className="text-[11px] text-sidebar-foreground/50">{t("common.language")}</span>
+          </div>
+          <Select value={(i18n.language || "en").substring(0, 2).toLowerCase()} onValueChange={handleLanguageChange}>
+            <SelectTrigger
+              className="h-8 text-xs bg-sidebar-accent/30 border-sidebar-border text-sidebar-foreground"
+              data-testid="select-language"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <SelectItem key={lang.code} value={lang.code} data-testid={`option-lang-${lang.code}`}>
+                  {lang.nativeName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="flex items-center gap-3 px-2 mb-3">
           <Avatar className="h-8 w-8 border border-sidebar-border">
             <AvatarImage src={user?.profileImageUrl || undefined} />
@@ -118,7 +152,7 @@ export function Layout({ children }: LayoutProps) {
           data-testid="button-sign-out"
         >
           <LogOut className="h-4 w-4" />
-          Sign Out
+          {t("nav.signOut")}
         </Button>
       </div>
     </div>
@@ -151,6 +185,7 @@ export function Layout({ children }: LayoutProps) {
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 pt-20 md:pt-8 w-full max-w-full overflow-x-hidden">
         <div className="max-w-6xl mx-auto space-y-6">
+          <RegionDetector />
           {children}
         </div>
       </main>
