@@ -26,6 +26,7 @@ import AdminPage from "@/pages/AdminPage";
 import IndustryPickerPage from "@/pages/IndustryPickerPage";
 import ExportPage from "@/pages/ExportPage";
 import DAC7Page from "@/pages/DAC7Page";
+import CurrencyPage from "@/pages/CurrencyPage";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -153,6 +154,10 @@ function Router() {
 
       <Route path="/dac7">
         <VerifiedRoute component={DAC7Page} />
+      </Route>
+
+      <Route path="/currency">
+        <VerifiedRoute component={CurrencyPage} />
       </Route>
 
       <Route path="/settings">

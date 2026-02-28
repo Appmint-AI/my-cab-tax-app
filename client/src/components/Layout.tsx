@@ -21,6 +21,7 @@ import {
   Download,
   Globe,
   FileSpreadsheet,
+  Banknote,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/export", label: t("nav.export"), icon: Download, desktopOnly: true },
     { href: "/audit-center", label: t("nav.auditDefense"), icon: Shield },
     { href: "/dac7", label: t("nav.dac7"), icon: FileSpreadsheet },
+    { href: "/currency", label: t("nav.currency"), icon: Banknote },
     { href: "/settings", label: t("nav.settings"), icon: Settings },
   ];
 

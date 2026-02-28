@@ -487,3 +487,70 @@ export const lifecycleEmails = pgTable("lifecycle_emails", {
 
 export type LifecycleEmail = typeof lifecycleEmails.$inferSelect;
 export type InsertLifecycleEmail = typeof lifecycleEmails.$inferInsert;
+
+export const SUPPORTED_CURRENCIES = [
+  "USD", "EUR", "GBP", "PKR", "AED", "SAR", "VND", "INR", "BDT", "NGN", "KES",
+  "ZAR", "BRL", "MXN", "PHP", "EGP", "TRY", "ARS", "LBP", "VES",
+] as const;
+export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number];
+
+export const STABLE_BENCHMARKS = ["USD", "EUR", "GBP", "XAU"] as const;
+export type StableBenchmark = typeof STABLE_BENCHMARKS[number];
+
+export const currencyRates = pgTable("currency_rates", {
+  id: serial("id").primaryKey(),
+  baseCurrency: text("base_currency").notNull(),
+  targetCurrency: text("target_currency").notNull(),
+  rate: numeric("rate").notNull(),
+  previousRate: numeric("previous_rate"),
+  volatilityPct: numeric("volatility_pct"),
+  provider: text("provider").notNull().default("exchangerate-api"),
+  fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+export const vaultLocks = pgTable("vault_locks", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  entityType: text("entity_type").notNull(),
+  entityId: integer("entity_id").notNull(),
+  originalCurrency: text("original_currency").notNull(),
+  originalAmount: numeric("original_amount").notNull(),
+  lockedRate: numeric("locked_rate").notNull(),
+  usdAmount: numeric("usd_amount").notNull(),
+  benchmarkAsset: text("benchmark_asset").default("USD"),
+  lockedAt: timestamp("locked_at").notNull().defaultNow(),
+});
+
+export const currencyRatesRelations = relations(currencyRates, () => ({}));
+export const vaultLocksRelations = relations(vaultLocks, ({ one }) => ({
+  user: one(users, {
+    fields: [vaultLocks.userId],
+    references: [users.id],
+  }),
+}));
+
+export type CurrencyRate = typeof currencyRates.$inferSelect;
+export type InsertCurrencyRate = typeof currencyRates.$inferInsert;
+export type VaultLock = typeof vaultLocks.$inferSelect;
+export type InsertVaultLock = typeof vaultLocks.$inferInsert;
+
+export interface CurrencyConversion {
+  from: string;
+  to: string;
+  rate: number;
+  amount: number;
+  converted: number;
+  benchmark?: { asset: string; benchmarkRate: number; stabilityIndex: number };
+  inflationWarning?: string;
+}
+
+export interface DHIPStatus {
+  activeCurrency: string;
+  baseCurrency: string;
+  lastSync: string | null;
+  ratesAvailable: number;
+  volatileWarnings: string[];
+  benchmarkAsset: string;
+  lockedTransactions: number;
+}

@@ -5,6 +5,7 @@ import { createServer } from "http";
 import { startCleanupWorker } from "./cleanup-worker";
 import { startSentinel } from "./submission/compliance-sentinel";
 import { startLifecycleWorker } from "./lifecycle-manager";
+import { startForexSyncWorker } from "./currency-engine";
 
 const app = express();
 const httpServer = createServer(app);
@@ -104,6 +105,7 @@ app.use((req, res, next) => {
       startCleanupWorker();
       startSentinel(6);
       startLifecycleWorker();
+      startForexSyncWorker();
     },
   );
 })();

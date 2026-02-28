@@ -2101,6 +2101,123 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
     }
   });
 
+  // ==================== DHIP Currency Engine Routes ====================
+  
+  app.get("/api/currency/status", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { getDHIPStatus } = await import("./currency-engine");
+      const status = await getDHIPStatus(userId);
+      res.json(status);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/currency/rates", isAuthenticated, async (_req: Request, res: Response) => {
+    try {
+      const { getAllRates } = await import("./currency-engine");
+      const rates = await getAllRates();
+      res.json(rates);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/currency/sync", isAuthenticated, async (_req: Request, res: Response) => {
+    try {
+      const { syncForexRates } = await import("./currency-engine");
+      const count = await syncForexRates();
+      res.json({ synced: count, message: `Synced ${count} currency rates` });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/currency/convert", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        amount: z.coerce.number().positive(),
+        from: z.string().min(3).max(3),
+        to: z.string().min(3).max(3),
+        benchmark: z.string().min(3).max(3).optional().default("USD"),
+      });
+      const { amount, from, to, benchmark } = schema.parse(req.body);
+      const { convertCurrency } = await import("./currency-engine");
+      const result = await convertCurrency(amount, from, to, benchmark);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/currency/vault-lock", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+
+      const schema = z.object({
+        entityType: z.enum(["expense", "income"]),
+        entityId: z.coerce.number(),
+        originalCurrency: z.string().min(3).max(3),
+        originalAmount: z.coerce.number().positive(),
+        benchmarkAsset: z.string().min(3).max(3).optional().default("USD"),
+      });
+      const data = schema.parse(req.body);
+
+      if (data.entityType === "expense") {
+        const expense = await storage.getExpense(data.entityId);
+        if (!expense || expense.userId !== userId) {
+          return res.status(403).json({ message: "Expense not found or access denied" });
+        }
+      } else {
+        const income = await storage.getIncome(data.entityId);
+        if (!income || income.userId !== userId) {
+          return res.status(403).json({ message: "Income not found or access denied" });
+        }
+      }
+
+      const { lockTransaction, getVaultLocks } = await import("./currency-engine");
+      const existingLocks = await getVaultLocks(userId);
+      const alreadyLocked = existingLocks.some(
+        l => l.entityType === data.entityType && l.entityId === data.entityId
+      );
+      if (alreadyLocked) {
+        return res.status(409).json({ message: "This transaction is already vault-locked" });
+      }
+
+      const result = await lockTransaction(
+        userId, data.entityType, data.entityId,
+        data.originalCurrency, data.originalAmount, data.benchmarkAsset
+      );
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/currency/vault-locks", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { getVaultLocks } = await import("./currency-engine");
+      const locks = await getVaultLocks(userId);
+      res.json(locks);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/currency/rate/:from/:to", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { from, to } = req.params;
+      const { getRate } = await import("./currency-engine");
+      const rate = await getRate(from.toUpperCase(), to.toUpperCase());
+      if (!rate) return res.status(404).json({ message: `No rate found for ${from} -> ${to}` });
+      res.json({ from: from.toUpperCase(), to: to.toUpperCase(), rate });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }
 
