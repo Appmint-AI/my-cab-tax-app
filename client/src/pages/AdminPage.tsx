@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, FileText, DollarSign, AlertTriangle, Car, Receipt, Shield, Activity, Mail, Globe, CheckCircle, XCircle, Clock, Copy, RefreshCw, Bot, Send, Sparkles, Loader2, Trash2, CalendarClock, Inbox, ArrowRight, UserPlus, ToggleLeft, ToggleRight, MessageCircle } from "lucide-react";
+import { Users, FileText, DollarSign, AlertTriangle, Car, Receipt, Shield, Activity, Mail, Globe, CheckCircle, XCircle, Clock, Copy, RefreshCw, Bot, Send, Sparkles, Loader2, Trash2, CalendarClock, Inbox, ArrowRight, UserPlus, ToggleLeft, ToggleRight, MessageCircle, Crown, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -945,6 +945,171 @@ function ReferralAdminSection() {
   );
 }
 
+interface VipUser {
+  id: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  vipLabel: string | null;
+  subscriptionStatus: string | null;
+  createdAt: string | null;
+}
+
+interface SearchedUser {
+  id: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  subscriptionStatus: string | null;
+  isVip: boolean | null;
+  vipLabel: string | null;
+  isVerified: boolean | null;
+  userSegment: string | null;
+  createdAt: string | null;
+}
+
+function VIPManagementSection() {
+  const { toast } = useToast();
+  const [searchEmail, setSearchEmail] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchedUser[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const { data: vipUsers, refetch: refetchVip } = useQuery<VipUser[]>({
+    queryKey: ["/api/admin/vip-users"],
+  });
+
+  const handleSearch = async () => {
+    if (!searchEmail.trim()) return;
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/admin/users/search?email=${encodeURIComponent(searchEmail)}`);
+      if (!res.ok) throw new Error("Search failed");
+      const data = await res.json();
+      setSearchResults(data);
+    } catch (err: any) {
+      toast({ title: "Search failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const toggleVip = useMutation({
+    mutationFn: async ({ userId, isVip, vipLabel }: { userId: string; isVip: boolean; vipLabel?: string }) => {
+      const res = await apiRequest("PATCH", `/api/admin/users/${userId}/vip`, { isVip, vipLabel });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/vip-users"] });
+      toast({ title: data.isVip ? `VIP granted to ${data.email}` : `VIP revoked from ${data.email}` });
+      if (searchEmail) handleSearch();
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card data-testid="card-vip-management">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Crown className="h-5 w-5 text-yellow-500" />
+          <CardTitle className="text-sm font-medium">VIP User Management</CardTitle>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Grant complimentary Pro access. VIP users bypass Stripe billing and show as "Founder's Circle" members. They are excluded from referral revenue reports.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by email..."
+              value={searchEmail}
+              onChange={(e) => setSearchEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              className="pl-9"
+              data-testid="input-vip-search"
+            />
+          </div>
+          <Button onClick={handleSearch} disabled={searching} data-testid="button-vip-search">
+            {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+          </Button>
+        </div>
+
+        {searchResults.length > 0 && (
+          <div className="space-y-1 border rounded-lg p-2">
+            <h4 className="text-xs font-medium text-muted-foreground mb-2">Search Results</h4>
+            {searchResults.map((u) => (
+              <div key={u.id} className="flex items-center justify-between p-2 rounded hover:bg-muted/50" data-testid={`row-search-user-${u.id}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium truncate">{u.email || "No email"}</span>
+                    {u.isVip && <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30 text-xs"><Crown className="h-3 w-3 mr-1" />VIP</Badge>}
+                    <Badge variant="outline" className="text-xs">{u.subscriptionStatus || "basic"}</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {u.firstName} {u.lastName} {u.userSegment ? `(${u.userSegment})` : ""}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant={u.isVip ? "outline" : "default"}
+                  onClick={() => toggleVip.mutate({ userId: u.id, isVip: !u.isVip })}
+                  disabled={toggleVip.isPending}
+                  data-testid={`button-toggle-vip-${u.id}`}
+                >
+                  <Crown className="h-3 w-3 mr-1" />
+                  {u.isVip ? "Revoke VIP" : "Grant VIP"}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {vipUsers && vipUsers.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
+              <Crown className="h-4 w-4 text-yellow-500" />
+              Active VIP Members ({vipUsers.length})
+            </h4>
+            <div className="space-y-1">
+              {vipUsers.map((u) => (
+                <div key={u.id} className="flex items-center justify-between p-2 rounded-lg border" data-testid={`row-vip-${u.id}`}>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{u.email}</span>
+                      <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30 text-xs">{u.vipLabel || "Founder's Circle"}</Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{u.firstName} {u.lastName}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => toggleVip.mutate({ userId: u.id, isVip: false })}
+                    disabled={toggleVip.isPending}
+                    data-testid={`button-revoke-vip-${u.id}`}
+                  >
+                    Revoke
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(!vipUsers || vipUsers.length === 0) && searchResults.length === 0 && (
+          <div className="text-center py-6 text-muted-foreground">
+            <Crown className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No VIP members yet</p>
+            <p className="text-xs mt-1">Search for a user by email and grant VIP status</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminPage() {
   const { data: metrics, isLoading, error } = useQuery<AdminMetrics>({
     queryKey: ["/api/admin/metrics"],
@@ -1053,6 +1218,8 @@ export default function AdminPage() {
         <EInvoiceSection />
 
         <ReferralAdminSection />
+
+        <VIPManagementSection />
 
         <EmailDomainSection />
       </div>

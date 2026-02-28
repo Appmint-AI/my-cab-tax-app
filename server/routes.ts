@@ -489,7 +489,7 @@ export async function registerRoutes(
       const meta = parsed.data;
 
       const user = await storage.getUser(userId);
-      const isPro = user?.subscriptionStatus === "pro";
+      const isPro = user?.subscriptionStatus === "pro" || user?.isVip === true;
       const retentionPolicy = isPro ? "pro" : "basic";
 
       const expiresAt = new Date();
@@ -589,7 +589,7 @@ export async function registerRoutes(
       }
 
       const user = await storage.getUser(userId);
-      const isPro = user?.subscriptionStatus === "pro";
+      const isPro = user?.subscriptionStatus === "pro" || user?.isVip === true;
 
       if (!isPro) {
         return res.status(403).json({ message: "AI Receipt Scanner requires a Pro subscription. Upgrade to unlock this feature." });
@@ -796,7 +796,7 @@ export async function registerRoutes(
     const userId = (req.user as any)?.claims?.sub;
     if (!userId) return res.status(401).json({ message: "Not authenticated" });
     const user = await storage.getUser(userId);
-    if (!user || (user.subscriptionStatus !== "pro")) {
+    if (!user || (user.subscriptionStatus !== "pro" && !user.isVip)) {
       return res.status(403).json({
         message: "Upgrade to Pro to unlock Auto-Grossing for Uber and Lyft.",
         upgradeRequired: true,
@@ -1125,8 +1125,11 @@ export async function registerRoutes(
   app.get("/api/subscription/status", isAuthenticated, async (req, res) => {
     const userId = (req.user as any).claims.sub;
     const user = await storage.getUser(userId);
+    const isVip = user?.isVip === true;
     res.json({
-      tier: user?.subscriptionStatus || "basic",
+      tier: isVip ? "pro" : (user?.subscriptionStatus || "basic"),
+      isVip,
+      vipLabel: isVip ? (user?.vipLabel || "MCTUSA Founder's Circle") : null,
       stripeCustomerId: user?.stripeCustomerId || null,
       dataRetentionUntil: user?.dataRetentionUntil || null,
     });
@@ -1156,8 +1159,8 @@ export async function registerRoutes(
       const user = await storage.getUser(userId);
       if (!user) return res.status(404).json({ message: "User not found" });
 
-      if (user.subscriptionStatus === "pro") {
-        return res.status(400).json({ message: "You are already a Pro subscriber." });
+      if (user.subscriptionStatus === "pro" || user.isVip) {
+        return res.status(400).json({ message: user.isVip ? "VIP members have complimentary Pro access." : "You are already a Pro subscriber." });
       }
 
       const priceId = process.env.STRIPE_PRO_PRICE_ID;
@@ -2642,6 +2645,90 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
     }
   });
 
+  // ==================== Admin VIP Management ====================
+
+  app.get("/api/admin/users/search", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const email = (req.query.email as string || "").trim().toLowerCase();
+      if (!email) return res.status(400).json({ message: "Email query required" });
+
+      const { ilike } = await import("drizzle-orm");
+      const matches = await db.select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        subscriptionStatus: users.subscriptionStatus,
+        isVip: users.isVip,
+        vipLabel: users.vipLabel,
+        isVerified: users.isVerified,
+        userSegment: users.userSegment,
+        createdAt: users.createdAt,
+      }).from(users).where(ilike(users.email, `%${email}%`)).limit(20);
+      res.json(matches);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/users/:userId/vip", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const targetUserId = req.params.userId;
+      const { isVip, vipLabel } = z.object({
+        isVip: z.boolean(),
+        vipLabel: z.string().optional(),
+      }).parse(req.body);
+
+      const user = await storage.getUser(targetUserId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const updates: any = { isVip };
+      if (vipLabel !== undefined) updates.vipLabel = vipLabel;
+      if (isVip) {
+        updates.subscriptionStatus = "pro";
+      } else if (!isVip && user.isVip) {
+        if (!user.stripeSubscriptionId) {
+          updates.subscriptionStatus = "basic";
+        }
+      }
+
+      await storage.updateUser(targetUserId, updates);
+      const updated = await storage.getUser(targetUserId);
+      res.json({
+        id: updated!.id,
+        email: updated!.email,
+        firstName: updated!.firstName,
+        lastName: updated!.lastName,
+        subscriptionStatus: updated!.subscriptionStatus,
+        isVip: updated!.isVip,
+        vipLabel: updated!.vipLabel,
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) return res.status(400).json({ errors: error.errors });
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/vip-users", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const vipUsers = await db.select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        vipLabel: users.vipLabel,
+        subscriptionStatus: users.subscriptionStatus,
+        createdAt: users.createdAt,
+      }).from(users).where(eq(users.isVip, true));
+      res.json(vipUsers);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ==================== Referral System ====================
 
   app.get("/api/referrals", isAuthenticated, async (req: Request, res: Response) => {
@@ -2795,12 +2882,17 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
       const { referrals } = await import("@shared/schema");
       const allReferrals = await db.select().from(referrals).orderBy(referrals.createdAt);
 
+      const vipUsers = await db.select({ id: users.id }).from(users).where(eq(users.isVip, true));
+      const vipIds = new Set(vipUsers.map(v => v.id));
+
+      const nonVipReferrals = allReferrals.filter(r => !vipIds.has(r.referrerId));
+
       const pending = allReferrals.filter(r => r.status === "pending");
       const converted = allReferrals.filter(r => r.status === "converted");
 
-      const referrerStats: Record<string, { total: number; converted: number; credits: number }> = {};
+      const referrerStats: Record<string, { total: number; converted: number; credits: number; isVip: boolean }> = {};
       for (const r of allReferrals) {
-        if (!referrerStats[r.referrerId]) referrerStats[r.referrerId] = { total: 0, converted: 0, credits: 0 };
+        if (!referrerStats[r.referrerId]) referrerStats[r.referrerId] = { total: 0, converted: 0, credits: 0, isVip: vipIds.has(r.referrerId) };
         referrerStats[r.referrerId].total++;
         if (r.status === "converted") {
           referrerStats[r.referrerId].converted++;
@@ -2814,6 +2906,7 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
         converted: converted.length,
         ghost: pending,
         referrals: allReferrals,
+        revenueReferrals: nonVipReferrals.length,
         topReferrers: Object.entries(referrerStats)
           .map(([userId, stats]) => ({ userId, ...stats }))
           .sort((a, b) => b.credits - a.credits)

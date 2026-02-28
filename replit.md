@@ -62,6 +62,15 @@ The application utilizes a React, Vite, TailwindCSS, shadcn/ui, and Recharts fro
     -   **Annual Reset**: On Jan 1 (US) and Apr 6 (UK), archives the old season and resets counts. Creates new `referral_seasons` record. DB: `referrals`, `referral_seasons`, `admin_settings` tables.
     -   API: `GET /api/referrals`, `GET /api/referrals/code`, `POST /api/referrals/invite`, `GET /api/referrals/stats`, `POST /api/referrals/:id/convert`, `GET /api/referrals/whatsapp-nudge/:id`, `GET /api/admin/referrals`, `GET/PATCH /api/admin/referral-settings`, `GET /api/admin/referral-seasons`.
 
+-   **VIP Override System**:
+    -   **`is_vip` + `vip_label` fields** on users table. VIP users get automatic Pro access without Stripe billing.
+    -   **Billing bypass**: All `isPro` checks include `user.isVip === true`. VIP users skip Stripe checkout, get 7-year receipt retention, AI scanning, and all Pro features.
+    -   **Profile badge**: VIP users display as "MCTUSA Founder's Circle" (customizable `vip_label` per user).
+    -   **Admin Dashboard**: VIP Management section with email search, Grant/Revoke VIP buttons, and active VIP members list.
+    -   **Revenue protection**: VIP users excluded from referral revenue reports to avoid skewing profit data.
+    -   **Smart revoke**: Revoking VIP only resets subscription to "basic" if there's no real Stripe subscription attached.
+    -   API: `GET /api/admin/users/search?email=`, `PATCH /api/admin/users/:userId/vip`, `GET /api/admin/vip-users`.
+
 ## External Dependencies
 -   **Auth0**: For OpenID Connect (OIDC) authentication.
 -   **Google Cloud Storage**: For storing receipt images.

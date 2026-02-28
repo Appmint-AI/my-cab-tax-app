@@ -55,6 +55,8 @@ export const users = pgTable("users", {
   inactivityEmailSent: varchar("inactivity_email_sent"),
   hasExported2026: boolean("has_exported_2026").default(false),
   simplifiedView: boolean("simplified_view").default(false),
+  isVip: boolean("is_vip").default(false),
+  vipLabel: varchar("vip_label").default("MCTUSA Founder's Circle"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
