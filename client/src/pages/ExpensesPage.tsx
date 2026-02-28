@@ -1,5 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { useExpenses, useDeleteExpense } from "@/hooks/use-expenses";
+import { useRegion } from "@/hooks/use-region";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
 import { 
   Table, 
@@ -49,6 +50,7 @@ type SortDir = "asc" | "desc";
 export default function ExpensesPage() {
   const { data: expenses, isLoading } = useExpenses();
   const deleteMutation = useDeleteExpense();
+  const { formatCurrency } = useRegion();
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const { user } = useAuth();
@@ -128,7 +130,7 @@ export default function ExpensesPage() {
           </div>
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <span>{filteredExpenses?.length || 0} records</span>
-            <span className="hidden sm:inline font-medium text-foreground">${totalAmount.toFixed(2)} total</span>
+            <span className="hidden sm:inline font-medium text-foreground">{formatCurrency(totalAmount)} total</span>
           </div>
         </div>
 
@@ -210,7 +212,7 @@ export default function ExpensesPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right font-bold font-mono">
-                        ${Number(expense.amount).toFixed(2)}
+                        {formatCurrency(Number(expense.amount))}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

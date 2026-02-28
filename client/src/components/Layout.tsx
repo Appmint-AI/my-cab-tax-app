@@ -2,6 +2,7 @@ import { ReactNode, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
+import { useRegion } from "@/hooks/use-region";
 import { getSegmentConfig } from "@/lib/segment-config";
 import { SUPPORTED_LANGUAGES } from "@/lib/i18n";
 import { RegionDetector } from "@/components/RegionDetector";
@@ -47,6 +48,7 @@ export function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const { t, i18n } = useTranslation();
+  const { isUK, isUS, taxModules, region, currencySymbol } = useRegion();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const segmentConfig = getSegmentConfig(user?.userSegment);
   const BrandIcon = user?.userSegment === "hybrid" ? Layers : user?.userSegment === "delivery" ? Package : CarFront;
@@ -61,7 +63,7 @@ export function Layout({ children }: LayoutProps) {
 
   const isSimplified = user?.simplifiedView || false;
 
-  const navItems = [
+  const allNavItems = [
     { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, simplifiedIcon: LayoutDashboard },
     { href: "/incomes", label: t("nav.income"), icon: Wallet, simplifiedIcon: Wallet },
     { href: "/expenses", label: t("nav.expenses"), icon: Receipt, simplifiedIcon: Receipt },
@@ -73,10 +75,15 @@ export function Layout({ children }: LayoutProps) {
     { href: "/sync", label: t("nav.sync"), icon: RefreshCw, simplifiedIcon: RefreshCw },
     { href: "/dac7", label: t("nav.dac7"), icon: FileSpreadsheet, simplifiedIcon: FileSpreadsheet },
     { href: "/currency", label: t("nav.currency"), icon: Banknote, simplifiedIcon: Banknote },
-    { href: "/quarterly", label: t("nav.quarterly"), icon: CalendarClock, simplifiedIcon: CalendarClock },
-    { href: "/tax-overview", label: t("nav.taxOverview", "Tax Overview"), icon: FileText, simplifiedIcon: FileText },
+    { href: "/quarterly", label: isUK ? t("nav.quarterly") : t("nav.estimatedTax", "Estimated Tax"), icon: CalendarClock, simplifiedIcon: CalendarClock, regions: ["US", "UK"] as const },
+    { href: "/tax-overview", label: t("nav.taxOverview", "Tax Overview"), icon: FileText, simplifiedIcon: FileText, regions: ["UK"] as const },
     { href: "/settings", label: t("nav.settings"), icon: Settings, simplifiedIcon: Wrench },
   ];
+
+  const navItems = allNavItems.filter((item) => {
+    if (!(item as any).regions) return true;
+    return ((item as any).regions as string[]).includes(region);
+  });
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
@@ -92,7 +99,7 @@ export function Layout({ children }: LayoutProps) {
           <div>
             <h1 className="font-semibold text-base leading-tight text-white dark:text-white">My Cab Tax</h1>
             <p className="text-[11px] text-sidebar-foreground/60 mt-0.5" data-testid="badge-segment-label">
-              {segmentConfig.shortLabel} Mode
+              {segmentConfig.shortLabel} Mode {isUK ? "🇬🇧" : isUS ? "🇺🇸" : "🌍"}
             </p>
           </div>
         </div>

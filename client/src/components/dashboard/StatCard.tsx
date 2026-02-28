@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { ArrowUpRight, ArrowDownRight, DollarSign } from "lucide-react";
+import { useRegion } from "@/hooks/use-region";
 
 interface StatCardProps {
   title: string;
@@ -19,10 +20,8 @@ export function StatCard({
   description,
   className 
 }: StatCardProps) {
-  const formattedValue = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(value);
+  const { formatCurrency } = useRegion();
+  const formattedValue = formatCurrency(value);
 
   return (
     <Card className={cn("overflow-hidden border-l-4 card-hover", className, {

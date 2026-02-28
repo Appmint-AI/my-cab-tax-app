@@ -3,10 +3,11 @@ import { Strategy, type VerifyFunction } from "openid-client/passport";
 
 import passport from "passport";
 import session from "express-session";
-import type { Express, RequestHandler } from "express";
+import type { Express, Request, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { authStorage } from "./storage";
+import { detectCountryFromIP } from "../../geo-detect";
 
 function getAuth0Domain(): string {
   const domain = process.env.AUTH0_DOMAIN;
@@ -74,8 +75,8 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-async function upsertUser(claims: any) {
-  await authStorage.upsertUser({
+async function upsertUser(claims: any, detectedCountry?: string | null) {
+  const userData: any = {
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["given_name"] || claims["first_name"] || claims["nickname"] || null,
@@ -83,7 +84,11 @@ async function upsertUser(claims: any) {
     profileImageUrl: claims["picture"] || claims["profile_image_url"] || null,
     lastLoginAt: new Date(),
     inactivityEmailSent: null,
-  });
+  };
+  if (detectedCountry) {
+    userData.detectedCountry = detectedCountry;
+  }
+  await authStorage.upsertUser(userData);
 }
 
 export async function setupAuth(app: Express) {
@@ -153,9 +158,39 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/callback", (req, res, next) => {
     ensureStrategy(req.hostname);
-    passport.authenticate(`auth0:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
+    passport.authenticate(`auth0:${req.hostname}`, async (err: any, user: any, info: any) => {
+      if (err) return next(err);
+      if (!user) return res.redirect("/api/login");
+
+      req.logIn(user, async (loginErr) => {
+        if (loginErr) return next(loginErr);
+
+        const userId = user.claims?.sub;
+        if (userId) {
+          const clientIp = req.ip || req.socket.remoteAddress || "";
+          try {
+            let existingUser = await authStorage.getUser(userId);
+            if (!existingUser) {
+              existingUser = await authStorage.upsertUser({
+                id: userId,
+                email: user.claims?.email,
+                firstName: user.claims?.given_name || user.claims?.nickname || null,
+                lastName: user.claims?.family_name || null,
+                profileImageUrl: user.claims?.picture || null,
+                lastLoginAt: new Date(),
+                inactivityEmailSent: null,
+              });
+            }
+            if (!existingUser?.detectedCountry) {
+              const geo = await detectCountryFromIP(clientIp);
+              if (geo) {
+                await authStorage.updateDetectedCountry(userId, geo.countryCode);
+              }
+            }
+          } catch {}
+        }
+        res.redirect("/");
+      });
     })(req, res, next);
   });
 

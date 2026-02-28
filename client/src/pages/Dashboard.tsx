@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Layout } from "@/components/Layout";
 import { useTaxSummary } from "@/hooks/use-tax";
 import { useAuth } from "@/hooks/use-auth";
+import { useRegion } from "@/hooks/use-region";
 import { IncomeForm } from "@/components/forms/IncomeForm";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
 import { Form1099K } from "@/components/forms/Form1099K";
@@ -565,6 +566,7 @@ export default function Dashboard() {
   const { data: summary, isLoading } = useTaxSummary();
   const { data: mileageData } = useMileageLogs();
   const { user } = useAuth();
+  const { currencySymbol, isUK, isUS, taxModules, formatCurrency } = useRegion();
 
   const isFreeUser = !user?.subscriptionStatus || user.subscriptionStatus === "free" || user.subscriptionStatus === "basic";
   const segmentConfig = getSegmentConfig(user?.userSegment);
@@ -589,7 +591,7 @@ export default function Dashboard() {
       icon: Wallet,
       color: "text-green-600 dark:text-green-400",
       bg: "bg-green-100 dark:bg-green-900/30",
-      prefix: "$"
+      prefix: currencySymbol
     },
     {
       title: "Total Deductions",
@@ -597,7 +599,7 @@ export default function Dashboard() {
       icon: TrendingDown,
       color: "text-red-600 dark:text-red-400",
       bg: "bg-red-100 dark:bg-red-900/30",
-      prefix: "-$"
+      prefix: `-${currencySymbol}`
     },
     {
       title: "Net Profit",
@@ -605,16 +607,16 @@ export default function Dashboard() {
       icon: DollarSign,
       color: "text-primary",
       bg: "bg-primary/10",
-      prefix: "$"
+      prefix: currencySymbol
     },
     {
-      title: "Reserved for Taxes",
+      title: isUK ? "Reserved for Taxes" : "Reserved for Taxes",
       value: summary.selfEmploymentTax,
       icon: FileText,
       color: "text-blue-600 dark:text-blue-400",
       bg: "bg-blue-100 dark:bg-blue-900/30",
-      prefix: "$",
-      subtitle: "SE Tax (15.3% of 92.35%)"
+      prefix: currencySymbol,
+      subtitle: isUK ? "Class 4 NIC + Income Tax" : "SE Tax (15.3% of 92.35%)"
     }
   ];
 
@@ -742,9 +744,9 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <SmallEarnerGate grossIncome={summary.grossIncome} />
+      {isUS && <SmallEarnerGate grossIncome={summary.grossIncome} />}
 
-      <QuarterlyEstimatedTaxCalculator summary={summary} />
+      {taxModules.showEstimatedTax && <QuarterlyEstimatedTaxCalculator summary={summary} />}
 
       <WealthForecast summary={summary} />
 

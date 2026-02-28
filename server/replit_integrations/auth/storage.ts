@@ -8,6 +8,7 @@ export interface IAuthStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   touchLastLogin(id: string): Promise<void>;
+  updateDetectedCountry(id: string, countryCode: string): Promise<void>;
 }
 
 class AuthStorage implements IAuthStorage {
@@ -35,6 +36,13 @@ class AuthStorage implements IAuthStorage {
     await db
       .update(users)
       .set({ lastLoginAt: new Date(), inactivityEmailSent: null, updatedAt: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  async updateDetectedCountry(id: string, countryCode: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ detectedCountry: countryCode, updatedAt: new Date() })
       .where(eq(users.id, id));
   }
 }

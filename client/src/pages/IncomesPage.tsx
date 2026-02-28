@@ -1,5 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { useIncomes, useDeleteIncome } from "@/hooks/use-incomes";
+import { useRegion } from "@/hooks/use-region";
 import { IncomeForm } from "@/components/forms/IncomeForm";
 import { 
   Table, 
@@ -29,6 +30,7 @@ import { getSegmentConfig } from "@/lib/segment-config";
 export default function IncomesPage() {
   const { data: incomes, isLoading } = useIncomes();
   const deleteMutation = useDeleteIncome();
+  const { formatCurrency } = useRegion();
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const { user } = useAuth();
@@ -109,10 +111,10 @@ export default function IncomesPage() {
                       {Number(income.miles || 0) > 0 ? Number(income.miles).toFixed(1) : "-"}
                     </TableCell>
                     <TableCell className="text-right font-mono text-red-500">
-                      {Number(income.platformFees || 0) > 0 ? `-$${Number(income.platformFees).toFixed(2)}` : "-"}
+                      {Number(income.platformFees || 0) > 0 ? `-${formatCurrency(Number(income.platformFees))}` : "-"}
                     </TableCell>
                     <TableCell className="text-right font-bold font-mono text-green-600 dark:text-green-400">
-                      +${Number(income.amount).toFixed(2)}
+                      +{formatCurrency(Number(income.amount))}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>

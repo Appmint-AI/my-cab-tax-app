@@ -53,6 +53,7 @@ The application uses a React, Vite, TailwindCSS, shadcn/ui, and Recharts fronten
 -   **PDF Tax Year Certificate**: Server-side PDFKit generation at `GET /api/final-declaration/:taxYear/certificate` with full tax breakdown, HMRC submission ID, and "Shield of Accuracy" branding.
 -   **January 1st Final Declaration Email**: Lifecycle-managed email sent to Pro users in first week of January, promoting £29 Final Declaration with HMRC deadline urgency.
 -   **Confetti Animation**: canvas-confetti celebration on successful Final Declaration submission and Stripe payment return.
+-   **Geo-Specific Engine**: IP-based country detection on signup (BigDataCloud), stored in `users.detectedCountry`. Drives a `RegionConfig` system (`server/geo-detect.ts`, `client/src/hooks/use-region.ts`) that toggles: UK users see MTD Quarterly, Tax Overview, £ Sterling; US users see Estimated Tax, Schedule C, $ Dollars. Backend accounting stays in USD; frontend displays local currency via `useRegion()` hook. Region switchable via RegionDetector banner or `PATCH /api/user/detected-country`.
 
 ## External Dependencies
 -   **Auth0**: OpenID Connect (OIDC) authentication.

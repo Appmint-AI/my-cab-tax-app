@@ -2425,6 +2425,33 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
     }
   });
 
+  // ==================== Region Config ====================
+
+  app.get("/api/user/region-config", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const user = await storage.getUser(userId);
+      const { getRegionConfig } = await import("./geo-detect");
+      const config = getRegionConfig(user?.detectedCountry);
+      res.json(config);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/user/detected-country", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { countryCode } = z.object({ countryCode: z.string().length(2) }).parse(req.body);
+      await storage.updateUser(userId, { detectedCountry: countryCode.toUpperCase() });
+      const { getRegionConfig } = await import("./geo-detect");
+      const config = getRegionConfig(countryCode.toUpperCase());
+      res.json(config);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // ==================== Simplified View Toggle ====================
 
   app.patch("/api/user/simplified-view", isAuthenticated, async (req: Request, res: Response) => {

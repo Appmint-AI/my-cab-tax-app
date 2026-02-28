@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { MapPin, X, Globe } from "lucide-react";
+import { X, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { useRegion } from "@/hooks/use-region";
 
 interface GeoResult {
   countryName: string;
@@ -12,9 +13,9 @@ interface GeoResult {
 export function RegionDetector() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [detectedCountry, setDetectedCountry] = useState<GeoResult | null>(null);
+  const { switchRegion, isSwitching, detectedCountry } = useRegion();
+  const [geoResult, setGeoResult] = useState<GeoResult | null>(null);
   const [dismissed, setDismissed] = useState(false);
-  const [detecting, setDetecting] = useState(false);
 
   useEffect(() => {
     const dismissedKey = "region-banner-dismissed";
@@ -25,7 +26,6 @@ export function RegionDetector() {
 
     if (!navigator.geolocation) return;
 
-    setDetecting(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
@@ -35,32 +35,34 @@ export function RegionDetector() {
           );
           const data = await res.json();
           if (data.countryName && data.countryCode) {
-            const userCountry = (user as any)?.stateCode ? "US" : null;
-            if (userCountry && data.countryCode !== userCountry) {
-              setDetectedCountry({
+            const userCountry = detectedCountry || ((user as any)?.stateCode ? "US" : null);
+            if (!userCountry || data.countryCode !== userCountry) {
+              setGeoResult({
                 countryName: data.countryName,
                 countryCode: data.countryCode,
               });
             }
           }
-        } catch {
-        } finally {
-          setDetecting(false);
-        }
+        } catch {}
       },
-      () => {
-        setDetecting(false);
-      },
+      () => {},
       { timeout: 10000, maximumAge: 300000 }
     );
-  }, [user]);
+  }, [user, detectedCountry]);
 
   const handleDismiss = () => {
     setDismissed(true);
     sessionStorage.setItem("region-banner-dismissed", "true");
   };
 
-  if (dismissed || !detectedCountry) return null;
+  const handleSwitch = () => {
+    if (geoResult) {
+      switchRegion(geoResult.countryCode);
+      handleDismiss();
+    }
+  };
+
+  if (dismissed || !geoResult) return null;
 
   return (
     <div
@@ -72,13 +74,23 @@ export function RegionDetector() {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm text-blue-800 dark:text-blue-200" data-testid="text-detected-region">
-          {t("region.detected", { country: detectedCountry.countryName })}{" "}
+          {t("region.detected", { country: geoResult.countryName })}{" "}
           <span className="text-blue-600 dark:text-blue-400">
             {t("region.switchPrompt")}
           </span>
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
+        <Button
+          variant="default"
+          size="sm"
+          className="text-xs"
+          onClick={handleSwitch}
+          disabled={isSwitching}
+          data-testid="button-switch-region"
+        >
+          {isSwitching ? t("common.loading") : t("region.switchRegion")}
+        </Button>
         <Button
           variant="outline"
           size="sm"
