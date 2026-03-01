@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { users } from "@shared/models/auth";
 import { api } from "@shared/routes";
 import { z } from "zod";
@@ -377,6 +377,40 @@ export async function registerRoutes(
     }
     await storage.deleteMileageLog(userId, Number(req.params.id));
     res.sendStatus(204);
+  });
+
+  // States endpoint - returns all states with names and tax types
+  app.get("/api/states", isAuthenticated, async (_req, res) => {
+    try {
+      const { getAllStates } = await import("./submission/state-engine");
+      const states = getAllStates();
+      res.json(states);
+    } catch (err: any) {
+      console.error("States endpoint error:", err);
+      res.status(500).json({ message: "Failed to retrieve states" });
+    }
+  });
+
+  // State tax estimate endpoint
+  app.get("/api/tax/state-estimate", isAuthenticated, async (req, res) => {
+    try {
+      const stateCode = String(req.query.stateCode || "");
+      const netProfit = parseFloat(String(req.query.netProfit || "0"));
+
+      if (!stateCode) {
+        return res.status(400).json({ message: "stateCode query parameter is required" });
+      }
+      if (isNaN(netProfit)) {
+        return res.status(400).json({ message: "netProfit must be a valid number" });
+      }
+
+      const { calculateStateTax } = await import("./submission/state-engine");
+      const result = calculateStateTax(stateCode, netProfit);
+      res.json(result);
+    } catch (err: any) {
+      console.error("State tax estimate error:", err);
+      res.status(500).json({ message: "Failed to calculate state tax estimate" });
+    }
   });
 
   // Tax Summary
@@ -1163,7 +1197,13 @@ export async function registerRoutes(
         return res.status(400).json({ message: user.isVip ? "VIP members have complimentary Pro access." : "You are already a Pro subscriber." });
       }
 
-      const priceId = process.env.STRIPE_PRO_PRICE_ID;
+      const { getRegionFromCountry } = await import("./geo-detect");
+      const userRegion = getRegionFromCountry(user.detectedCountry);
+
+      // STRIPE_US_PRO_PRICE_ID can be configured separately for USD pricing
+      const priceId = userRegion === "US"
+        ? (process.env.STRIPE_US_PRO_PRICE_ID || process.env.STRIPE_PRO_PRICE_ID)
+        : process.env.STRIPE_PRO_PRICE_ID;
       if (!priceId) {
         return res.status(503).json({ message: "Pro plan pricing is not configured yet." });
       }
@@ -1189,11 +1229,11 @@ export async function registerRoutes(
         line_items: [{ price: priceId, quantity: 1 }],
         success_url: `${appUrl}/upgrade?upgrade=success`,
         cancel_url: `${appUrl}/upgrade?cancelled=true`,
-        metadata: { userId },
+        metadata: { userId, region: userRegion },
         automatic_tax: { enabled: true },
         invoice_creation: undefined,
         subscription_data: {
-          metadata: { userId },
+          metadata: { userId, region: userRegion },
         },
         tax_id_collection: { enabled: true },
       };
@@ -2733,6 +2773,19 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
         return res.status(400).json({ message: "Final Declaration already paid for this tax year." });
       }
 
+      const { getRegionFromCountry } = await import("./geo-detect");
+      const userRegion = getRegionFromCountry(user.detectedCountry);
+
+      const isUSUser = userRegion === "US";
+      const checkoutCurrency = isUSUser ? "usd" : "gbp";
+      const checkoutAmount = isUSUser ? 3500 : 2900;
+      const checkoutName = isUSUser
+        ? `Annual 1040 Prep — Tax Year ${taxYear}`
+        : `Final Declaration — Tax Year ${taxYear}`;
+      const checkoutDescription = isUSUser
+        ? "Income consolidation, deduction optimization, AI error shield, and IRS submission ID."
+        : "Income consolidation, allowance optimisation, AI error shield, and HMRC submission ID.";
+
       const appUrl = process.env.REPLIT_DEV_DOMAIN
         ? `https://${process.env.REPLIT_DEV_DOMAIN}`
         : process.env.APP_URL || `http://localhost:5000`;
@@ -2741,18 +2794,18 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
         mode: "payment",
         line_items: [{
           price_data: {
-            currency: "gbp",
+            currency: checkoutCurrency,
             product_data: {
-              name: `Final Declaration — Tax Year ${taxYear}`,
-              description: "Income consolidation, allowance optimisation, AI error shield, and HMRC submission ID.",
+              name: checkoutName,
+              description: checkoutDescription,
             },
-            unit_amount: 2900,
+            unit_amount: checkoutAmount,
           },
           quantity: 1,
         }],
         success_url: `${appUrl}/tax-overview?taxYear=${encodeURIComponent(taxYear)}&declaration=success`,
         cancel_url: `${appUrl}/tax-overview?taxYear=${encodeURIComponent(taxYear)}&declaration=cancelled`,
-        metadata: { userId, taxYear, type: "final_declaration" },
+        metadata: { userId, taxYear, type: "final_declaration", region: userRegion },
         automatic_tax: { enabled: true },
         tax_id_collection: { enabled: true },
       };

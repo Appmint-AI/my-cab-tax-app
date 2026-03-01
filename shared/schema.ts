@@ -27,6 +27,9 @@ export const SE_TAX_RATE = 0.153;
 /** @compliance IRC Sec. 1402(a)(12) — SE tax applies to 92.35% of net self-employment earnings. */
 export const SE_TAXABLE_BASE = 0.9235;
 
+/** @compliance IRS Rev. Proc. 2026-XX — Standard deduction for single filers, tax year 2026. */
+export const STANDARD_DEDUCTION_2026 = 15700;
+
 /** @compliance IRS Form 1040-ES — Quarterly estimated tax payment due dates for tax year 2026. */
 export const QUARTERLY_DEADLINES = ["2026-04-15", "2026-06-15", "2026-09-15", "2027-01-15"];
 

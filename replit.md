@@ -54,6 +54,8 @@ The application uses a React, Vite, TailwindCSS, shadcn/ui, and Recharts fronten
 -   **January 1st Final Declaration Email**: Lifecycle-managed email sent to Pro users in first week of January, promoting £29 Final Declaration with HMRC deadline urgency.
 -   **Confetti Animation**: canvas-confetti celebration on successful Final Declaration submission and Stripe payment return.
 -   **Geo-Specific Engine**: IP-based country detection on signup (BigDataCloud), stored in `users.detectedCountry`. Drives a `RegionConfig` system (`server/geo-detect.ts`, `client/src/hooks/use-region.ts`) that toggles: UK users see MTD Quarterly, Tax Overview, £ Sterling; US users see Estimated Tax, Schedule C, $ Dollars. Backend accounting stays in USD; frontend displays local currency via `useRegion()` hook. Region switchable via RegionDetector banner or `PATCH /api/user/detected-country`.
+-   **USA Tax Engine (1040-ES Worksheet 2-1)**: Full IRS-compliant estimated tax calculator with: Net Profit → SE Tax (15.3% × 92.35%) → SE Deduction → AGI → Standard Deduction ($15,700) → Taxable Income → Federal Income Tax (2026 brackets) → State Tax (50-state engine) → Total Annual Tax → Quarterly Payments. Includes $1,000 underpayment alert (IRC §6654), state-level toggle with all 50 states grouped by tax type, and IRS quarterly deadlines.
+-   **Region-Specific Pricing**: UK: £17.99/mo subscription + £29 Final Declaration. USA: $19.99/mo subscription + $35 Annual 1040 Prep. Stripe checkout sessions created with correct currency and product names per region. UpgradePage and TaxOverviewPage adapt feature lists and pricing display.
 
 ## External Dependencies
 -   **Auth0**: OpenID Connect (OIDC) authentication.

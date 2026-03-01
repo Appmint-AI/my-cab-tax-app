@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCreateCheckoutSession, useSubscription } from "@/hooks/use-subscription";
 import { useAuth } from "@/hooks/use-auth";
+import { useRegion } from "@/hooks/use-region";
 import {
   CarFront,
   ArrowLeft,
@@ -34,7 +35,7 @@ function formatNextBillingDate(): string {
   });
 }
 
-function SuccessOverlay({ name }: { name: string }) {
+function SuccessOverlay({ name, region }: { name: string; region: string }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       window.location.href = "/dashboard";
@@ -53,7 +54,7 @@ function SuccessOverlay({ name }: { name: string }) {
             Welcome to the Head Office{name ? `, ${name}` : ""}.
           </h2>
           <p className="text-emerald-100 text-lg font-medium" data-testid="text-success-subtitle">
-            Your HMRC Shield is now ACTIVE.
+            Your {region === "US" ? "IRS" : "HMRC"} Shield is now ACTIVE.
           </p>
         </div>
         <CardContent className="p-6 bg-background text-center space-y-3">
@@ -63,11 +64,11 @@ function SuccessOverlay({ name }: { name: string }) {
           </div>
           <div className="flex items-center justify-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
             <CalendarDays className="h-5 w-5" />
-            <span className="font-medium">Automated MTD Filing Unlocked</span>
+            <span className="font-medium">{region === "US" ? "IRS 1040-ES Filing Unlocked" : "Automated MTD Filing Unlocked"}</span>
           </div>
           <div className="flex items-center justify-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
             <Zap className="h-5 w-5" />
-            <span className="font-medium">Universal Credit Sync Ready</span>
+            <span className="font-medium">{region === "US" ? "State Tax Filing Ready" : "Universal Credit Sync Ready"}</span>
           </div>
           <Link href="/dashboard">
             <Button className="mt-4 w-full" size="lg" data-testid="button-go-dashboard">
@@ -102,6 +103,7 @@ export default function UpgradePage() {
   const checkoutMutation = useCreateCheckoutSession();
   const { data: subscription } = useSubscription();
   const { user } = useAuth();
+  const { isUS, isUK, formatCurrency } = useRegion();
   const isPro = subscription?.tier === "pro";
   const searchParams = useSearch();
   const params = new URLSearchParams(searchParams);
@@ -111,7 +113,7 @@ export default function UpgradePage() {
   const userName = user?.firstName || "";
 
   if (showSuccess) {
-    return <SuccessOverlay name={userName} />;
+    return <SuccessOverlay name={userName} region={isUS ? "US" : "UK"} />;
   }
 
   return (
@@ -145,8 +147,12 @@ export default function UpgradePage() {
           </h1>
           <p className="text-muted-foreground text-base sm:text-lg max-w-xl mx-auto leading-relaxed" data-testid="text-upgrade-subtitle">
             {isPro
-              ? "You have full access to Automated HMRC MTD Filing, Universal Credit Sync, and your 7-Year Digital Vault."
-              : "Connect your payment method to activate Automated HMRC MTD Filing, Universal Credit Sync, and your 7-Year Digital Vault."}
+              ? isUS
+                ? "You have full access to IRS 1040-ES Filing, Schedule C Automation, State Tax Filing, and your 7-Year Digital Vault."
+                : "You have full access to Automated HMRC MTD Filing, Universal Credit Sync, and your 7-Year Digital Vault."
+              : isUS
+                ? "Connect your payment method to activate IRS 1040-ES Filing, Schedule C Automation, State Tax Filing, and your 7-Year Digital Vault."
+                : "Connect your payment method to activate Automated HMRC MTD Filing, Universal Credit Sync, and your 7-Year Digital Vault."}
           </p>
         </div>
 
@@ -175,9 +181,9 @@ export default function UpgradePage() {
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Subscription</p>
                   <p className="text-2xl sm:text-3xl font-bold" data-testid="text-price">
-                    £17.99<span className="text-base font-normal text-muted-foreground"> / month</span>
+                    {isUS ? "$19.99" : "£17.99"}<span className="text-base font-normal text-muted-foreground"> / month</span>
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">(VAT Inclusive)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{isUS ? "(Sales Tax may apply)" : "(VAT Inclusive)"}</p>
                 </div>
                 <div className="p-3 rounded-full bg-primary/10">
                   <Crown className="h-6 w-6 text-primary" />
@@ -201,14 +207,21 @@ export default function UpgradePage() {
               <div className="space-y-4 border-t border-border/50 pt-4">
                 <h4 className="text-sm font-semibold">Everything included:</h4>
                 <div className="grid gap-2.5">
-                  {[
+                  {(isUS ? [
+                    { icon: ShieldCheck, text: "IRS 1040-ES Quarterly Filing" },
+                    { icon: FileText, text: "Schedule C Automation" },
+                    { icon: Zap, text: "State Tax Filing" },
+                    { icon: Shield, text: "Audit Defense Center Access" },
+                    { icon: Sparkles, text: "AI Receipt Scanner with OCR" },
+                    { icon: CreditCard, text: "7-Year Digital Vault" },
+                  ] : [
                     { icon: ShieldCheck, text: "Automated HMRC MTD Filing" },
                     { icon: Zap, text: "Universal Credit Sync" },
                     { icon: FileText, text: "7-Year Digital Vault" },
                     { icon: Sparkles, text: "AI Receipt Scanner with OCR" },
                     { icon: CreditCard, text: "Auto-Grossing (25% Rule)" },
                     { icon: Shield, text: "Audit Defence Centre Access" },
-                  ].map(({ icon: Icon, text }) => (
+                  ]).map(({ icon: Icon, text }) => (
                     <div key={text} className="flex items-center gap-2.5 text-sm">
                       <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10">
                         <Icon className="h-3 w-3 text-primary" />
@@ -263,9 +276,11 @@ export default function UpgradePage() {
             <div className="flex items-start gap-3">
               <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-1">VAT Invoicing</h4>
+                <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-1">{isUS ? "Tax Invoice" : "VAT Invoicing"}</h4>
                 <p className="text-xs leading-relaxed text-blue-800/70 dark:text-blue-400/70">
-                  A UK-compliant VAT invoice is automatically emailed to you after every payment. This is a deductible business expense — keep it for your records.
+                  {isUS
+                    ? "A tax invoice is automatically emailed to you after every payment. This is a deductible business expense under Schedule C — keep it for your records."
+                    : "A UK-compliant VAT invoice is automatically emailed to you after every payment. This is a deductible business expense — keep it for your records."}
                 </p>
               </div>
             </div>

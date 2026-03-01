@@ -222,5 +222,24 @@
     "nextDeadline": "Next: {{desc}} — Due {{date}}",
     "urgent": "Filing deadline approaching!",
     "safe": "You're on track. Next deadline is well ahead."
+  },
+  "underpayment": {
+    "title": "IRS Alert: Quarterly Payment Required",
+    "message": "Your estimated annual tax liability of {{amount}} exceeds the $1,000 threshold. You are now required to make quarterly estimated payments to avoid underpayment penalties (IRC §6654).",
+    "viewQuarterly": "View Quarterly Filing"
+  },
+  "stateSelector": {
+    "label": "Your State",
+    "description": "Select your state for accurate tax estimates",
+    "noTax": "No State Tax",
+    "flat": "Flat {{rate}}%",
+    "graduated": "Graduated (up to {{rate}}%)",
+    "placeholder": "Select state..."
+  },
+  "pricing": {
+    "usMonthly": "$19.99 / month",
+    "ukMonthly": "£17.99 / month",
+    "annual1040Prep": "Annual 1040 Prep",
+    "finalDeclaration": "Final Declaration"
   }
 }

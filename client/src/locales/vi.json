@@ -222,5 +222,24 @@
     "nextDeadline": "Tiếp theo: {{desc}} — Hạn {{date}}",
     "urgent": "Hạn nộp đang đến gần!",
     "safe": "Bạn đang đi đúng hướng. Hạn nộp tiếp theo còn xa."
+  },
+  "underpayment": {
+    "title": "Cảnh báo IRS: Cần thanh toán hàng quý",
+    "message": "Nghĩa vụ thuế ước tính hàng năm của bạn là {{amount}} vượt ngưỡng $1,000. Bạn cần thực hiện thanh toán thuế ước tính hàng quý để tránh phạt.",
+    "viewQuarterly": "Xem nộp thuế hàng quý"
+  },
+  "stateSelector": {
+    "label": "Tiểu bang của bạn",
+    "description": "Chọn tiểu bang để ước tính thuế chính xác",
+    "noTax": "Không có thuế tiểu bang",
+    "flat": "Thuế suất cố định {{rate}}%",
+    "graduated": "Thuế lũy tiến (tối đa {{rate}}%)",
+    "placeholder": "Chọn tiểu bang..."
+  },
+  "pricing": {
+    "usMonthly": "$19.99 / tháng",
+    "ukMonthly": "£17.99 / tháng",
+    "annual1040Prep": "Chuẩn bị 1040 hàng năm",
+    "finalDeclaration": "Khai báo cuối cùng"
   }
 }

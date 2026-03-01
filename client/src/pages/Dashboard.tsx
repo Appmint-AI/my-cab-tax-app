@@ -39,7 +39,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import JSZip from "jszip";
 import { jsPDF } from "jspdf";
-import { IRS_MILEAGE_RATE } from "@shared/schema";
+import { IRS_MILEAGE_RATE, STANDARD_DEDUCTION_2026 } from "@shared/schema";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { TaxSummary, MileageLog } from "@shared/schema";
 import { SubmissionSuccess } from "@/components/SubmissionSuccess";
 import { useLocation } from "wouter";
@@ -86,15 +87,20 @@ function SmallEarnerGate({ grossIncome }: { grossIncome: number }) {
   );
 }
 
-function QuarterlyEstimatedTaxCalculator({ summary }: { summary: TaxSummary }) {
+function QuarterlyEstimatedTaxCalculator({ summary, user }: { summary: TaxSummary; user: User | null | undefined }) {
   const today = new Date();
   const currentMonth = today.getMonth();
   const currentQuarter = Math.floor(currentMonth / 3) + 1;
-  
+  const { formatCurrency } = useRegion();
+
+  const netProfit = Math.max(0, summary.netProfit);
   const annualSETax = summary.selfEmploymentTax;
   const seDeduction = summary.seDeduction;
-  const taxableIncome = summary.netProfit - seDeduction - (summary.tipExemption || 0);
-  
+  const tipExemption = summary.tipExemption || 0;
+  const agi = netProfit - seDeduction - tipExemption;
+  const standardDeduction = STANDARD_DEDUCTION_2026;
+  const taxableIncome = Math.max(0, agi - standardDeduction);
+
   const federalTaxBrackets2026 = [
     { min: 0, max: 11600, rate: 0.10 },
     { min: 11600, max: 47150, rate: 0.12 },
@@ -104,30 +110,53 @@ function QuarterlyEstimatedTaxCalculator({ summary }: { summary: TaxSummary }) {
     { min: 243725, max: 609350, rate: 0.35 },
     { min: 609350, max: Infinity, rate: 0.37 },
   ];
-  
+
   let federalIncomeTax = 0;
-  let remaining = Math.max(0, taxableIncome);
+  let remaining = taxableIncome;
   for (const bracket of federalTaxBrackets2026) {
     const taxable = Math.min(remaining, bracket.max - bracket.min);
     if (taxable <= 0) break;
     federalIncomeTax += taxable * bracket.rate;
     remaining -= taxable;
   }
-  
-  const totalAnnualTax = federalIncomeTax + annualSETax;
+
+  const userState = user?.stateCode || null;
+  const { data: stateEstimate } = useQuery<any>({
+    queryKey: ["/api/tax/state-estimate", userState, netProfit],
+    queryFn: async () => {
+      if (!userState) return null;
+      const res = await fetch(`/api/tax/state-estimate?stateCode=${userState}&netProfit=${netProfit}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!userState,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const stateTax = stateEstimate?.taxOwed || 0;
+  const totalAnnualTax = federalIncomeTax + annualSETax + stateTax;
   const quarterlyPayment = totalAnnualTax / 4;
-  
-  const effectiveRate = summary.netProfit > 0 ? (totalAnnualTax / summary.netProfit) * 100 : 0;
-  
+  const effectiveRate = netProfit > 0 ? (totalAnnualTax / netProfit) * 100 : 0;
+
   const quarterLabels = ["Q1", "Q2", "Q3", "Q4"];
   const deadlines = summary.quarterlyDeadlines;
+
+  const worksheetRows = [
+    { label: "1. Net Profit (Schedule C, Line 31)", value: netProfit, testId: "text-calc-net-profit" },
+    { label: "2. SE Tax (15.3% × 92.35%)", value: annualSETax, testId: "text-calc-se-tax" },
+    { label: "3. SE Deduction (50% of Line 2)", value: seDeduction, testId: "text-calc-se-deduction", negative: true },
+    ...(tipExemption > 0 ? [{ label: "4. Tip Exemption (OBBBA)", value: tipExemption, testId: "text-calc-tip-exempt", negative: true }] : []),
+    { label: `${tipExemption > 0 ? "5" : "4"}. Adjusted Gross Income`, value: agi, testId: "text-calc-agi" },
+    { label: `${tipExemption > 0 ? "6" : "5"}. Standard Deduction`, value: standardDeduction, testId: "text-calc-std-deduction", negative: true },
+    { label: `${tipExemption > 0 ? "7" : "6"}. Taxable Income`, value: taxableIncome, testId: "text-calc-taxable-income", highlight: true },
+  ];
 
   return (
     <Card className="mt-6 border-border/60 shadow-sm" data-testid="card-quarterly-calculator">
       <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
         <CardTitle className="text-base font-medium flex items-center gap-2 flex-wrap">
           <Gauge className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-          Quarterly Estimated Tax Calculator
+          IRS Worksheet 2-1 — Estimated Tax Calculator
         </CardTitle>
         <Badge variant="outline" className="text-[10px] no-default-active-elevate" data-testid="badge-effective-rate">
           {effectiveRate.toFixed(1)}% Effective Rate
@@ -135,30 +164,55 @@ function QuarterlyEstimatedTaxCalculator({ summary }: { summary: TaxSummary }) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="p-3 rounded-md bg-muted/30">
-              <p className="text-xs text-muted-foreground">Net Profit</p>
-              <p className="text-sm font-bold font-display" data-testid="text-calc-net-profit">
-                ${Math.max(0, summary.netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-            <div className="p-3 rounded-md bg-muted/30">
-              <p className="text-xs text-muted-foreground">Federal Income Tax</p>
-              <p className="text-sm font-bold font-display" data-testid="text-calc-income-tax">
-                ${federalIncomeTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-            <div className="p-3 rounded-md bg-muted/30">
-              <p className="text-xs text-muted-foreground">SE Tax (15.3%)</p>
-              <p className="text-sm font-bold font-display" data-testid="text-calc-se-tax">
-                ${annualSETax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-            <div className="p-3 rounded-md bg-purple-50 dark:bg-purple-950/20">
-              <p className="text-xs text-muted-foreground">Total Annual Tax</p>
-              <p className="text-sm font-bold font-display text-purple-700 dark:text-purple-300" data-testid="text-calc-total-annual">
-                ${totalAnnualTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
+          <div className="space-y-1">
+            {worksheetRows.map((row) => (
+              <div
+                key={row.testId}
+                className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                  row.highlight ? "bg-purple-50 dark:bg-purple-950/20 font-semibold" : ""
+                }`}
+              >
+                <span className="text-muted-foreground text-xs">{row.label}</span>
+                <span className={`font-mono font-medium ${row.negative ? "text-red-600 dark:text-red-400" : ""}`} data-testid={row.testId}>
+                  {row.negative ? "−" : ""}{formatCurrency(row.value)}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-border/50 pt-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="p-3 rounded-md bg-muted/30">
+                <p className="text-xs text-muted-foreground">Federal Income Tax</p>
+                <p className="text-sm font-bold font-display" data-testid="text-calc-income-tax">
+                  {formatCurrency(federalIncomeTax)}
+                </p>
+              </div>
+              <div className="p-3 rounded-md bg-muted/30">
+                <p className="text-xs text-muted-foreground">SE Tax (15.3%)</p>
+                <p className="text-sm font-bold font-display" data-testid="text-calc-se-tax-total">
+                  {formatCurrency(annualSETax)}
+                </p>
+              </div>
+              <div className="p-3 rounded-md bg-muted/30">
+                <p className="text-xs text-muted-foreground">
+                  {stateEstimate ? `${stateEstimate.stateName} State Tax` : "State Tax"}
+                </p>
+                <p className="text-sm font-bold font-display" data-testid="text-calc-state-tax">
+                  {userState ? formatCurrency(stateTax) : "—"}
+                </p>
+                {stateEstimate && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {stateEstimate.bucketLabel} ({stateEstimate.effectiveRate}%)
+                  </p>
+                )}
+              </div>
+              <div className="p-3 rounded-md bg-purple-50 dark:bg-purple-950/20">
+                <p className="text-xs text-muted-foreground">Total Annual Tax</p>
+                <p className="text-sm font-bold font-display text-purple-700 dark:text-purple-300" data-testid="text-calc-total-annual">
+                  {formatCurrency(totalAnnualTax)}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -192,7 +246,7 @@ function QuarterlyEstimatedTaxCalculator({ summary }: { summary: TaxSummary }) {
                       {isCurrent && <Clock className="h-3 w-3 text-purple-600 dark:text-purple-400" />}
                     </div>
                     <p className="text-sm font-bold font-display mt-1.5">
-                      ${quarterlyPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {formatCurrency(quarterlyPayment)}
                     </p>
                     <p className={`text-[10px] mt-0.5 ${isPast ? "line-through text-muted-foreground" : "text-muted-foreground"}`}>
                       Due {format(date, "MMM d")}
@@ -203,9 +257,183 @@ function QuarterlyEstimatedTaxCalculator({ summary }: { summary: TaxSummary }) {
             </div>
           </div>
 
+          {!userState && (
+            <div className="flex items-center gap-2 p-2 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+              <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <p className="text-[10px] text-amber-800 dark:text-amber-200">
+                Select your state below to include state income tax in your estimate.
+              </p>
+            </div>
+          )}
+
           <p className="text-[10px] text-muted-foreground leading-relaxed">
-            Estimates based on 2026 federal tax brackets (single filer) and 15.3% SE tax rate. Does not include state taxes. Consult a CPA for precise calculations. IRS safe harbor: pay 100% of prior year tax or 90% of current year tax to avoid underpayment penalties.
+            Based on IRS Worksheet 2-1 (Form 1040-ES) for 2026 tax year. Uses federal brackets (single filer), 15.3% SE tax, and ${STANDARD_DEDUCTION_2026.toLocaleString()} standard deduction. {userState ? `Includes ${stateEstimate?.stateName || userState} state tax.` : ""} IRS safe harbor: pay 100% of prior year tax or 90% of current year tax to avoid underpayment penalties.
           </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function UnderpaymentAlert({ summary, user }: { summary: TaxSummary; user: User | null | undefined }) {
+  const { isUS, formatCurrency } = useRegion();
+  const netProfit = Math.max(0, summary.netProfit);
+  const annualSETax = summary.selfEmploymentTax;
+  const seDeduction = summary.seDeduction;
+  const tipExemption = summary.tipExemption || 0;
+  const agi = netProfit - seDeduction - tipExemption;
+  const taxableIncome = Math.max(0, agi - STANDARD_DEDUCTION_2026);
+
+  const brackets = [
+    { min: 0, max: 11600, rate: 0.10 },
+    { min: 11600, max: 47150, rate: 0.12 },
+    { min: 47150, max: 100525, rate: 0.22 },
+    { min: 100525, max: 191950, rate: 0.24 },
+    { min: 191950, max: 243725, rate: 0.32 },
+    { min: 243725, max: 609350, rate: 0.35 },
+    { min: 609350, max: Infinity, rate: 0.37 },
+  ];
+  let fedTax = 0;
+  let rem = taxableIncome;
+  for (const b of brackets) {
+    const t = Math.min(rem, b.max - b.min);
+    if (t <= 0) break;
+    fedTax += t * b.rate;
+    rem -= t;
+  }
+
+  const userState = user?.stateCode || null;
+  const { data: stateEstimate } = useQuery<any>({
+    queryKey: ["/api/tax/state-estimate", userState, netProfit],
+    queryFn: async () => {
+      if (!userState) return null;
+      const res = await fetch(`/api/tax/state-estimate?stateCode=${userState}&netProfit=${netProfit}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!userState,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const stateTax = stateEstimate?.taxOwed || 0;
+  const totalEstimatedTax = fedTax + annualSETax + stateTax;
+
+  if (!isUS || totalEstimatedTax <= 1000) return null;
+
+  return (
+    <Alert
+      className="border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20"
+      data-testid="banner-underpayment-alert"
+    >
+      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+      <AlertTitle className="text-amber-900 dark:text-amber-200 text-sm">
+        IRS Alert: Quarterly Payment Required
+      </AlertTitle>
+      <AlertDescription className="text-amber-800 dark:text-amber-300 text-xs mt-1">
+        <p>
+          Your estimated annual tax liability of <strong>{formatCurrency(totalEstimatedTax)}</strong> exceeds the $1,000 threshold. You are now required to make quarterly estimated payments to avoid underpayment penalties (IRC §6654).
+        </p>
+        <div className="flex items-center gap-2 mt-2">
+          <Link href="/quarterly">
+            <Button variant="outline" size="sm" className="text-xs border-amber-300 dark:border-amber-600" data-testid="button-view-quarterly">
+              <Calendar className="h-3 w-3 mr-1" />
+              View Quarterly Filing
+            </Button>
+          </Link>
+        </div>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function StateSelector({ user }: { user: User | null | undefined }) {
+  const { isUS } = useRegion();
+  const { data: statesData } = useQuery<Record<string, { name: string; tax_type: string; rate_2026: number }>>({
+    queryKey: ["/api/states"],
+    enabled: isUS,
+  });
+
+  const updateStateMutation = useMutation({
+    mutationFn: async (stateCode: string) => {
+      const res = await apiRequest("PATCH", "/api/profile", { stateCode });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ predicate: (query) => (query.queryKey[0] as string)?.startsWith?.("/api/tax") });
+    },
+  });
+
+  if (!isUS || !statesData) return null;
+
+  const noTaxStates = Object.entries(statesData).filter(([, s]) => s.tax_type === "None").sort((a, b) => a[1].name.localeCompare(b[1].name));
+  const flatStates = Object.entries(statesData).filter(([, s]) => s.tax_type === "Flat").sort((a, b) => a[1].name.localeCompare(b[1].name));
+  const graduatedStates = Object.entries(statesData).filter(([, s]) => s.tax_type === "Graduated" || s.tax_type === "Decoupled").sort((a, b) => a[1].name.localeCompare(b[1].name));
+
+  const selectedState = user?.stateCode || "";
+  const selectedInfo = selectedState ? statesData[selectedState] : null;
+
+  return (
+    <Card className="mt-4 border-border/60 shadow-sm" data-testid="card-state-selector">
+      <CardContent className="py-4 px-5">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+              <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Your State</p>
+              <p className="text-xs text-muted-foreground">Select your state for accurate tax estimates</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select
+              value={selectedState}
+              onValueChange={(val) => updateStateMutation.mutate(val)}
+              data-testid="select-state"
+            >
+              <SelectTrigger className="w-[200px]" data-testid="select-state-trigger">
+                <SelectValue placeholder="Select state..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>No State Income Tax</SelectLabel>
+                  {noTaxStates.map(([code, s]) => (
+                    <SelectItem key={code} value={code} data-testid={`option-state-${code}`}>{s.name}</SelectItem>
+                  ))}
+                </SelectGroup>
+                <SelectGroup>
+                  <SelectLabel>Flat Tax States</SelectLabel>
+                  {flatStates.map(([code, s]) => (
+                    <SelectItem key={code} value={code} data-testid={`option-state-${code}`}>{s.name} ({s.rate_2026}%)</SelectItem>
+                  ))}
+                </SelectGroup>
+                <SelectGroup>
+                  <SelectLabel>Graduated / Decoupled Tax States</SelectLabel>
+                  {graduatedStates.map(([code, s]) => (
+                    <SelectItem key={code} value={code} data-testid={`option-state-${code}`}>{s.name} (up to {s.rate_2026}%)</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            {selectedInfo && (
+              <Badge
+                variant="outline"
+                className={`text-[10px] no-default-active-elevate ${
+                  selectedInfo.tax_type === "None"
+                    ? "border-green-400 text-green-700 dark:text-green-300"
+                    : "border-blue-400 text-blue-700 dark:text-blue-300"
+                }`}
+                data-testid="badge-state-tax-type"
+              >
+                {selectedInfo.tax_type === "None"
+                  ? "No State Tax"
+                  : selectedInfo.tax_type === "Flat"
+                  ? `Flat ${selectedInfo.rate_2026}%`
+                  : `Graduated (up to ${selectedInfo.rate_2026}%)`}
+              </Badge>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -640,6 +868,8 @@ export default function Dashboard() {
 
       <AuditRiskBadge />
 
+      <UnderpaymentAlert summary={summary} user={user} />
+
       <PenaltyCountdown />
 
       <ComplianceAlertsBanner />
@@ -746,7 +976,9 @@ export default function Dashboard() {
 
       {isUS && <SmallEarnerGate grossIncome={summary.grossIncome} />}
 
-      {taxModules.showEstimatedTax && <QuarterlyEstimatedTaxCalculator summary={summary} />}
+      {taxModules.showEstimatedTax && <QuarterlyEstimatedTaxCalculator summary={summary} user={user} />}
+
+      {isUS && <StateSelector user={user} />}
 
       <WealthForecast summary={summary} />
 

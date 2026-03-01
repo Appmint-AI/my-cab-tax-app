@@ -28,6 +28,7 @@ import { SiStripe } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+import { useRegion } from "@/hooks/use-region";
 
 interface IncomeSource {
   label: string;
@@ -57,7 +58,11 @@ interface TaxOverviewData {
 }
 
 function formatGBP(amount: number): string {
-  return `£${Math.abs(amount).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `\u00A3${Math.abs(amount).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+function formatUSD(amount: number): string {
+  return `$${Math.abs(amount).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 function IncomeIcon({ type }: { type: string }) {
@@ -78,12 +83,13 @@ function StatusBadge({ status }: { status: string }) {
 export default function TaxOverviewPage() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isUS, isUK, formatCurrency } = useRegion();
   const searchParams = useSearch();
   const params = new URLSearchParams(searchParams);
   const declarationSuccess = params.get("declaration") === "success";
   const declarationCancelled = params.get("declaration") === "cancelled";
 
-  const [selectedTaxYear, setSelectedTaxYear] = useState("2026/27");
+  const [selectedTaxYear, setSelectedTaxYear] = useState(isUS ? "2026" : "2026/27");
   const [showOtherIncome, setShowOtherIncome] = useState(false);
   const [payeInput, setPayeInput] = useState("");
   const [dividendInput, setDividendInput] = useState("");
@@ -148,8 +154,8 @@ export default function TaxOverviewPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tax-overview", selectedTaxYear] });
       toast({
-        title: "Final Declaration Submitted",
-        description: `HMRC Submission ID: ${data.hmrcSubmissionId}`,
+        title: isUS ? "Annual 1040 Prep Submitted" : "Final Declaration Submitted",
+        description: `${isUS ? "IRS" : "HMRC"} Submission ID: ${data.hmrcSubmissionId}`,
       });
       const duration = 3000;
       const end = Date.now() + duration;
@@ -208,7 +214,9 @@ export default function TaxOverviewPage() {
               Tax Year {selectedTaxYear} Summary
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Estimated balance based on England/Wales/NI tax bands. Updates in real-time as you scan receipts.
+              {isUS
+                ? "Estimated balance based on federal + state tax brackets. Updates in real-time as you scan receipts."
+                : "Estimated balance based on England/Wales/NI tax bands. Updates in real-time as you scan receipts."}
             </p>
           </div>
           <Select value={selectedTaxYear} onValueChange={setSelectedTaxYear}>
@@ -216,8 +224,8 @@ export default function TaxOverviewPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="2025/26">2025/26</SelectItem>
-              <SelectItem value="2026/27">2026/27</SelectItem>
+              <SelectItem value={isUS ? "2025" : "2025/26"}>{isUS ? "2025" : "2025/26"}</SelectItem>
+              <SelectItem value={isUS ? "2026" : "2026/27"}>{isUS ? "2026" : "2026/27"}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -301,7 +309,7 @@ export default function TaxOverviewPage() {
             <Card data-testid="card-tax-breakdown">
               <CardHeader>
                 <CardTitle className="text-base">Tax Breakdown</CardTitle>
-                <CardDescription>2026/27 England/Wales/NI tax bands applied</CardDescription>
+                <CardDescription>{isUS ? "2026 Federal + State tax brackets applied" : "2026/27 England/Wales/NI tax bands applied"}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-0.5">
@@ -336,9 +344,13 @@ export default function TaxOverviewPage() {
                       <CheckCircle className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <h2 className="text-2xl font-bold" data-testid="text-declaration-submitted">Tax Year Sealed</h2>
-                    <p className="text-muted-foreground max-w-md mx-auto">Your Final Declaration for {selectedTaxYear} has been submitted to HMRC.</p>
+                    <p className="text-muted-foreground max-w-md mx-auto">
+                      {isUS
+                        ? `Your Annual 1040 Prep for ${selectedTaxYear} has been submitted to the IRS.`
+                        : `Your Final Declaration for ${selectedTaxYear} has been submitted to HMRC.`}
+                    </p>
                     <div className="p-4 rounded-lg bg-muted/50 max-w-sm mx-auto">
-                      <p className="text-xs text-muted-foreground mb-1">HMRC Submission ID</p>
+                      <p className="text-xs text-muted-foreground mb-1">{isUS ? "IRS Submission ID" : "HMRC Submission ID"}</p>
                       <p className="font-mono font-bold text-lg" data-testid="text-hmrc-id">{overview.declaration?.hmrcSubmissionId}</p>
                     </div>
                     <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
@@ -367,7 +379,7 @@ export default function TaxOverviewPage() {
                       ) : (
                         <Rocket className="h-5 w-5 mr-2" />
                       )}
-                      Submit to HMRC
+                      {isUS ? "Submit to IRS" : "Submit to HMRC"}
                     </Button>
                   </div>
                 ) : (
@@ -377,21 +389,28 @@ export default function TaxOverviewPage() {
                         <Shield className="h-7 w-7 text-primary" />
                       </div>
                       <h2 className="text-2xl sm:text-3xl font-bold mb-2" data-testid="text-declaration-title">
-                        The Final Declaration: Seal Your Tax Year
+                        {isUS ? "Annual 1040 Prep: Seal Your Tax Year" : "The Final Declaration: Seal Your Tax Year"}
                       </h2>
                       <p className="text-muted-foreground max-w-lg mx-auto leading-relaxed">
-                        Your 4 Quarterly Updates provided HMRC with a "Live Feed" of your driving business. Now, it's time for the Final Declaration — the legal submission that officially replaces your Self-Assessment.
+                        {isUS
+                          ? "Your quarterly estimated payments kept you on track with the IRS. Now, it's time for the Annual 1040 Prep — the comprehensive return that officially closes your tax year."
+                          : "Your 4 Quarterly Updates provided HMRC with a \"Live Feed\" of your driving business. Now, it's time for the Final Declaration — the legal submission that officially replaces your Self-Assessment."}
                       </p>
                     </div>
 
                     <div className="max-w-lg mx-auto space-y-3">
-                      <h3 className="text-sm font-semibold text-center">What's Included for £29:</h3>
-                      {[
+                      <h3 className="text-sm font-semibold text-center">{isUS ? "What's Included for $35:" : "What's Included for \u00A329:"}</h3>
+                      {(isUS ? [
+                        { icon: CreditCard, title: "Income Consolidation", desc: "We pull in your 1099-K, W-2 wages, and other income sources." },
+                        { icon: Sparkles, title: "Deduction Optimization", desc: "We automatically apply the Standard Deduction ($15,700) and Schedule C business deductions." },
+                        { icon: Shield, title: "Error Shield", desc: "AI-powered cross-check of your quarterly filings to catch any double-entries or missed expenses." },
+                        { icon: FileText, title: "Legal Receipt", desc: "An official IRS submission ID and a \"Tax Year Certificate\" for your records." },
+                      ] : [
                         { icon: CreditCard, title: "Income Consolidation", desc: "We pull in your PAYE employment, pensions, and dividends." },
-                        { icon: Sparkles, title: "Allowance Optimisation", desc: "We automatically apply your £12,570 Personal Allowance and any relevant tax reliefs." },
+                        { icon: Sparkles, title: "Allowance Optimisation", desc: "We automatically apply your \u00A312,570 Personal Allowance and any relevant tax reliefs." },
                         { icon: Shield, title: "Error Shield", desc: "AI-powered cross-check of your 4 quarters to catch any double-entries or missed expenses." },
                         { icon: FileText, title: "Legal Receipt", desc: "An official HMRC submission ID and a \"Tax Year Certificate\" for your records." },
-                      ].map(({ icon: Icon, title, desc }) => (
+                      ]).map(({ icon: Icon, title, desc }) => (
                         <div key={title} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
                           <div className="p-2 rounded-lg bg-primary/10 shrink-0">
                             <Icon className="h-4 w-4 text-primary" />
@@ -417,7 +436,7 @@ export default function TaxOverviewPage() {
                         ) : (
                           <Rocket className="h-5 w-5 mr-2" />
                         )}
-                        Unlock Final Filing — £29.00
+                        {isUS ? "Unlock Annual 1040 Prep — $35.00" : "Unlock Final Filing — \u00A329.00"}
                       </Button>
                       <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                         <Lock className="h-3.5 w-3.5" />
