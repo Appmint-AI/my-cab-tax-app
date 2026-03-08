@@ -6,6 +6,7 @@ import { useRegion } from "@/hooks/use-region";
 import { getSegmentConfig } from "@/lib/segment-config";
 import { SUPPORTED_LANGUAGES } from "@/lib/i18n";
 import { RegionDetector } from "@/components/RegionDetector";
+import { VoiceBookkeeper } from "@/components/VoiceBookkeeper";
 import { 
   LayoutDashboard, 
   Wallet, 
@@ -214,6 +215,7 @@ export function Layout({ children }: LayoutProps) {
           {children}
         </div>
       </main>
+      <VoiceBookkeeper />
     </div>
   );
 }

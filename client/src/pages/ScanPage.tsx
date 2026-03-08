@@ -69,6 +69,9 @@ export default function ScanPage() {
   const [category, setCategory] = useState("Other Expenses");
   const [ocrConfidence, setOcrConfidence] = useState(0);
   const [receiptId, setReceiptId] = useState<number | null>(null);
+  const [subcategory, setSubcategory] = useState("");
+  const [taxDeductible, setTaxDeductible] = useState(false);
+  const [deductibilityReason, setDeductibilityReason] = useState("");
 
   const videoConstraints = {
     facingMode,
@@ -129,6 +132,9 @@ export default function ScanPage() {
     setCategory("Other Expenses");
     setOcrConfidence(0);
     setReceiptId(null);
+    setSubcategory("");
+    setTaxDeductible(false);
+    setDeductibilityReason("");
   };
 
   const processReceipt = async () => {
@@ -143,8 +149,12 @@ export default function ScanPage() {
         setMerchantName(data.ocr.merchantName || "");
         setReceiptDate(data.ocr.date || "");
         setTotalAmount(data.ocr.totalAmount != null ? String(data.ocr.totalAmount) : "");
+        setCategory(data.ocr.scheduleCCategory || data.ocr.category || "Other Expenses");
         setOcrConfidence(data.ocr.confidence);
         setReceiptId(data.receipt.id);
+        setSubcategory(data.ocr.subcategory || "");
+        setTaxDeductible(data.ocr.taxDeductible ?? false);
+        setDeductibilityReason(data.ocr.deductibilityReason || "");
         setStep("review");
       },
       onError: () => {
@@ -387,7 +397,7 @@ export default function ScanPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="category" className="text-xs text-muted-foreground">Expense Category</Label>
+                  <Label htmlFor="category" className="text-xs text-muted-foreground">IRS Schedule C Category</Label>
                   <Select value={category} onValueChange={setCategory}>
                     <SelectTrigger data-testid="select-review-category">
                       <SelectValue />
@@ -401,6 +411,31 @@ export default function ScanPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {subcategory && (
+                  <div className="rounded-md bg-muted/50 p-2.5 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <ScanLine className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs font-medium" data-testid="text-subcategory">AI Classification: {subcategory}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {taxDeductible ? (
+                        <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-green-600" data-testid="badge-deductible">
+                          <ShieldCheck className="h-3 w-3 mr-0.5" /> Tax Deductible
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0" data-testid="badge-not-deductible">
+                          Not Deductible
+                        </Badge>
+                      )}
+                    </div>
+                    {deductibilityReason && (
+                      <p className="text-[11px] text-muted-foreground leading-snug" data-testid="text-deductibility-reason">
+                        {deductibilityReason}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

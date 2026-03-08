@@ -241,5 +241,79 @@
     "ukMonthly": "£17.99 / month",
     "annual1040Prep": "Annual 1040 Prep",
     "finalDeclaration": "Final Declaration"
+  },
+  "ai": {
+    "enhancedOcr": {
+      "subcategory": "Subcategory",
+      "scheduleCCategory": "Schedule C Category",
+      "taxDeductible": "Tax Deductible",
+      "notDeductible": "Not Deductible",
+      "deductibilityReason": "Deductibility Reasoning",
+      "aiClassification": "AI Classification"
+    },
+    "statementParser": {
+      "title": "Parse Earnings Statement",
+      "uploadPdf": "Upload PDF Statement",
+      "dragDrop": "Drag & drop your PDF earnings statement here",
+      "parsing": "Parsing statement with AI...",
+      "results": "Parsed Earnings",
+      "importAll": "Import All",
+      "importing": "Importing...",
+      "gross": "Gross",
+      "fees": "Fees",
+      "tips": "Tips",
+      "net": "Net",
+      "period": "Period",
+      "proOnly": "Pro feature — upgrade to parse statements"
+    },
+    "voice": {
+      "title": "Voice Bookkeeping",
+      "listening": "Listening...",
+      "processing": "Processing...",
+      "tapToSpeak": "Tap to speak",
+      "confirmEntry": "Confirm Entry",
+      "parsedAs": "Parsed as",
+      "incomeEntry": "Income Entry",
+      "expenseEntry": "Expense Entry",
+      "speechNotSupported": "Speech recognition is not supported in your browser"
+    },
+    "anomalies": {
+      "title": "Spending Anomalies",
+      "unusual": "Unusual {{category}} Expense",
+      "aboveAverage": "{{amount}} is significantly above your {{category}} average of {{average}}",
+      "dismiss": "Dismiss",
+      "confirmed": "Confirmed"
+    },
+    "maintenance": {
+      "title": "Maintenance Alerts",
+      "serviceRecommended": "{{vehicle}} — Service Recommended",
+      "milesSinceService": "{{miles}} miles since last service",
+      "predictedNext": "Next service predicted around {{date}}",
+      "avgCost": "Avg service cost: {{cost}}"
+    },
+    "heatmap": {
+      "title": "Profitability Heatmap",
+      "bestDay": "Best Day",
+      "worstDay": "Worst Day",
+      "totalEarnings": "Total Earnings",
+      "avgPerTrip": "Avg per Trip",
+      "trips": "Trips",
+      "noData": "Not enough income data for heatmap analysis"
+    },
+    "goalTracker": {
+      "title": "Annual Goal Progress",
+      "setGoal": "Set Your Annual Earnings Goal",
+      "setGoalDesc": "Track your progress and get daily targets",
+      "setButton": "Set Goal",
+      "saveButton": "Save",
+      "cancelButton": "Cancel",
+      "editButton": "Edit",
+      "neededPerDay": "needed per day",
+      "daysRemaining": "days remaining",
+      "onTrack": "You're on track",
+      "slightlyBehind": "Slightly behind — pick up the pace",
+      "fallingBehind": "Falling behind — consider extra shifts",
+      "goalReached": "You've reached your goal!"
+    }
   }
 }

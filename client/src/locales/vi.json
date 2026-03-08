@@ -241,5 +241,79 @@
     "ukMonthly": "£17.99 / tháng",
     "annual1040Prep": "Chuẩn bị 1040 hàng năm",
     "finalDeclaration": "Khai báo cuối cùng"
+  },
+  "ai": {
+    "enhancedOcr": {
+      "subcategory": "Danh mục phụ",
+      "scheduleCCategory": "Danh mục Schedule C",
+      "taxDeductible": "Được khấu trừ thuế",
+      "notDeductible": "Không được khấu trừ",
+      "deductibilityReason": "Lý do khấu trừ",
+      "aiClassification": "Phân loại AI"
+    },
+    "statementParser": {
+      "title": "Phân tích bảng lương",
+      "uploadPdf": "Tải lên bảng lương PDF",
+      "dragDrop": "Kéo và thả bảng lương PDF của bạn vào đây",
+      "parsing": "Đang phân tích bảng lương bằng AI...",
+      "results": "Thu nhập đã phân tích",
+      "importAll": "Nhập tất cả",
+      "importing": "Đang nhập...",
+      "gross": "Tổng",
+      "fees": "Phí",
+      "tips": "Tiền tip",
+      "net": "Ròng",
+      "period": "Kỳ",
+      "proOnly": "Tính năng Pro — nâng cấp để phân tích bảng lương"
+    },
+    "voice": {
+      "title": "Kế toán giọng nói",
+      "listening": "Đang nghe...",
+      "processing": "Đang xử lý...",
+      "tapToSpeak": "Nhấn để nói",
+      "confirmEntry": "Xác nhận mục",
+      "parsedAs": "Phân tích thành",
+      "incomeEntry": "Mục thu nhập",
+      "expenseEntry": "Mục chi phí",
+      "speechNotSupported": "Nhận dạng giọng nói không được hỗ trợ trong trình duyệt của bạn"
+    },
+    "anomalies": {
+      "title": "Bất thường chi tiêu",
+      "unusual": "Chi phí {{category}} bất thường",
+      "aboveAverage": "{{amount}} cao hơn đáng kể so với mức trung bình {{category}} của bạn là {{average}}",
+      "dismiss": "Bỏ qua",
+      "confirmed": "Đã xác nhận"
+    },
+    "maintenance": {
+      "title": "Cảnh báo bảo trì",
+      "serviceRecommended": "{{vehicle}} — Nên bảo dưỡng",
+      "milesSinceService": "{{miles}} dặm kể từ lần bảo dưỡng cuối",
+      "predictedNext": "Lần bảo dưỡng tiếp theo dự kiến khoảng {{date}}",
+      "avgCost": "Chi phí bảo dưỡng trung bình: {{cost}}"
+    },
+    "heatmap": {
+      "title": "Bản đồ nhiệt lợi nhuận",
+      "bestDay": "Ngày tốt nhất",
+      "worstDay": "Ngày tệ nhất",
+      "totalEarnings": "Tổng thu nhập",
+      "avgPerTrip": "TB mỗi chuyến",
+      "trips": "Chuyến",
+      "noData": "Không đủ dữ liệu thu nhập để phân tích bản đồ nhiệt"
+    },
+    "goalTracker": {
+      "title": "Tiến độ mục tiêu năm",
+      "setGoal": "Đặt mục tiêu thu nhập hàng năm",
+      "setGoalDesc": "Theo dõi tiến độ và nhận mục tiêu hàng ngày",
+      "setButton": "Đặt mục tiêu",
+      "saveButton": "Lưu",
+      "cancelButton": "Hủy",
+      "editButton": "Sửa",
+      "neededPerDay": "cần mỗi ngày",
+      "daysRemaining": "ngày còn lại",
+      "onTrack": "Bạn đang đi đúng hướng",
+      "slightlyBehind": "Hơi chậm — tăng tốc thêm",
+      "fallingBehind": "Đang tụt lại — hãy cân nhắc thêm ca",
+      "goalReached": "Bạn đã đạt mục tiêu!"
+    }
   }
 }

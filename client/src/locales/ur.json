@@ -241,5 +241,79 @@
     "ukMonthly": "£17.99 / ماہ",
     "annual1040Prep": "سالانہ 1040 تیاری",
     "finalDeclaration": "حتمی اعلان"
+  },
+  "ai": {
+    "enhancedOcr": {
+      "subcategory": "ذیلی زمرہ",
+      "scheduleCCategory": "شیڈول C زمرہ",
+      "taxDeductible": "ٹیکس قابل کٹوتی",
+      "notDeductible": "قابل کٹوتی نہیں",
+      "deductibilityReason": "کٹوتی کی وجہ",
+      "aiClassification": "AI درجہ بندی"
+    },
+    "statementParser": {
+      "title": "آمدنی بیان تجزیہ",
+      "uploadPdf": "PDF بیان اپ لوڈ کریں",
+      "dragDrop": "اپنا PDF آمدنی بیان یہاں ڈراپ کریں",
+      "parsing": "AI سے بیان تجزیہ ہو رہا ہے...",
+      "results": "تجزیہ شدہ آمدنی",
+      "importAll": "سب درآمد کریں",
+      "importing": "درآمد ہو رہا ہے...",
+      "gross": "مجموعی",
+      "fees": "فیس",
+      "tips": "ٹپس",
+      "net": "خالص",
+      "period": "مدت",
+      "proOnly": "پرو فیچر — بیانات تجزیہ کرنے کے لیے اپ گریڈ کریں"
+    },
+    "voice": {
+      "title": "وائس بک کیپنگ",
+      "listening": "سن رہا ہے...",
+      "processing": "پروسیسنگ...",
+      "tapToSpeak": "بولنے کے لیے ٹیپ کریں",
+      "confirmEntry": "اندراج کی تصدیق",
+      "parsedAs": "تجزیہ شدہ",
+      "incomeEntry": "آمدنی اندراج",
+      "expenseEntry": "خرچ اندراج",
+      "speechNotSupported": "آپ کے براؤزر میں تقریر کی شناخت دستیاب نہیں ہے"
+    },
+    "anomalies": {
+      "title": "خرچ کی بے ضابطگیاں",
+      "unusual": "غیر معمولی {{category}} خرچ",
+      "aboveAverage": "{{amount}} آپ کی {{category}} اوسط {{average}} سے نمایاں طور پر زیادہ ہے",
+      "dismiss": "خارج کریں",
+      "confirmed": "تصدیق شدہ"
+    },
+    "maintenance": {
+      "title": "دیکھ بھال الرٹس",
+      "serviceRecommended": "{{vehicle}} — سروس تجویز کردہ",
+      "milesSinceService": "آخری سروس سے {{miles}} میل",
+      "predictedNext": "اگلی سروس {{date}} کے قریب متوقع",
+      "avgCost": "اوسط سروس لاگت: {{cost}}"
+    },
+    "heatmap": {
+      "title": "منافع ہیٹ میپ",
+      "bestDay": "بہترین دن",
+      "worstDay": "بدترین دن",
+      "totalEarnings": "کل آمدنی",
+      "avgPerTrip": "فی سفر اوسط",
+      "trips": "سفر",
+      "noData": "ہیٹ میپ تجزیہ کے لیے کافی آمدنی ڈیٹا نہیں"
+    },
+    "goalTracker": {
+      "title": "سالانہ ہدف پیشرفت",
+      "setGoal": "اپنا سالانہ آمدنی ہدف مقرر کریں",
+      "setGoalDesc": "اپنی پیشرفت ٹریک کریں اور روزانہ اہداف حاصل کریں",
+      "setButton": "ہدف مقرر کریں",
+      "saveButton": "محفوظ کریں",
+      "cancelButton": "منسوخ",
+      "editButton": "ترمیم",
+      "neededPerDay": "روزانہ ضرورت",
+      "daysRemaining": "دن باقی",
+      "onTrack": "آپ صحیح راستے پر ہیں",
+      "slightlyBehind": "قدرے پیچھے — رفتار بڑھائیں",
+      "fallingBehind": "پیچھے رہ رہے ہیں — اضافی شفٹیں لگائیں",
+      "goalReached": "آپ نے اپنا ہدف حاصل کر لیا!"
+    }
   }
 }

@@ -3376,6 +3376,367 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
     }
   });
 
+  const statementUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype === "application/pdf" || file.originalname?.endsWith(".pdf")) {
+        cb(null, true);
+      } else {
+        cb(new Error("Only PDF files are allowed"));
+      }
+    },
+  });
+
+  app.post("/api/parse-statement", isAuthenticated, statementUpload.single("statement"), async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ message: "No PDF uploaded" });
+      }
+      const user = await storage.getUser(userId);
+      const isPro = user?.subscriptionStatus === "pro" || user?.isVip === true;
+      if (!isPro) {
+        return res.status(403).json({ message: "Statement Parsing requires a Pro subscription." });
+      }
+
+      let pdfText = "";
+      try {
+        const pdfParse = (await import("pdf-parse")).default;
+        const pdfData = await pdfParse(file.buffer);
+        pdfText = pdfData.text;
+      } catch {
+        pdfText = file.buffer.toString("utf-8").replace(/[^\x20-\x7E\n\r\t]/g, " ");
+      }
+
+      if (!pdfText || pdfText.trim().length < 20) {
+        return res.status(400).json({ message: "Could not extract text from this PDF. It may be image-based." });
+      }
+
+      const { ai } = await import("./replit_integrations/image/client");
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-05-20",
+        contents: [{
+          role: "user",
+          parts: [{
+            text: `You are an expert earnings statement parser for rideshare and gig economy drivers. Parse the following earnings statement text and extract individual earnings entries.
+
+Return ONLY a valid JSON object (no markdown, no code blocks):
+{
+  "platform": "string - the platform name (Uber, Lyft, DoorDash, etc.)",
+  "periodStart": "string - YYYY-MM-DD or empty",
+  "periodEnd": "string - YYYY-MM-DD or empty",
+  "entries": [
+    {
+      "date": "string - YYYY-MM-DD",
+      "grossEarnings": number,
+      "platformFees": number,
+      "tips": number,
+      "netPayout": number,
+      "description": "string - trip summary or period label"
+    }
+  ],
+  "totals": {
+    "grossEarnings": number,
+    "platformFees": number,
+    "tips": number,
+    "netPayout": number
+  }
+}
+
+Rules:
+- Extract every line item that represents an earnings entry
+- If only totals/summary are available, create a single entry with those totals
+- Dates should be YYYY-MM-DD format
+- All amounts should be positive numbers
+- Tips should be separated from gross earnings where possible
+- Platform fees are commissions/service fees deducted by the platform
+
+Statement text:
+${pdfText.substring(0, 15000)}`
+          }]
+        }]
+      });
+
+      const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+
+      res.json(parsed);
+    } catch (err: any) {
+      console.error("Statement parse error:", err);
+      res.status(500).json({ message: err.message || "Failed to parse statement" });
+    }
+  });
+
+  app.post("/api/voice-entry", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { transcript } = req.body;
+      if (!transcript || typeof transcript !== "string" || transcript.trim().length < 3) {
+        return res.status(400).json({ message: "No transcript provided" });
+      }
+
+      const { ai } = await import("./replit_integrations/image/client");
+      const today = new Date().toISOString().split("T")[0];
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-05-20",
+        contents: [{
+          role: "user",
+          parts: [{
+            text: `You are a bookkeeping assistant for rideshare/cab drivers. Parse the following voice command into a structured financial entry.
+
+Return ONLY a valid JSON object (no markdown):
+{
+  "type": "income" or "expense",
+  "amount": number - the dollar amount mentioned,
+  "description": "string - brief description of the transaction",
+  "category": "string - for expenses use one of: Car and Truck Expenses, Commissions and Fees, Insurance, Interest, Legal and Professional Services, Office Expense, Other Expenses. For income use the source platform name or 'Tips'",
+  "date": "string - YYYY-MM-DD, default to ${today} if no date mentioned",
+  "source": "string - for income: Uber, Lyft, DoorDash, Tips, Cash, Other. For expenses: empty string",
+  "isTips": boolean - true if this is about tips/gratuities,
+  "confidence": number 0-100 - how confident you are in the parsing
+}
+
+Rules:
+- "spent", "paid", "bought", "cost" indicate an expense
+- "earned", "made", "got paid", "received", "tip" indicate income
+- If unclear, default to expense
+- Extract the dollar amount from natural speech
+- "gas", "fuel", "petrol" = Car and Truck Expenses
+- "oil change", "repair", "maintenance", "tires" = Car and Truck Expenses
+- "insurance" = Insurance
+- "phone bill", "phone plan" = Office Expense
+
+Voice command: "${transcript.substring(0, 500)}"`,
+          }]
+        }]
+      });
+
+      const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+
+      res.json({
+        type: parsed.type === "income" ? "income" : "expense",
+        amount: Math.abs(Number(parsed.amount) || 0),
+        description: String(parsed.description || ""),
+        category: String(parsed.category || "Other Expenses"),
+        date: String(parsed.date || today),
+        source: String(parsed.source || ""),
+        isTips: parsed.isTips === true,
+        confidence: Math.min(100, Math.max(0, Number(parsed.confidence) || 0)),
+      });
+    } catch (err: any) {
+      console.error("Voice entry parse error:", err);
+      res.status(500).json({ message: err.message || "Failed to parse voice command" });
+    }
+  });
+
+  app.get("/api/spending-anomalies", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const expenses = await storage.getExpenses(userId);
+
+      if (expenses.length < 5) {
+        return res.json({ anomalies: [], message: "Not enough data for analysis" });
+      }
+
+      const categoryGroups: Record<string, number[]> = {};
+      for (const exp of expenses) {
+        const cat = exp.category || "Other";
+        if (!categoryGroups[cat]) categoryGroups[cat] = [];
+        categoryGroups[cat].push(Number(exp.amount));
+      }
+
+      const anomalies: Array<{
+        id: number;
+        date: string;
+        amount: number;
+        category: string;
+        description: string | null;
+        average: number;
+        stdDev: number;
+        zScore: number;
+      }> = [];
+
+      for (const [cat, amounts] of Object.entries(categoryGroups)) {
+        if (amounts.length < 3) continue;
+        const mean = amounts.reduce((a, b) => a + b, 0) / amounts.length;
+        const variance = amounts.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / amounts.length;
+        const stdDev = Math.sqrt(variance);
+        if (stdDev < 1) continue;
+
+        for (const exp of expenses) {
+          if ((exp.category || "Other") !== cat) continue;
+          const amt = Number(exp.amount);
+          const zScore = (amt - mean) / stdDev;
+          if (zScore > 2) {
+            anomalies.push({
+              id: exp.id,
+              date: exp.date,
+              amount: amt,
+              category: cat,
+              description: exp.description,
+              average: Math.round(mean * 100) / 100,
+              stdDev: Math.round(stdDev * 100) / 100,
+              zScore: Math.round(zScore * 100) / 100,
+            });
+          }
+        }
+      }
+
+      anomalies.sort((a, b) => b.zScore - a.zScore);
+      res.json({ anomalies: anomalies.slice(0, 10) });
+    } catch (err: any) {
+      console.error("Anomaly detection error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/maintenance-predictions", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const vehicles = await storage.getVehicles(userId);
+      const mileageLogs = await storage.getMileageLogs(userId);
+      const expenses = await storage.getExpenses(userId);
+
+      const maintenanceExpenses = expenses.filter(
+        (e) => e.category === "Maintenance" || e.category === "Car and Truck Expenses"
+      );
+
+      const predictions = vehicles.map((vehicle) => {
+        const vehicleMiles = mileageLogs
+          .filter((m) => m.vehicleId === vehicle.id)
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        const vehicleMaint = maintenanceExpenses
+          .filter((e) => e.vehicleId === vehicle.id)
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        const totalMiles = vehicleMiles.reduce((sum, m) => sum + Number(m.totalMiles || 0), 0);
+
+        const lastMaintenanceDate = vehicleMaint[0]?.date || null;
+        let milesSinceLastService = totalMiles;
+
+        if (lastMaintenanceDate) {
+          const lastMaintTime = new Date(lastMaintenanceDate).getTime();
+          milesSinceLastService = vehicleMiles
+            .filter((m) => new Date(m.date).getTime() > lastMaintTime)
+            .reduce((sum, m) => sum + Number(m.totalMiles || 0), 0);
+        }
+
+        const maintenanceIntervals: number[] = [];
+        for (let i = 1; i < vehicleMaint.length; i++) {
+          const days = Math.abs(
+            new Date(vehicleMaint[i - 1].date).getTime() - new Date(vehicleMaint[i].date).getTime()
+          ) / (1000 * 60 * 60 * 24);
+          maintenanceIntervals.push(days);
+        }
+        const avgIntervalDays = maintenanceIntervals.length > 0
+          ? Math.round(maintenanceIntervals.reduce((a, b) => a + b, 0) / maintenanceIntervals.length)
+          : 90;
+
+        let predictedNextServiceDate: string | null = null;
+        if (lastMaintenanceDate) {
+          const nextDate = new Date(lastMaintenanceDate);
+          nextDate.setDate(nextDate.getDate() + avgIntervalDays);
+          predictedNextServiceDate = nextDate.toISOString().split("T")[0];
+        }
+
+        const needsService = milesSinceLastService > 5000;
+        const avgMaintenanceCost = vehicleMaint.length > 0
+          ? Math.round(vehicleMaint.reduce((sum, e) => sum + Number(e.amount), 0) / vehicleMaint.length * 100) / 100
+          : 0;
+
+        return {
+          vehicleId: vehicle.id,
+          vehicleName: vehicle.name || `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+          totalMiles,
+          milesSinceLastService,
+          lastMaintenanceDate,
+          avgIntervalDays,
+          predictedNextServiceDate,
+          needsService,
+          avgMaintenanceCost,
+          maintenanceCount: vehicleMaint.length,
+        };
+      });
+
+      res.json({ predictions });
+    } catch (err: any) {
+      console.error("Maintenance prediction error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/profitability-heatmap", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const incomes = await storage.getIncomes(userId);
+
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const dayData: Record<string, { total: number; count: number; tips: number }> = {};
+      for (const day of dayNames) {
+        dayData[day] = { total: 0, count: 0, tips: 0 };
+      }
+
+      for (const income of incomes) {
+        const d = new Date(income.date);
+        const dayName = dayNames[d.getDay()];
+        dayData[dayName].total += Number(income.amount || 0);
+        dayData[dayName].count += 1;
+        if (income.isTips) {
+          dayData[dayName].tips += Number(income.amount || 0);
+        }
+      }
+
+      const heatmap = dayNames.map((day) => ({
+        day,
+        totalEarnings: Math.round(dayData[day].total * 100) / 100,
+        tripCount: dayData[day].count,
+        averagePerTrip: dayData[day].count > 0
+          ? Math.round((dayData[day].total / dayData[day].count) * 100) / 100
+          : 0,
+        tips: Math.round(dayData[day].tips * 100) / 100,
+      }));
+
+      const best = heatmap.reduce((a, b) => (a.totalEarnings > b.totalEarnings ? a : b));
+      const worst = heatmap.reduce((a, b) => (a.totalEarnings < b.totalEarnings ? a : b));
+
+      let insight = "";
+      if (best.totalEarnings > 0 && worst.totalEarnings > 0 && best.day !== worst.day) {
+        const pctMore = Math.round(((best.totalEarnings - worst.totalEarnings) / worst.totalEarnings) * 100);
+        insight = `Your ${best.day} shifts earn ${pctMore}% more than your ${worst.day} shifts`;
+      }
+
+      res.json({ heatmap, bestDay: best.day, worstDay: worst.day, insight });
+    } catch (err: any) {
+      console.error("Heatmap error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/earnings-goal", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { goal } = req.body;
+      if (goal === undefined || goal === null) {
+        return res.status(400).json({ message: "Goal amount is required" });
+      }
+      const goalNum = Number(goal);
+      if (isNaN(goalNum) || goalNum < 0) {
+        return res.status(400).json({ message: "Goal must be a positive number" });
+      }
+      await db.update(users).set({ earningsGoal: String(goalNum) }).where(eq(users.id, userId));
+      res.json({ success: true, earningsGoal: goalNum });
+    } catch (err: any) {
+      console.error("Earnings goal error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   return httpServer;
 }
 

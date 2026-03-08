@@ -241,5 +241,79 @@
     "ukMonthly": "£17.99 / شهر",
     "annual1040Prep": "إعداد 1040 السنوي",
     "finalDeclaration": "الإقرار النهائي"
+  },
+  "ai": {
+    "enhancedOcr": {
+      "subcategory": "فئة فرعية",
+      "scheduleCCategory": "فئة الجدول C",
+      "taxDeductible": "قابل للخصم الضريبي",
+      "notDeductible": "غير قابل للخصم",
+      "deductibilityReason": "سبب قابلية الخصم",
+      "aiClassification": "تصنيف الذكاء الاصطناعي"
+    },
+    "statementParser": {
+      "title": "تحليل كشف الأرباح",
+      "uploadPdf": "رفع كشف PDF",
+      "dragDrop": "اسحب وأفلت كشف أرباحك بصيغة PDF هنا",
+      "parsing": "جاري تحليل الكشف بالذكاء الاصطناعي...",
+      "results": "الأرباح المحللة",
+      "importAll": "استيراد الكل",
+      "importing": "جاري الاستيراد...",
+      "gross": "إجمالي",
+      "fees": "رسوم",
+      "tips": "إكراميات",
+      "net": "صافي",
+      "period": "الفترة",
+      "proOnly": "ميزة احترافية — قم بالترقية لتحليل الكشوفات"
+    },
+    "voice": {
+      "title": "محاسبة صوتية",
+      "listening": "جاري الاستماع...",
+      "processing": "جاري المعالجة...",
+      "tapToSpeak": "انقر للتحدث",
+      "confirmEntry": "تأكيد الإدخال",
+      "parsedAs": "تم التحليل كـ",
+      "incomeEntry": "إدخال دخل",
+      "expenseEntry": "إدخال مصروف",
+      "speechNotSupported": "التعرف على الكلام غير مدعوم في متصفحك"
+    },
+    "anomalies": {
+      "title": "شذوذ الإنفاق",
+      "unusual": "مصروف {{category}} غير عادي",
+      "aboveAverage": "{{amount}} أعلى بشكل ملحوظ من متوسط {{category}} الخاص بك وهو {{average}}",
+      "dismiss": "تجاهل",
+      "confirmed": "مؤكد"
+    },
+    "maintenance": {
+      "title": "تنبيهات الصيانة",
+      "serviceRecommended": "{{vehicle}} — يُوصى بالصيانة",
+      "milesSinceService": "{{miles}} ميل منذ آخر صيانة",
+      "predictedNext": "الصيانة التالية متوقعة حوالي {{date}}",
+      "avgCost": "متوسط تكلفة الصيانة: {{cost}}"
+    },
+    "heatmap": {
+      "title": "خريطة الربحية الحرارية",
+      "bestDay": "أفضل يوم",
+      "worstDay": "أسوأ يوم",
+      "totalEarnings": "إجمالي الأرباح",
+      "avgPerTrip": "المتوسط لكل رحلة",
+      "trips": "رحلات",
+      "noData": "لا توجد بيانات دخل كافية لتحليل الخريطة الحرارية"
+    },
+    "goalTracker": {
+      "title": "تقدم الهدف السنوي",
+      "setGoal": "حدد هدف أرباحك السنوي",
+      "setGoalDesc": "تتبع تقدمك واحصل على أهداف يومية",
+      "setButton": "تحديد الهدف",
+      "saveButton": "حفظ",
+      "cancelButton": "إلغاء",
+      "editButton": "تعديل",
+      "neededPerDay": "مطلوب يومياً",
+      "daysRemaining": "أيام متبقية",
+      "onTrack": "أنت على المسار الصحيح",
+      "slightlyBehind": "متأخر قليلاً — زد من وتيرتك",
+      "fallingBehind": "متأخر — فكر في نوبات إضافية",
+      "goalReached": "لقد حققت هدفك!"
+    }
   }
 }

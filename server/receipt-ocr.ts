@@ -78,6 +78,10 @@ export interface ReceiptOcrResult {
   totalAmount: number | null;
   vatAmount: number | null;
   category: string;
+  subcategory: string;
+  scheduleCCategory: string;
+  taxDeductible: boolean;
+  deductibilityReason: string;
   confidence: number;
   rawText: string;
   items: Array<{ description: string; amount: number }>;
@@ -99,15 +103,19 @@ export async function scanReceiptWithAI(imageBuffer: Buffer, mimeType: string): 
             },
           },
           {
-            text: `You are an expert receipt OCR system for a tax compliance app used by UK rideshare/cab drivers. Analyze this receipt image and extract the following information.
+            text: `You are an expert receipt OCR system for a tax compliance app used by US and UK rideshare/cab drivers. Analyze this receipt image and extract the following information.
 
 Return ONLY a valid JSON object with exactly these fields (no markdown, no code blocks, no explanation):
 {
   "merchantName": "string - the store/business name",
   "date": "string - receipt date in YYYY-MM-DD format, or empty string if not found",
   "totalAmount": number or null - the total/grand total amount as a decimal number,
-  "vatAmount": number or null - the VAT/tax amount if shown separately on the receipt,
+  "vatAmount": number or null - the VAT/tax/sales tax amount if shown separately on the receipt,
   "category": "string - best-fit expense category from: Fuel, Insurance, Maintenance, Car Wash, Tolls, Phone, Parking, Office Supplies, Professional Services, Meals, Other",
+  "subcategory": "string - more granular classification (e.g. 'Engine Oil Change', 'Premium Unleaded', 'Liability Insurance', 'Brake Pads')",
+  "scheduleCCategory": "string - IRS Schedule C category from: Car and Truck Expenses, Commissions and Fees, Home Office, Insurance, Interest, Legal and Professional Services, Office Expense, Property Tax (SALT), Other Expenses",
+  "taxDeductible": boolean - whether this expense is likely tax-deductible for a self-employed driver,
+  "deductibilityReason": "string - brief explanation of why this is or isn't deductible (e.g. 'Fuel for business vehicle is deductible under Car and Truck Expenses' or 'Personal meals are not deductible unless for business entertainment')",
   "confidence": number - your confidence in the extraction accuracy from 0-100,
   "rawText": "string - all readable text from the receipt",
   "items": [{"description": "string", "amount": number}] - individual line items if visible
@@ -117,7 +125,9 @@ Important rules:
 - For totalAmount, look for "Total", "Grand Total", "Amount Due", "Balance" labels
 - If multiple totals exist, use the largest one (usually the grand total)
 - For vatAmount, look for "VAT", "Tax", "GST", or "Sales Tax" lines
-- For category, infer from the merchant name and items (e.g., BP/Shell = Fuel, Halfords = Maintenance, EE/Vodafone = Phone)
+- For category, infer from the merchant name and items (e.g., BP/Shell/Exxon/Chevron = Fuel, AutoZone/Halfords = Maintenance, EE/Vodafone/T-Mobile = Phone)
+- For scheduleCCategory, map the category to the correct IRS Schedule C line item
+- For taxDeductible, consider whether a self-employed rideshare/cab driver could deduct this expense
 - Dates should be converted to YYYY-MM-DD format
 - confidence should reflect how clearly you can read the receipt
 - If you cannot determine a field, use empty string for strings or null for numbers
@@ -140,6 +150,10 @@ Important rules:
       totalAmount: parsed.totalAmount != null ? Number(parsed.totalAmount) : null,
       vatAmount: parsed.vatAmount != null ? Number(parsed.vatAmount) : null,
       category: String(parsed.category || "Other"),
+      subcategory: String(parsed.subcategory || ""),
+      scheduleCCategory: String(parsed.scheduleCCategory || "Other Expenses"),
+      taxDeductible: parsed.taxDeductible === true,
+      deductibilityReason: String(parsed.deductibilityReason || ""),
       confidence: Math.min(100, Math.max(0, Number(parsed.confidence) || 0)),
       rawText: String(parsed.rawText || ""),
       items: Array.isArray(parsed.items) ? parsed.items.map((item: any) => ({
@@ -155,6 +169,10 @@ Important rules:
       totalAmount: null,
       vatAmount: null,
       category: "Other",
+      subcategory: "",
+      scheduleCCategory: "Other Expenses",
+      taxDeductible: false,
+      deductibilityReason: "",
       confidence: 0,
       rawText: text,
       items: [],

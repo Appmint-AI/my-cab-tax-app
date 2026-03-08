@@ -9,7 +9,9 @@ import { ExpenseForm } from "@/components/forms/ExpenseForm";
 import { Form1099K } from "@/components/forms/Form1099K";
 import { AutoGrossForm } from "@/components/forms/AutoGrossForm";
 import { ReceiptCapture } from "@/components/ReceiptCapture";
+import { StatementParser } from "@/components/StatementParser";
 import { DashboardCharts } from "@/components/DashboardCharts";
+import { ProfitabilityHeatmap } from "@/components/ProfitabilityHeatmap";
 import { useMileageLogs } from "@/hooks/use-mileage-logs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -31,7 +33,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info, Send, CheckCircle2, XCircle, Lock, Gauge, MapPin, Bell, Radio, X, RefreshCw, ExternalLink, Lightbulb } from "lucide-react";
+import { DollarSign, Wallet, TrendingDown, FileText, Car, Calendar, Download, AlertTriangle, Shield, Clock, Loader2, Info, Send, CheckCircle2, XCircle, Lock, Gauge, MapPin, Bell, Radio, X, RefreshCw, ExternalLink, Lightbulb, Wrench, Target, TrendingUp, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { Link } from "wouter";
@@ -790,6 +792,264 @@ function WealthForecast({ summary }: { summary: TaxSummary }) {
   );
 }
 
+function SpendingAnomalies() {
+  const { t } = useTranslation();
+  const { formatCurrency } = useRegion();
+  const [dismissed, setDismissed] = useState<Set<number>>(new Set());
+
+  const { data, isLoading } = useQuery<{
+    anomalies: Array<{
+      id: number;
+      date: string;
+      amount: number;
+      category: string;
+      description: string | null;
+      average: number;
+      stdDev: number;
+      zScore: number;
+    }>;
+    message?: string;
+  }>({
+    queryKey: ["/api/spending-anomalies"],
+  });
+
+  const anomalies = data?.anomalies?.filter((a) => !dismissed.has(a.id)) || [];
+
+  if (isLoading || anomalies.length === 0) return null;
+
+  return (
+    <div className="space-y-2" data-testid="spending-anomalies">
+      {anomalies.map((a) => (
+        <Alert key={a.id} className="border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-sm font-medium text-amber-800 dark:text-amber-300">
+            Unusual {a.category} Expense
+          </AlertTitle>
+          <AlertDescription className="text-xs text-amber-700 dark:text-amber-400 flex items-center justify-between">
+            <span>
+              {a.description ? `"${a.description}" — ` : ""}
+              {formatCurrency(a.amount)} is significantly above your {a.category} average of {formatCurrency(a.average)}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-2 h-6 px-2 text-xs"
+              data-testid={`button-dismiss-anomaly-${a.id}`}
+              onClick={() => setDismissed((prev) => new Set(prev).add(a.id))}
+            >
+              <X className="h-3 w-3 mr-1" /> Dismiss
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ))}
+    </div>
+  );
+}
+
+function GoalTracker({ summary, user }: { summary: TaxSummary; user: User | null }) {
+  const { formatCurrency, currencySymbol } = useRegion();
+  const [goalInput, setGoalInput] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+
+  const currentGoal = user?.earningsGoal ? Number(user.earningsGoal) : 0;
+  const ytdEarnings = summary.grossIncome;
+  const progress = currentGoal > 0 ? Math.min((ytdEarnings / currentGoal) * 100, 100) : 0;
+
+  const now = new Date();
+  const endOfYear = new Date(now.getFullYear(), 11, 31);
+  const daysRemaining = Math.max(1, differenceInDays(endOfYear, now));
+  const remaining = Math.max(0, currentGoal - ytdEarnings);
+  const dailyRate = remaining / daysRemaining;
+
+  const avgDailyEarnings = ytdEarnings / Math.max(1, differenceInDays(now, new Date(now.getFullYear(), 0, 1)));
+  const estimatedHoursPerDay = avgDailyEarnings > 0 ? (dailyRate / avgDailyEarnings) * 8 : 0;
+
+  const goalMutation = useMutation({
+    mutationFn: async (goal: number) => {
+      await apiRequest("PATCH", "/api/earnings-goal", { goal });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setIsEditing(false);
+    },
+  });
+
+  const handleSetGoal = () => {
+    const num = Number(goalInput);
+    if (!isNaN(num) && num > 0) {
+      goalMutation.mutate(num);
+    }
+  };
+
+  let statusColor = "text-blue-600 dark:text-blue-400";
+  let statusMessage = "";
+  if (currentGoal > 0) {
+    if (progress >= 100) {
+      statusColor = "text-green-600 dark:text-green-400";
+      statusMessage = "You've reached your goal!";
+    } else if (dailyRate <= avgDailyEarnings * 1.1) {
+      statusColor = "text-green-600 dark:text-green-400";
+      statusMessage = "You're on track";
+    } else if (dailyRate <= avgDailyEarnings * 1.5) {
+      statusColor = "text-amber-600 dark:text-amber-400";
+      statusMessage = "Slightly behind — pick up the pace";
+    } else {
+      statusColor = "text-red-600 dark:text-red-400";
+      statusMessage = "Falling behind — consider extra shifts";
+    }
+  }
+
+  if (!currentGoal && !isEditing) {
+    return (
+      <Card className="border-dashed border-2 border-primary/30" data-testid="card-set-goal">
+        <CardContent className="flex items-center justify-between py-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-full bg-primary/10">
+              <Target className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-medium text-sm">Set Your Annual Earnings Goal</p>
+              <p className="text-xs text-muted-foreground">Track your progress and get daily targets</p>
+            </div>
+          </div>
+          <Button size="sm" onClick={() => setIsEditing(true)} data-testid="button-set-goal">
+            Set Goal
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isEditing || (!currentGoal && isEditing)) {
+    return (
+      <Card data-testid="card-edit-goal">
+        <CardContent className="py-4">
+          <div className="flex items-center gap-3">
+            <Target className="h-5 w-5 text-primary" />
+            <p className="font-medium text-sm">Annual Earnings Goal</p>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">{currencySymbol}</span>
+              <Input
+                type="number"
+                placeholder="e.g. 50000"
+                value={goalInput}
+                onChange={(e) => setGoalInput(e.target.value)}
+                className="pl-7"
+                data-testid="input-goal-amount"
+              />
+            </div>
+            <Button onClick={handleSetGoal} disabled={goalMutation.isPending} data-testid="button-save-goal">
+              {goalMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+            </Button>
+            <Button variant="ghost" onClick={() => setIsEditing(false)} data-testid="button-cancel-goal">
+              Cancel
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card data-testid="card-goal-tracker">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Target className="h-4 w-4 text-primary" />
+            Annual Goal Progress
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs"
+            onClick={() => { setGoalInput(String(currentGoal)); setIsEditing(true); }}
+            data-testid="button-edit-goal"
+          >
+            Edit
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">
+            {formatCurrency(ytdEarnings)} of {formatCurrency(currentGoal)}
+          </span>
+          <span className={`font-medium ${statusColor}`}>{Math.round(progress)}%</span>
+        </div>
+        <Progress value={progress} className="h-2" />
+        <p className={`text-xs font-medium ${statusColor}`} data-testid="text-goal-status">{statusMessage}</p>
+        {remaining > 0 && (
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="text-center p-2 rounded-lg bg-muted/50">
+              <p className="text-lg font-semibold">{formatCurrency(dailyRate)}</p>
+              <p className="text-[10px] text-muted-foreground">needed per day</p>
+            </div>
+            <div className="text-center p-2 rounded-lg bg-muted/50">
+              <p className="text-lg font-semibold">{daysRemaining}</p>
+              <p className="text-[10px] text-muted-foreground">days remaining</p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function MaintenanceAlerts() {
+  const { formatCurrency } = useRegion();
+
+  const { data, isLoading } = useQuery<{
+    predictions: Array<{
+      vehicleId: number;
+      vehicleName: string;
+      totalMiles: number;
+      milesSinceLastService: number;
+      lastMaintenanceDate: string | null;
+      avgIntervalDays: number;
+      predictedNextServiceDate: string | null;
+      needsService: boolean;
+      avgMaintenanceCost: number;
+      maintenanceCount: number;
+    }>;
+  }>({
+    queryKey: ["/api/maintenance-predictions"],
+  });
+
+  const alerts = data?.predictions?.filter((p) => p.needsService) || [];
+
+  if (isLoading || alerts.length === 0) return null;
+
+  return (
+    <div className="space-y-2" data-testid="maintenance-alerts">
+      {alerts.map((p) => (
+        <Alert key={p.vehicleId} className="border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-950/20">
+          <Wrench className="h-4 w-4 text-blue-600" />
+          <AlertTitle className="text-sm font-medium text-blue-800 dark:text-blue-300">
+            {p.vehicleName} — Service Recommended
+          </AlertTitle>
+          <AlertDescription className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
+            <p>
+              {p.milesSinceLastService.toLocaleString()} miles since last service
+              {p.lastMaintenanceDate ? ` on ${format(parseISO(p.lastMaintenanceDate), "MMM d, yyyy")}` : ""}.
+            </p>
+            {p.predictedNextServiceDate && (
+              <p>
+                Based on your history (every ~{p.avgIntervalDays} days), next service predicted around{" "}
+                <span className="font-medium">{format(parseISO(p.predictedNextServiceDate), "MMM d, yyyy")}</span>.
+              </p>
+            )}
+            {p.avgMaintenanceCost > 0 && (
+              <p className="text-muted-foreground">Avg service cost: {formatCurrency(p.avgMaintenanceCost)}</p>
+            )}
+          </AlertDescription>
+        </Alert>
+      ))}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { data: summary, isLoading } = useTaxSummary();
   const { data: mileageData } = useMileageLogs();
@@ -861,12 +1121,15 @@ export default function Dashboard() {
           <Form1099K />
           <ExpenseForm />
           <ReceiptCapture />
+          <StatementParser />
         </div>
       </div>
 
       <TaxHealthBar summary={summary} user={user} />
 
       <AuditRiskBadge />
+
+      <SpendingAnomalies />
 
       <UnderpaymentAlert summary={summary} user={user} />
 
@@ -978,13 +1241,19 @@ export default function Dashboard() {
 
       {taxModules.showEstimatedTax && <QuarterlyEstimatedTaxCalculator summary={summary} user={user} />}
 
+      <GoalTracker summary={summary} user={user} />
+
       {isUS && <StateSelector user={user} />}
+
+      <MaintenanceAlerts />
 
       <WealthForecast summary={summary} />
 
       <div className="mt-8 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
         <DashboardCharts summary={summary} />
       </div>
+
+      <ProfitabilityHeatmap />
 
       <SmartSummaryMoneySaved summary={summary} />
 
