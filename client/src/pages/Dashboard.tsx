@@ -997,6 +997,201 @@ function GoalTracker({ summary, user }: { summary: TaxSummary; user: User | null
   );
 }
 
+function SmartTaxPredictor() {
+  const { formatCurrency } = useRegion();
+  const [enabled, setEnabled] = useState(false);
+
+  const { data, isLoading, error } = useQuery<{
+    prediction: {
+      projectedAnnualIncome: number;
+      projectedAnnualExpenses: number;
+      projectedMileageDeduction: number;
+      projectedNetProfit: number;
+      estimatedSETax: number;
+      estimatedFederalTax: number;
+      estimatedStateTax: number;
+      estimatedTotalTax: number;
+      estimatedQuarterlyPayment: number;
+      effectiveTaxRate: number;
+      tips: string[];
+      riskLevel: string;
+      riskExplanation: string;
+      savingsOpportunities: string[];
+    };
+    dataSummary: {
+      ytdIncome: number;
+      ytdExpenses: number;
+      ytdMiles: number;
+      daysRemaining: number;
+    };
+    generatedAt: string;
+  }>({
+    queryKey: ["/api/smart-tax-prediction"],
+    enabled,
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const p = data?.prediction;
+  const ds = data?.dataSummary;
+
+  const riskColors: Record<string, string> = {
+    low: "text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30",
+    medium: "text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30",
+    high: "text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30",
+  };
+
+  if (!enabled) {
+    return (
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent" data-testid="card-tax-predictor-cta">
+        <CardContent className="flex items-center justify-between py-5">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-full bg-primary/10">
+              <TrendingUp className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-medium text-sm">Smart Tax Predictor</p>
+              <p className="text-xs text-muted-foreground">AI-powered year-end tax liability forecast based on your data</p>
+            </div>
+          </div>
+          <Button onClick={() => setEnabled(true)} data-testid="button-run-prediction">
+            <Lightbulb className="h-4 w-4 mr-2" /> Analyze
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Card data-testid="card-tax-predictor-loading">
+        <CardContent className="py-8 flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">AI is analyzing your financial data...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error || !p) {
+    return (
+      <Card data-testid="card-tax-predictor-error">
+        <CardContent className="py-4 flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-red-500" />
+          <div>
+            <p className="text-sm font-medium">Prediction unavailable</p>
+            <p className="text-xs text-muted-foreground">Could not generate tax prediction. Try again later.</p>
+          </div>
+          <Button variant="outline" size="sm" className="ml-auto" onClick={() => { queryClient.invalidateQueries({ queryKey: ["/api/smart-tax-prediction"] }); }} data-testid="button-retry-prediction">
+            <RefreshCw className="h-3 w-3 mr-1" /> Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card data-testid="card-tax-predictor">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Smart Tax Predictor
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge className={riskColors[p.riskLevel] || riskColors.low} data-testid="badge-risk-level">
+              {p.riskLevel.toUpperCase()} RISK
+            </Badge>
+            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => { queryClient.invalidateQueries({ queryKey: ["/api/smart-tax-prediction"] }); }} data-testid="button-refresh-prediction">
+              <RefreshCw className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          AI projection based on {ds?.daysRemaining} days remaining in the tax year
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="text-center p-3 rounded-lg bg-muted/50" data-testid="stat-projected-income">
+            <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(p.projectedAnnualIncome)}</p>
+            <p className="text-[10px] text-muted-foreground">Projected Income</p>
+          </div>
+          <div className="text-center p-3 rounded-lg bg-muted/50" data-testid="stat-projected-profit">
+            <p className="text-lg font-bold">{formatCurrency(p.projectedNetProfit)}</p>
+            <p className="text-[10px] text-muted-foreground">Projected Net Profit</p>
+          </div>
+          <div className="text-center p-3 rounded-lg bg-muted/50" data-testid="stat-total-tax">
+            <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatCurrency(p.estimatedTotalTax)}</p>
+            <p className="text-[10px] text-muted-foreground">Estimated Total Tax</p>
+          </div>
+          <div className="text-center p-3 rounded-lg bg-muted/50" data-testid="stat-effective-rate">
+            <p className="text-lg font-bold text-primary">{p.effectiveTaxRate.toFixed(1)}%</p>
+            <p className="text-[10px] text-muted-foreground">Effective Tax Rate</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="p-2 rounded bg-muted/30 text-center">
+            <p className="font-medium">{formatCurrency(p.estimatedSETax)}</p>
+            <p className="text-muted-foreground">SE Tax</p>
+          </div>
+          <div className="p-2 rounded bg-muted/30 text-center">
+            <p className="font-medium">{formatCurrency(p.estimatedFederalTax)}</p>
+            <p className="text-muted-foreground">Federal</p>
+          </div>
+          <div className="p-2 rounded bg-muted/30 text-center">
+            <p className="font-medium">{formatCurrency(p.estimatedStateTax)}</p>
+            <p className="text-muted-foreground">State</p>
+          </div>
+        </div>
+
+        <div className="p-3 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/30">
+          <p className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-1">Quarterly Payment Estimate</p>
+          <p className="text-lg font-bold text-blue-700 dark:text-blue-300" data-testid="stat-quarterly-payment">
+            {formatCurrency(p.estimatedQuarterlyPayment)}
+          </p>
+          <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80">per quarter to avoid underpayment penalties</p>
+        </div>
+
+        {p.tips && p.tips.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium flex items-center gap-1">
+              <Lightbulb className="h-3 w-3 text-amber-500" /> AI Tax Saving Tips
+            </p>
+            {p.tips.map((tip, i) => (
+              <div key={i} className="text-xs text-muted-foreground flex items-start gap-2 pl-1" data-testid={`text-tip-${i}`}>
+                <CheckCircle2 className="h-3 w-3 text-green-500 mt-0.5 shrink-0" />
+                <span>{tip}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {p.savingsOpportunities && p.savingsOpportunities.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium flex items-center gap-1">
+              <DollarSign className="h-3 w-3 text-green-500" /> Potential Savings Opportunities
+            </p>
+            {p.savingsOpportunities.map((opp, i) => (
+              <div key={i} className="text-xs text-muted-foreground flex items-start gap-2 pl-1" data-testid={`text-savings-${i}`}>
+                <TrendingUp className="h-3 w-3 text-primary mt-0.5 shrink-0" />
+                <span>{opp}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p className="text-[10px] text-muted-foreground italic">{p.riskExplanation}</p>
+        {data?.generatedAt && (
+          <p className="text-[10px] text-muted-foreground text-right">
+            Generated: {format(parseISO(data.generatedAt), "MMM d, h:mm a")}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function MaintenanceAlerts() {
   const { formatCurrency } = useRegion();
 
@@ -1240,6 +1435,8 @@ export default function Dashboard() {
       {isUS && <SmallEarnerGate grossIncome={summary.grossIncome} />}
 
       {taxModules.showEstimatedTax && <QuarterlyEstimatedTaxCalculator summary={summary} user={user} />}
+
+      <SmartTaxPredictor />
 
       <GoalTracker summary={summary} user={user} />
 

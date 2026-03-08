@@ -64,6 +64,7 @@ The application uses a React, Vite, TailwindCSS, shadcn/ui, and Recharts fronten
     -   **Predictive Maintenance Alerts**: `GET /api/maintenance-predictions` analyzes vehicles + mileage logs + maintenance expenses. Alerts when > 5000 miles since last service. Predicts next service date. `MaintenanceAlerts` component on Dashboard shows blue info cards.
     -   **Profitability Heatmaps**: `GET /api/profitability-heatmap` calculates earnings by day-of-week. `ProfitabilityHeatmap` component (`client/src/components/ProfitabilityHeatmap.tsx`) renders Recharts bar chart with best/worst day badges and insight text.
     -   **Goal Tracking**: `earningsGoal` column in users table. `PATCH /api/earnings-goal` endpoint. `GoalTracker` component on Dashboard shows progress bar, daily run rate, days remaining, and motivational status messages.
+    -   **Smart Tax Predictor**: `GET /api/smart-tax-prediction` sends user's YTD financial data to Gemini AI for year-end tax liability forecast. Returns projected income, net profit, SE tax, federal tax, state tax, effective rate, quarterly payments, risk level, saving tips, and savings opportunities. `SmartTaxPredictor` component on Dashboard with on-demand "Analyze" button, 30-minute cache.
 
 ## External Dependencies
 -   **Auth0**: OpenID Connect (OIDC) authentication.

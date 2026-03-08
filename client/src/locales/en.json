@@ -314,6 +314,26 @@
       "slightlyBehind": "Slightly behind — pick up the pace",
       "fallingBehind": "Falling behind — consider extra shifts",
       "goalReached": "You've reached your goal!"
+    },
+    "taxPredictor": {
+      "title": "Smart Tax Predictor",
+      "subtitle": "AI-powered year-end tax liability forecast based on your data",
+      "analyze": "Analyze",
+      "analyzing": "AI is analyzing your financial data...",
+      "projectedIncome": "Projected Income",
+      "projectedProfit": "Projected Net Profit",
+      "estimatedTax": "Estimated Total Tax",
+      "effectiveRate": "Effective Tax Rate",
+      "seTax": "SE Tax",
+      "federalTax": "Federal",
+      "stateTax": "State",
+      "quarterlyPayment": "Quarterly Payment Estimate",
+      "quarterlyDesc": "per quarter to avoid underpayment penalties",
+      "tips": "AI Tax Saving Tips",
+      "savings": "Potential Savings Opportunities",
+      "unavailable": "Prediction unavailable",
+      "retry": "Retry",
+      "generated": "Generated"
     }
   }
 }

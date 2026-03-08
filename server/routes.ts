@@ -3737,6 +3737,113 @@ Voice command: "${transcript.substring(0, 500)}"`,
     }
   });
 
+  app.get("/api/smart-tax-prediction", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const incomes = await storage.getIncomes(userId);
+      const expenses = await storage.getExpenses(userId);
+      const mileageLogs = await storage.getMileageLogs(userId);
+      const user = await storage.getUser(userId);
+
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const dayOfYear = Math.floor((now.getTime() - new Date(currentYear, 0, 1).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const daysInYear = 365;
+      const daysRemaining = daysInYear - dayOfYear;
+
+      const ytdIncome = incomes
+        .filter(i => new Date(i.date).getFullYear() === currentYear)
+        .reduce((sum, i) => sum + Number(i.amount || 0), 0);
+      const ytdTips = incomes
+        .filter(i => new Date(i.date).getFullYear() === currentYear && i.isTips)
+        .reduce((sum, i) => sum + Number(i.amount || 0), 0);
+      const ytdExpenses = expenses
+        .filter(e => new Date(e.date).getFullYear() === currentYear)
+        .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+      const ytdMiles = mileageLogs
+        .filter(m => new Date(m.date).getFullYear() === currentYear)
+        .reduce((sum, m) => sum + Number(m.totalMiles || 0), 0);
+
+      const topCategories: Record<string, number> = {};
+      for (const e of expenses.filter(e => new Date(e.date).getFullYear() === currentYear)) {
+        const cat = e.category || "Other";
+        topCategories[cat] = (topCategories[cat] || 0) + Number(e.amount || 0);
+      }
+      const sortedCats = Object.entries(topCategories).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+      const dataSummary = {
+        ytdIncome: Math.round(ytdIncome * 100) / 100,
+        ytdTips: Math.round(ytdTips * 100) / 100,
+        ytdExpenses: Math.round(ytdExpenses * 100) / 100,
+        ytdMiles,
+        dayOfYear,
+        daysRemaining,
+        topExpenseCategories: sortedCats.map(([cat, amt]) => `${cat}: $${(amt as number).toFixed(2)}`),
+        selectedState: user?.selectedState || "none",
+        detectedCountry: user?.detectedCountry || "US",
+      };
+
+      const { ai } = await import("./replit_integrations/image/client");
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-05-20",
+        contents: [{
+          role: "user",
+          parts: [{
+            text: `You are a tax advisor AI for self-employed rideshare/cab drivers. Analyze the following year-to-date financial data and predict the year-end tax liability.
+
+Data for ${currentYear} (day ${dayOfYear} of ${daysInYear}):
+- YTD Gross Income: $${dataSummary.ytdIncome}
+- YTD Tips: $${dataSummary.ytdTips}
+- YTD Business Expenses: $${dataSummary.ytdExpenses}
+- YTD Business Miles: ${dataSummary.ytdMiles}
+- Top Expense Categories: ${dataSummary.topExpenseCategories.join(", ") || "none yet"}
+- State: ${dataSummary.selectedState}
+- Country: ${dataSummary.detectedCountry}
+
+Use IRS 2026 rules:
+- Self-Employment Tax: 15.3% on 92.35% of net profit
+- SE Deduction: 50% of SE tax
+- Standard Deduction: $15,700
+- Federal tax brackets: 10% up to $11,925, 12% up to $48,475, 22% up to $103,350
+- Mileage rate: $0.70/mile
+- Tips earned in 2025+ may be exempt under the "No Tax on Tips" (OBBBA) provision
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{
+  "projectedAnnualIncome": number,
+  "projectedAnnualExpenses": number,
+  "projectedMileageDeduction": number,
+  "projectedNetProfit": number,
+  "estimatedSETax": number,
+  "estimatedFederalTax": number,
+  "estimatedStateTax": number,
+  "estimatedTotalTax": number,
+  "estimatedQuarterlyPayment": number,
+  "effectiveTaxRate": number,
+  "tips": [array of 2-3 short actionable tax saving tips specific to this driver's data],
+  "riskLevel": "low" or "medium" or "high",
+  "riskExplanation": "brief explanation of audit risk based on expense ratios",
+  "savingsOpportunities": [array of 1-3 potential deductions they might be missing]
+}`
+          }]
+        }]
+      });
+
+      const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const prediction = JSON.parse(cleaned);
+
+      res.json({
+        prediction,
+        dataSummary,
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      console.error("Smart tax prediction error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   return httpServer;
 }
 

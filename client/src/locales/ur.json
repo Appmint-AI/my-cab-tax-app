@@ -314,6 +314,26 @@
       "slightlyBehind": "قدرے پیچھے — رفتار بڑھائیں",
       "fallingBehind": "پیچھے رہ رہے ہیں — اضافی شفٹیں لگائیں",
       "goalReached": "آپ نے اپنا ہدف حاصل کر لیا!"
+    },
+    "taxPredictor": {
+      "title": "سمارٹ ٹیکس پیشین گوئی",
+      "subtitle": "آپ کے ڈیٹا پر مبنی AI سال آخر ٹیکس ذمہ داری کا تخمینہ",
+      "analyze": "تجزیہ کریں",
+      "analyzing": "AI آپ کے مالی ڈیٹا کا تجزیہ کر رہا ہے...",
+      "projectedIncome": "متوقع آمدنی",
+      "projectedProfit": "متوقع خالص منافع",
+      "estimatedTax": "تخمینی کل ٹیکس",
+      "effectiveRate": "مؤثر ٹیکس شرح",
+      "seTax": "خود روزگار ٹیکس",
+      "federalTax": "وفاقی",
+      "stateTax": "ریاستی",
+      "quarterlyPayment": "سہ ماہی ادائیگی تخمینہ",
+      "quarterlyDesc": "جرمانوں سے بچنے کے لیے فی سہ ماہی",
+      "tips": "AI ٹیکس بچت تجاویز",
+      "savings": "ممکنہ بچت کے مواقع",
+      "unavailable": "پیشین گوئی دستیاب نہیں",
+      "retry": "دوبارہ کوشش",
+      "generated": "تیار شدہ"
     }
   }
 }

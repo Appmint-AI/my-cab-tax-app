@@ -314,6 +314,26 @@
       "slightlyBehind": "Hơi chậm — tăng tốc thêm",
       "fallingBehind": "Đang tụt lại — hãy cân nhắc thêm ca",
       "goalReached": "Bạn đã đạt mục tiêu!"
+    },
+    "taxPredictor": {
+      "title": "Dự đoán thuế thông minh",
+      "subtitle": "Dự báo nghĩa vụ thuế cuối năm bằng AI dựa trên dữ liệu của bạn",
+      "analyze": "Phân tích",
+      "analyzing": "AI đang phân tích dữ liệu tài chính của bạn...",
+      "projectedIncome": "Thu nhập dự kiến",
+      "projectedProfit": "Lợi nhuận ròng dự kiến",
+      "estimatedTax": "Tổng thuế ước tính",
+      "effectiveRate": "Thuế suất hiệu quả",
+      "seTax": "Thuế tự doanh",
+      "federalTax": "Liên bang",
+      "stateTax": "Tiểu bang",
+      "quarterlyPayment": "Ước tính thanh toán hàng quý",
+      "quarterlyDesc": "mỗi quý để tránh phạt",
+      "tips": "Mẹo tiết kiệm thuế AI",
+      "savings": "Cơ hội tiết kiệm tiềm năng",
+      "unavailable": "Không thể dự đoán",
+      "retry": "Thử lại",
+      "generated": "Đã tạo"
     }
   }
 }
