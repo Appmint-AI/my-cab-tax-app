@@ -30,6 +30,7 @@ import CurrencyPage from "@/pages/CurrencyPage";
 import SyncPage from "@/pages/SyncPage";
 import QuarterlyPage from "@/pages/QuarterlyPage";
 import TaxOverviewPage from "@/pages/TaxOverviewPage";
+import GlobalTaxPage from "@/pages/GlobalTaxPage";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -172,6 +173,10 @@ function Router() {
       </Route>
       <Route path="/tax-overview">
         <VerifiedRoute component={TaxOverviewPage} />
+      </Route>
+
+      <Route path="/global-tax">
+        <VerifiedRoute component={GlobalTaxPage} />
       </Route>
 
       <Route path="/settings">

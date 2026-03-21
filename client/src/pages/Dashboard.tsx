@@ -1315,9 +1315,41 @@ export default function Dashboard() {
           <AutoGrossForm />
           <Form1099K />
           <ExpenseForm />
-          <ReceiptCapture />
+          <div className="hidden md:block"><ReceiptCapture /></div>
           <StatementParser />
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:hidden">
+        <ReceiptCapture
+          trigger={
+            <button
+              className="flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 active:bg-primary/15 transition-colors touch-manipulation min-h-[80px] w-full"
+              data-testid="button-scan-receipt-mobile"
+            >
+              <span className="text-2xl">📷</span>
+              <span className="text-xs font-medium text-primary">Scan Receipt</span>
+            </button>
+          }
+        />
+        <Link href="/incomes">
+          <div className="flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl border border-border/60 bg-card hover:bg-muted/30 active:bg-muted/50 transition-colors touch-manipulation min-h-[80px]">
+            <span className="text-2xl">💰</span>
+            <span className="text-xs font-medium">Add Income</span>
+          </div>
+        </Link>
+        <Link href="/expenses">
+          <div className="flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl border border-border/60 bg-card hover:bg-muted/30 active:bg-muted/50 transition-colors touch-manipulation min-h-[80px]">
+            <span className="text-2xl">🧾</span>
+            <span className="text-xs font-medium">Log Expense</span>
+          </div>
+        </Link>
+        <Link href="/mileage">
+          <div className="flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl border border-border/60 bg-card hover:bg-muted/30 active:bg-muted/50 transition-colors touch-manipulation min-h-[80px]">
+            <span className="text-2xl">🚗</span>
+            <span className="text-xs font-medium">Log Miles</span>
+          </div>
+        </Link>
       </div>
 
       <TaxHealthBar summary={summary} user={user} />

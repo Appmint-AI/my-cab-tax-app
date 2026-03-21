@@ -49,7 +49,7 @@ export function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const { t, i18n } = useTranslation();
-  const { isUK, isUS, taxModules, region, currencySymbol } = useRegion();
+  const { isUK, isUS, isCA, isMX, taxModules, region, currencySymbol } = useRegion();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const segmentConfig = getSegmentConfig(user?.userSegment);
   const BrandIcon = user?.userSegment === "hybrid" ? Layers : user?.userSegment === "delivery" ? Package : CarFront;
@@ -78,6 +78,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/currency", label: t("nav.currency"), icon: Banknote, simplifiedIcon: Banknote },
     { href: "/quarterly", label: isUK ? t("nav.quarterly") : t("nav.estimatedTax", "Estimated Tax"), icon: CalendarClock, simplifiedIcon: CalendarClock, regions: ["US", "UK"] as const },
     { href: "/tax-overview", label: t("nav.taxOverview", "Tax Overview"), icon: FileText, simplifiedIcon: FileText, regions: ["UK"] as const },
+    { href: "/global-tax", label: "Global Tax", icon: Globe, simplifiedIcon: Globe },
     { href: "/settings", label: t("nav.settings"), icon: Settings, simplifiedIcon: Wrench },
   ];
 
@@ -100,7 +101,7 @@ export function Layout({ children }: LayoutProps) {
           <div>
             <h1 className="font-semibold text-base leading-tight text-white dark:text-white">My Cab Tax</h1>
             <p className="text-[11px] text-sidebar-foreground/60 mt-0.5" data-testid="badge-segment-label">
-              {segmentConfig.shortLabel} Mode {isUK ? "🇬🇧" : isUS ? "🇺🇸" : "🌍"}
+              {segmentConfig.shortLabel} Mode {isUK ? "🇬🇧" : isUS ? "🇺🇸" : isCA ? "🇨🇦" : isMX ? "🇲🇽" : "🌍"}
             </p>
           </div>
         </div>
@@ -115,7 +116,7 @@ export function Layout({ children }: LayoutProps) {
               <div
                 data-testid={`link-nav-${item.href.replace("/", "")}`}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors duration-150 cursor-pointer",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors duration-150 cursor-pointer touch-manipulation",
                   isActive
                     ? "bg-sidebar-accent text-white font-medium"
                     : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",

@@ -2,8 +2,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./use-auth";
 import { apiRequest } from "@/lib/queryClient";
 
+export type RegionType = "US" | "UK" | "CA" | "MX" | "OTHER";
+
 export interface RegionConfig {
-  region: "US" | "UK" | "OTHER";
+  region: RegionType;
   currency: string;
   currencySymbol: string;
   locale: string;
@@ -66,11 +68,15 @@ export function useRegion() {
 
   const isUK = config.region === "UK";
   const isUS = config.region === "US";
+  const isCA = config.region === "CA";
+  const isMX = config.region === "MX";
 
   return {
     ...config,
     isUK,
     isUS,
+    isCA,
+    isMX,
     formatCurrency,
     switchRegion: switchRegionMutation.mutate,
     isSwitching: switchRegionMutation.isPending,

@@ -3844,6 +3844,32 @@ Return ONLY valid JSON (no markdown, no code blocks):
     }
   });
 
+  app.post("/api/global-tax-assistant", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { question, countryCode, countryContext, userTaxData } = req.body;
+      if (!question || !countryCode) return res.status(400).json({ message: "question and countryCode are required" });
+
+      const { ai } = await import("./replit_integrations/image/client");
+
+      const systemPrompt = `You are an expert tax advisor for self-employed rideshare and cab drivers in ${countryCode}. You specialize in ${countryContext}. Provide accurate, practical, and concise answers. Always mention relevant forms, deadlines, and rates where applicable. If user tax data is provided, personalize your advice. Keep responses under 200 words.`;
+
+      const userContext = userTaxData
+        ? `\n\nUser's current YTD tax data: Income: ${userTaxData.grossIncome || 0}, Expenses: ${userTaxData.totalExpenses || 0}, Net Profit: ${userTaxData.netProfit || 0}, Mileage: ${userTaxData.mileageDeduction || 0} miles`
+        : "";
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-05-20",
+        contents: [{ role: "user", parts: [{ text: `${systemPrompt}${userContext}\n\nQuestion: ${question}` }] }],
+      });
+
+      const answer = response.candidates?.[0]?.content?.parts?.[0]?.text || "I couldn't generate a response. Please try again.";
+      res.json({ answer });
+    } catch (error: any) {
+      console.error("Global tax assistant error:", error);
+      res.status(500).json({ message: "Failed to get AI response", error: error.message });
+    }
+  });
+
   return httpServer;
 }
 

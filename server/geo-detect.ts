@@ -50,16 +50,20 @@ export async function detectCountryFromIP(ip: string): Promise<GeoResult | null>
   }
 }
 
-export function getRegionFromCountry(countryCode: string | null | undefined): "US" | "UK" | "OTHER" {
+export type RegionType = "US" | "UK" | "CA" | "MX" | "OTHER";
+
+export function getRegionFromCountry(countryCode: string | null | undefined): RegionType {
   if (!countryCode) return "US";
   const code = countryCode.toUpperCase();
   if (code === "US") return "US";
   if (code === "GB") return "UK";
+  if (code === "CA") return "CA";
+  if (code === "MX") return "MX";
   return "OTHER";
 }
 
 export interface RegionConfig {
-  region: "US" | "UK" | "OTHER";
+  region: RegionType;
   currency: string;
   currencySymbol: string;
   locale: string;
@@ -90,6 +94,42 @@ export function getRegionConfig(countryCode: string | null | undefined): RegionC
         showMTDQuarterly: true,
         showUniversalCredit: true,
         showFinalDeclaration: true,
+        showTaxOverview: true,
+      },
+    };
+  }
+
+  if (region === "CA") {
+    return {
+      region: "CA",
+      currency: "CAD",
+      currencySymbol: "CA$",
+      locale: "en-CA",
+      taxModules: {
+        showScheduleC: false,
+        showEstimatedTax: true,
+        showSelfEmploymentTax: true,
+        showMTDQuarterly: false,
+        showUniversalCredit: false,
+        showFinalDeclaration: false,
+        showTaxOverview: true,
+      },
+    };
+  }
+
+  if (region === "MX") {
+    return {
+      region: "MX",
+      currency: "MXN",
+      currencySymbol: "MX$",
+      locale: "es-MX",
+      taxModules: {
+        showScheduleC: false,
+        showEstimatedTax: true,
+        showSelfEmploymentTax: true,
+        showMTDQuarterly: false,
+        showUniversalCredit: false,
+        showFinalDeclaration: false,
         showTaxOverview: true,
       },
     };
