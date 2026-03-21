@@ -4,6 +4,8 @@ import { X, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useRegion } from "@/hooks/use-region";
+import { REGION_DEFAULT_LANGUAGE } from "@/lib/i18n";
+import i18n from "@/lib/i18n";
 
 interface GeoResult {
   countryName: string;
@@ -58,6 +60,8 @@ export function RegionDetector() {
   const handleSwitch = () => {
     if (geoResult) {
       switchRegion(geoResult.countryCode);
+      const lang = REGION_DEFAULT_LANGUAGE[geoResult.countryCode];
+      if (lang) i18n.changeLanguage(lang);
       handleDismiss();
     }
   };

@@ -49,7 +49,7 @@ export function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const { t, i18n } = useTranslation();
-  const { isUK, isUS, isCA, isMX, taxModules, region, currencySymbol } = useRegion();
+  const { isUK, isUS, isCA, isMX, taxModules, region, currencySymbol, flag } = useRegion();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const segmentConfig = getSegmentConfig(user?.userSegment);
   const BrandIcon = user?.userSegment === "hybrid" ? Layers : user?.userSegment === "delivery" ? Package : CarFront;
@@ -101,7 +101,7 @@ export function Layout({ children }: LayoutProps) {
           <div>
             <h1 className="font-semibold text-base leading-tight text-white dark:text-white">My Cab Tax</h1>
             <p className="text-[11px] text-sidebar-foreground/60 mt-0.5" data-testid="badge-segment-label">
-              {segmentConfig.shortLabel} Mode {isUK ? "🇬🇧" : isUS ? "🇺🇸" : isCA ? "🇨🇦" : isMX ? "🇲🇽" : "🌍"}
+              {segmentConfig.shortLabel} Mode {flag}
             </p>
           </div>
         </div>
