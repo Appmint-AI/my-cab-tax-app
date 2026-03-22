@@ -1141,6 +1141,10 @@ function CountryRolloutSection() {
     queryKey: ["/api/admin/users-by-country"],
   });
 
+  const { data: waitlistStats } = useQuery<Record<string, { name: string; count: number }>>({
+    queryKey: ["/api/admin/waitlist-stats"],
+  });
+
   const toggleMutation = useMutation({
     mutationFn: async ({ code, live }: { code: string; live: boolean }) => {
       const res = await apiRequest("PATCH", `/api/admin/country-rollout/${code}`, { live });
@@ -1258,6 +1262,11 @@ function CountryRolloutSection() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2.5 shrink-0">
+                      {!isLive && (waitlistStats?.[country.code]?.count ?? 0) > 0 && (
+                        <Badge variant="outline" className="text-[10px] px-2 py-0 no-default-active-elevate border-purple-300 text-purple-600 dark:border-purple-700 dark:text-purple-400" data-testid={`badge-waitlist-${country.code}`}>
+                          {waitlistStats![country.code].count} waitlist
+                        </Badge>
+                      )}
                       <Badge
                         variant={isLive ? "default" : "secondary"}
                         className={`text-[10px] px-2 py-0 no-default-active-elevate ${isLive ? "bg-green-600 text-white" : ""}`}
@@ -1285,7 +1294,7 @@ function CountryRolloutSection() {
         <div>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" />
-            Drivers by Country
+            Drivers & Waitlist by Country
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm" data-testid="table-users-by-country">
@@ -1293,30 +1302,43 @@ function CountryRolloutSection() {
                 <tr className="border-b border-border/50">
                   <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">Country</th>
                   <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">Drivers</th>
+                  <th className="text-right py-2 px-2 text-xs font-medium text-purple-500">Waitlist</th>
                   <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {COUNTRY_META.filter((c) => (usersByCountry?.[c.code] ?? 0) > 0 || rollout?.[c.code]).map((country) => (
-                  <tr key={country.code} className="border-b border-border/20 hover:bg-muted/10" data-testid={`row-stats-${country.code}`}>
-                    <td className="py-2 px-2">
-                      <span className="mr-1.5">{country.flag}</span>
-                      {country.name}
-                    </td>
-                    <td className="text-right py-2 px-2 font-mono font-semibold">
-                      {usersByCountry?.[country.code] ?? 0}
-                    </td>
-                    <td className="text-right py-2 px-2">
-                      <Badge variant={rollout?.[country.code] ? "default" : "secondary"} className={`text-[10px] no-default-active-elevate ${rollout?.[country.code] ? "bg-green-600 text-white" : ""}`}>
-                        {rollout?.[country.code] ? "Live" : "Hidden"}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-                {usersByCountry?.["UNKNOWN"] && (usersByCountry["UNKNOWN"] > 0) ? (
+                {COUNTRY_META.map((country) => {
+                  const dCount = usersByCountry?.[country.code] ?? 0;
+                  const wCount = waitlistStats?.[country.code]?.count ?? 0;
+                  const isLiveRow = rollout?.[country.code] ?? (country.code === "US" || country.code === "GB");
+                  if (dCount === 0 && wCount === 0 && !isLiveRow) return null;
+                  return (
+                    <tr key={country.code} className="border-b border-border/20 hover:bg-muted/10" data-testid={`row-stats-${country.code}`}>
+                      <td className="py-2 px-2">
+                        <span className="mr-1.5">{country.flag}</span>
+                        {country.name}
+                      </td>
+                      <td className="text-right py-2 px-2 font-mono font-semibold">{dCount}</td>
+                      <td className="text-right py-2 px-2">
+                        {wCount > 0 ? (
+                          <span className="font-mono font-semibold text-purple-600 dark:text-purple-400">{wCount}</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="text-right py-2 px-2">
+                        <Badge variant={isLiveRow ? "default" : "secondary"} className={`text-[10px] no-default-active-elevate ${isLiveRow ? "bg-green-600 text-white" : ""}`}>
+                          {isLiveRow ? "Live" : "Hidden"}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {(usersByCountry?.["UNKNOWN"] ?? 0) > 0 ? (
                   <tr className="border-b border-border/20">
                     <td className="py-2 px-2 text-muted-foreground">🌍 Unknown</td>
-                    <td className="text-right py-2 px-2 font-mono">{usersByCountry["UNKNOWN"]}</td>
+                    <td className="text-right py-2 px-2 font-mono">{usersByCountry!["UNKNOWN"]}</td>
+                    <td className="text-right py-2 px-2 text-muted-foreground">—</td>
                     <td className="text-right py-2 px-2">—</td>
                   </tr>
                 ) : null}

@@ -741,6 +741,23 @@ export const insertFinalDeclarationSchema = createInsertSchema(finalDeclarations
 export type InsertFinalDeclaration = z.infer<typeof insertFinalDeclarationSchema>;
 export type FinalDeclaration = typeof finalDeclarations.$inferSelect;
 
+export const waitlistSignups = pgTable("waitlist_signups", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  countryCode: text("country_code").notNull(),
+  countryName: text("country_name").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  source: text("source").default("global_tax_page"),
+});
+
+export const insertWaitlistSignupSchema = createInsertSchema(waitlistSignups).omit({ id: true, createdAt: true }).extend({
+  email: z.string().email("Please enter a valid email address"),
+  countryCode: z.string().min(2).max(6),
+  countryName: z.string().min(1),
+});
+export type InsertWaitlistSignup = z.infer<typeof insertWaitlistSignupSchema>;
+export type WaitlistSignup = typeof waitlistSignups.$inferSelect;
+
 export const UK_TAX_BANDS_2026_27 = [
   { min: 0, max: 12570, rate: 0, label: "Personal Allowance" },
   { min: 12571, max: 50270, rate: 0.20, label: "Basic Rate (20%)" },

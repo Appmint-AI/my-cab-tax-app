@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Globe, CheckCircle, Loader2, Send, Bot, User, RefreshCw, DollarSign, FileText, Calendar, Shield, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Globe, CheckCircle, Loader2, Send, Bot, User, RefreshCw, DollarSign, FileText, Calendar, Shield, AlertTriangle, Mail, Bell, Lock, Zap, Star, ArrowRight } from "lucide-react";
 
 type CountryGroup = {
   label: string;
@@ -272,6 +273,177 @@ interface ChatMessage {
   content: string;
 }
 
+function ComingSoonCard({ country }: { country: CountryDef }) {
+  const { toast } = useToast();
+  const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const waitlistMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/waitlist", {
+        email,
+        countryCode: country.code,
+        countryName: country.name,
+        source: "global_tax_page",
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.alreadyRegistered) {
+        toast({ title: "Already registered!", description: `${email} is already on the waitlist for ${country.name}.` });
+      } else {
+        setSubmitted(true);
+      }
+    },
+    onError: () => toast({ title: "Error", description: "Couldn't save your email. Please try again.", variant: "destructive" }),
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !email.includes("@")) return;
+    waitlistMutation.mutate();
+  };
+
+  const perks = [
+    { icon: Zap, text: "AI calibrated for your local 2026 tax laws" },
+    { icon: Shield, text: "IRS / local authority compliance built-in" },
+    { icon: Star, text: "Priority access before public launch" },
+    { icon: Bell, text: "Instant notification when we go live" },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4" data-testid="coming-soon-section">
+      <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 text-white shadow-2xl">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-4 right-4 text-9xl leading-none select-none">{country.flag}</div>
+          <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-purple-500 blur-3xl" />
+          <div className="absolute -top-4 right-12 w-32 h-32 rounded-full bg-blue-500 blur-3xl" />
+        </div>
+        <CardContent className="relative z-10 p-8 space-y-6">
+          <div className="space-y-3">
+            <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs px-3 py-1 no-default-active-elevate">
+              <Lock className="h-3 w-3 mr-1.5 inline" />
+              Coming Soon — Priority Access
+            </Badge>
+            <div className="flex items-start gap-3">
+              <span className="text-4xl leading-none">{country.flag}</span>
+              <div>
+                <h2 className="text-2xl font-bold text-white leading-tight">{country.name}</h2>
+                <p className="text-sm text-purple-200 mt-0.5">{country.taxAuthority} · {country.currency}</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              We are calibrating our AI for your local{" "}
+              <span className="text-white font-semibold">2026 {country.name} tax laws</span>.
+              Join the waitlist for priority access before we launch to the public.
+            </p>
+          </div>
+
+          <div className="space-y-2.5">
+            {perks.map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded-full bg-purple-500/30 flex items-center justify-center shrink-0">
+                  <Icon className="h-3 w-3 text-purple-300" />
+                </div>
+                <span className="text-sm text-slate-200">{text}</span>
+              </div>
+            ))}
+          </div>
+
+          {submitted ? (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-green-500/20 border border-green-500/30">
+              <CheckCircle className="h-5 w-5 text-green-400 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-green-300">You're on the list!</p>
+                <p className="text-xs text-green-400/80 mt-0.5">We'll email you the moment {country.name} goes live.</p>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    required
+                    className="pl-9 bg-white/10 border-white/20 text-white placeholder:text-slate-400 focus:border-purple-400 focus:ring-purple-400/30 h-11"
+                    data-testid="input-waitlist-email"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={!email.trim() || !email.includes("@") || waitlistMutation.isPending}
+                  className="h-11 px-4 bg-purple-600 hover:bg-purple-500 text-white border-0 shrink-0 touch-manipulation"
+                  data-testid="button-waitlist-submit"
+                >
+                  {waitlistMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>Join <ArrowRight className="h-4 w-4 ml-1.5" /></>
+                  )}
+                </Button>
+              </div>
+              <p className="text-[11px] text-slate-400 text-center">
+                No spam. Unsubscribe anytime. Launch notification only.
+              </p>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" />
+            What's Coming for {country.name}
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">Our AI is being trained on these specific rules:</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ul className="space-y-2.5">
+            {country.keyRules.map((rule, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-[10px] font-semibold text-muted-foreground">{i + 1}</span>
+                </div>
+                <span className="text-muted-foreground">{rule}</span>
+              </li>
+            ))}
+          </ul>
+          <Separator />
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="p-2.5 rounded-lg bg-muted/30 border border-border/30">
+              <p className="text-muted-foreground">Tax Authority</p>
+              <p className="font-semibold mt-0.5">{country.taxAuthority}</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-muted/30 border border-border/30">
+              <p className="text-muted-foreground">Filing Deadline</p>
+              <p className="font-semibold mt-0.5">{country.filingDeadline}</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-muted/30 border border-border/30">
+              <p className="text-muted-foreground">Currency</p>
+              <p className="font-semibold mt-0.5">{country.currency}</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-muted/30 border border-border/30">
+              <p className="text-muted-foreground">VAT / Sales Tax</p>
+              <p className="font-semibold mt-0.5">{country.vatRate}</p>
+            </div>
+          </div>
+          <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 flex items-start gap-2">
+            <Bell className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              <span className="font-semibold">Early access perk:</span> Waitlist members get 3 months free Pro when we launch in {country.name}.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function AiTaxAssistant({ country }: { country: CountryDef }) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -395,7 +567,17 @@ export default function GlobalTaxPage() {
   const { t } = useTranslation();
   const [selectedCode, setSelectedCode] = useState<string>(detectedCountry || "US");
 
+  const { data: rolloutStatus } = useQuery<Record<string, boolean>>({
+    queryKey: ["/api/country-rollout"],
+    staleTime: 1000 * 60 * 5,
+  });
+
   const activeCountry = ALL_COUNTRIES.find((c) => c.code === selectedCode) || ALL_COUNTRIES[0];
+
+  const isCountryLive = (code: string): boolean => {
+    if (!rolloutStatus) return code === "US" || code === "GB";
+    return rolloutStatus[code] ?? (code === "US" || code === "GB");
+  };
 
   const handleSwitchRegion = (code: string) => {
     switchRegion(code);
@@ -436,6 +618,7 @@ export default function GlobalTaxPage() {
               {group.countries.map((country) => {
                 const isActive = selectedCode === country.code;
                 const isCurrent = isCurrentRegion(country.code);
+                const live = isCountryLive(country.code);
                 return (
                   <button
                     key={country.code}
@@ -443,7 +626,9 @@ export default function GlobalTaxPage() {
                     className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all touch-manipulation min-h-[80px] ${
                       isActive
                         ? "border-primary bg-primary/5 shadow-md"
-                        : "border-border/40 bg-card hover:border-primary/30 hover:bg-muted/20"
+                        : live
+                        ? "border-border/40 bg-card hover:border-primary/30 hover:bg-muted/20"
+                        : "border-border/20 bg-muted/10 opacity-75 hover:opacity-90 hover:border-purple-300/40"
                     }`}
                     data-testid={`button-country-${country.code}`}
                   >
@@ -452,14 +637,19 @@ export default function GlobalTaxPage() {
                         Active
                       </Badge>
                     )}
-                    {country.dac7Alert && (
+                    {country.dac7Alert && live && (
                       <Badge className="absolute -top-2 -left-2 text-[9px] px-1.5 py-0 no-default-active-elevate bg-amber-500 text-white border-0">
                         DAC7
                       </Badge>
                     )}
-                    <span className="text-2xl leading-none">{country.flag}</span>
+                    {!live && !isCurrent && (
+                      <Badge className="absolute -top-2 -left-2 text-[9px] px-1.5 py-0 no-default-active-elevate bg-purple-600 text-white border-0">
+                        Soon
+                      </Badge>
+                    )}
+                    <span className={`text-2xl leading-none ${!live ? "grayscale opacity-60" : ""}`}>{country.flag}</span>
                     <span className="text-xs font-medium text-center leading-tight">{country.name}</span>
-                    <span className="text-[10px] text-muted-foreground leading-tight">{country.currency}</span>
+                    <span className="text-[10px] text-muted-foreground leading-tight">{live ? country.currency : "Coming Soon"}</span>
                   </button>
                 );
               })}
@@ -468,6 +658,9 @@ export default function GlobalTaxPage() {
         ))}
       </div>
 
+      {!isCountryLive(activeCountry.code) ? (
+        <ComingSoonCard country={activeCountry} />
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
         <Card data-testid="card-tax-rules">
           <CardHeader className="pb-3">
@@ -559,6 +752,7 @@ export default function GlobalTaxPage() {
           </CardContent>
         </Card>
       </div>
+      )}
     </Layout>
   );
 }

@@ -3448,6 +3448,46 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
     }
   });
 
+  // ── Waitlist ─────────────────────────────────────────────────────────────────
+  app.post("/api/waitlist", async (req: Request, res: Response) => {
+    try {
+      const { waitlistSignups, insertWaitlistSignupSchema } = await import("@shared/schema");
+      const parsed = insertWaitlistSignupSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ errors: parsed.error.errors });
+      const { email, countryCode, countryName, source } = parsed.data;
+      // Check for duplicate
+      const existing = await db.select().from(waitlistSignups)
+        .where(and(eq(waitlistSignups.email, email), eq(waitlistSignups.countryCode, countryCode)));
+      if (existing.length > 0) {
+        return res.json({ success: true, alreadyRegistered: true });
+      }
+      await db.insert(waitlistSignups).values({ email, countryCode, countryName, source: source || "global_tax_page" });
+      res.json({ success: true, alreadyRegistered: false });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) return res.status(400).json({ errors: error.errors });
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/waitlist-stats", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const { waitlistSignups } = await import("@shared/schema");
+      const rows = await db.select({
+        countryCode: waitlistSignups.countryCode,
+        countryName: waitlistSignups.countryName,
+      }).from(waitlistSignups);
+      const counts: Record<string, { name: string; count: number }> = {};
+      for (const row of rows) {
+        if (!counts[row.countryCode]) counts[row.countryCode] = { name: row.countryName, count: 0 };
+        counts[row.countryCode].count++;
+      }
+      res.json(counts);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Also expose country rollout status as a public endpoint for the frontend
   app.get("/api/country-rollout", async (req: Request, res: Response) => {
     try {
