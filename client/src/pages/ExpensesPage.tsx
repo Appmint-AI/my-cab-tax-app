@@ -143,7 +143,7 @@ export default function ExpensesPage() {
             <div className="overflow-x-auto">
               <Table data-testid="table-expenses">
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent">
+                  <TableRow className="hover:bg-transparent bg-muted/40">
                     <TableHead className="w-[40px] hidden md:table-cell">
                       <Checkbox
                         checked={selectedIds.size === filteredExpenses.length && filteredExpenses.length > 0}
@@ -151,22 +151,22 @@ export default function ExpensesPage() {
                         data-testid="checkbox-select-all-expenses"
                       />
                     </TableHead>
-                    <TableHead>
-                      <Button variant="ghost" size="sm" className="gap-1 -ml-3" onClick={() => toggleSort("date")} data-testid="button-sort-expense-date">
+                    <TableHead className="font-semibold text-xs uppercase tracking-wide">
+                      <Button variant="ghost" size="sm" className="gap-1 -ml-3 font-semibold text-xs uppercase tracking-wide" onClick={() => toggleSort("date")} data-testid="button-sort-expense-date">
                         Date
                         <ArrowUpDown className="h-3 w-3" />
                       </Button>
                     </TableHead>
-                    <TableHead>
-                      <Button variant="ghost" size="sm" className="gap-1 -ml-3" onClick={() => toggleSort("category")} data-testid="button-sort-expense-category">
+                    <TableHead className="font-semibold text-xs uppercase tracking-wide">
+                      <Button variant="ghost" size="sm" className="gap-1 -ml-3 font-semibold text-xs uppercase tracking-wide" onClick={() => toggleSort("category")} data-testid="button-sort-expense-category">
                         Category
                         <ArrowUpDown className="h-3 w-3" />
                       </Button>
                     </TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="hidden lg:table-cell">Receipt</TableHead>
-                    <TableHead className="text-right">
-                      <Button variant="ghost" size="sm" className="gap-1 -mr-3 ml-auto" onClick={() => toggleSort("amount")} data-testid="button-sort-expense-amount">
+                    <TableHead className="font-semibold text-xs uppercase tracking-wide">Description</TableHead>
+                    <TableHead className="hidden lg:table-cell font-semibold text-xs uppercase tracking-wide">Receipt</TableHead>
+                    <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">
+                      <Button variant="ghost" size="sm" className="gap-1 -mr-3 ml-auto font-semibold text-xs uppercase tracking-wide" onClick={() => toggleSort("amount")} data-testid="button-sort-expense-amount">
                         Amount
                         <ArrowUpDown className="h-3 w-3" />
                       </Button>
@@ -175,8 +175,8 @@ export default function ExpensesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredExpenses.map((expense) => (
-                    <TableRow key={expense.id} className="group hover:bg-muted/30" data-testid={`row-expense-${expense.id}`}>
+                  {filteredExpenses.map((expense, idx) => (
+                    <TableRow key={expense.id} className={`group hover:bg-primary/5 transition-colors ${idx % 2 === 1 ? "bg-muted/20" : ""}`} data-testid={`row-expense-${expense.id}`}>
                       <TableCell className="hidden md:table-cell">
                         <Checkbox
                           checked={selectedIds.has(expense.id)}
@@ -250,6 +250,19 @@ export default function ExpensesPage() {
                     </TableRow>
                   ))}
                 </TableBody>
+                <tfoot>
+                  <tr className="border-t-2 border-border bg-muted/40">
+                    <td className="hidden md:table-cell" />
+                    <td colSpan={4} className="px-4 py-2 text-sm font-semibold text-muted-foreground">
+                      Total — {filteredExpenses.length} records
+                    </td>
+                    <td className="hidden lg:table-cell" />
+                    <td className="px-4 py-2 text-right font-bold font-mono text-sm text-destructive">
+                      {formatCurrency(totalAmount)}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
               </Table>
             </div>
 

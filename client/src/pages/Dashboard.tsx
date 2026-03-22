@@ -2608,27 +2608,66 @@ function ExportSection({ summary, mileageLogs }: { summary: TaxSummary; mileageL
       className="mt-8"
     >
       <Card className="border-border/60 shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5" />
-            Export for IRS
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/5 border border-destructive/20">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Download className="h-5 w-5 text-primary" />
+              Export Center
+            </CardTitle>
+            <Badge variant="secondary" className="text-xs no-default-active-elevate hidden lg:inline-flex">
+              Desktop Bookkeeping Suite
+            </Badge>
+          </div>
+          <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/5 border border-destructive/20 mt-2">
             <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
             <p className="text-xs text-foreground/80 leading-relaxed">
-              This export is for your personal records only. It is not a tax return. You must review all figures with a qualified CPA or Tax Attorney before submitting any returns to the IRS.
+              Exports are for your personal records only. Not a tax return. Always review with a qualified CPA or Tax Attorney before filing with the IRS.
             </p>
           </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Desktop: prominent action cards in a row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <button
+              onClick={() => { resetDisclaimer(); setDisclaimerOpen(true); }}
+              className="flex flex-col items-start gap-2 p-4 rounded-xl border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition-all text-left cursor-pointer group"
+              data-testid="button-export-summary"
+            >
+              <div className="p-2 rounded-lg bg-primary/15 group-hover:bg-primary/25 transition-colors">
+                <Download className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Download Tax Pack</p>
+                <p className="text-xs text-muted-foreground mt-0.5">PDF + CSV schedule C — IRS ready</p>
+              </div>
+            </button>
 
-          <Button
-            onClick={() => { resetDisclaimer(); setDisclaimerOpen(true); }}
-            data-testid="button-export-summary"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export for IRS
-          </Button>
+            <Link href="/export">
+              <div className="flex flex-col items-start gap-2 p-4 rounded-xl border-2 border-border/60 bg-card hover:bg-muted/40 hover:border-border transition-all text-left cursor-pointer group h-full">
+                <div className="p-2 rounded-lg bg-muted group-hover:bg-muted/80 transition-colors">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">Full Export Page</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Multi-year summaries &amp; CSV downloads</p>
+                </div>
+              </div>
+            </Link>
+
+            <button
+              onClick={() => { resetDisclaimer(); setDisclaimerOpen(true); }}
+              className="flex flex-col items-start gap-2 p-4 rounded-xl border-2 border-border/60 bg-card hover:bg-muted/40 hover:border-border transition-all text-left cursor-pointer group"
+              data-testid="button-export-vault"
+            >
+              <div className="p-2 rounded-lg bg-muted group-hover:bg-muted/80 transition-colors">
+                <Shield className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Save to Tax Vault</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Signed PDF stored for 7 years</p>
+              </div>
+            </button>
+          </div>
 
           <AlertDialog open={disclaimerOpen} onOpenChange={(open) => { if (!open) { setDisclaimerOpen(false); resetDisclaimer(); } }}>
             <AlertDialogContent className="sm:max-w-xl" onPointerDownOutside={(e) => e.preventDefault()}>

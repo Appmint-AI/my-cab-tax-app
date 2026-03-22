@@ -85,60 +85,59 @@ const UK_FOOTER = `
 `;
 
 function buildUKWelcomeEmail(name: string, segment: Segment): { subject: string; html: string } {
-  const label = getSegmentLabel(segment);
-  const tips = getSegmentTips(segment);
-
   return {
-    subject: `Welcome to My Cab Tax, ${name} — your HMRC head office is ready`,
+    subject: `Welcome to MyCabTax 🚖 | Let's get you tax-ready`,
     html: `
       <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a;">
         <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:32px 24px;border-radius:8px 8px 0 0;">
-          <h1 style="color:#fff;margin:0;font-size:22px;">Welcome aboard, ${name}! 🇬🇧</h1>
-          <p style="color:#93c5fd;margin:8px 0 0;font-size:14px;">${label} Driver &bull; UK Self Assessment</p>
+          <p style="color:#93c5fd;margin:0 0 8px;font-size:13px;letter-spacing:0.05em;">MYCABTAX 🚖</p>
+          <h1 style="color:#fff;margin:0;font-size:24px;font-weight:700;">Let's get you tax-ready</h1>
         </div>
         <div style="padding:28px 24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-          <p style="font-size:15px;line-height:1.7;margin:0 0 16px;">
-            You've just set up your digital tax head office. My Cab Tax is built for UK drivers navigating 
-            <strong>HMRC Self Assessment</strong>, Making Tax Digital (MTD), and keeping every penny of your allowable expenses.
+          <p style="font-size:15px;line-height:1.7;margin:0 0 6px;">Hi ${name},</p>
+          <p style="font-size:15px;line-height:1.7;margin:0 0 24px;">
+            Welcome to MyCabTax. You've just taken the biggest step toward protecting your earnings for the 2026 tax year.
           </p>
 
-          <div style="background:#eff6ff;border-left:4px solid #2563eb;padding:14px 16px;border-radius:0 6px 6px 0;margin:0 0 20px;">
-            <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#1e40af;">Your 2026/27 Quick-Start Checklist</p>
-            <ol style="margin:0;padding-left:18px;font-size:13px;line-height:2;color:#1e3a8a;">
-              <li><strong>Log your first expense</strong> — fuel, insurance, phone bills all qualify.</li>
-              <li><strong>Track every mile</strong> — use the HMRC approved rate of 45p/mile (first 10,000 miles).</li>
-              <li><strong>Scan your receipts</strong> — our AI reads them and categorises automatically.</li>
-              <li><strong>Set up quarterly submissions</strong> — stay ahead of the MTD April 2026 mandate.</li>
-            </ol>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px 24px;margin:0 0 24px;">
+            <p style="margin:0 0 16px;font-size:15px;font-weight:700;color:#0f172a;">Your 30-Second Quick Start:</p>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+              <div style="background:#2563eb;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;line-height:24px;text-align:center;">1</div>
+              <div>
+                <p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#0f172a;">Scan a Receipt</p>
+                <p style="margin:0;font-size:13px;color:#64748b;line-height:1.5;">Tap the &lsquo;Scan Receipt&rsquo; button. Our Gemini AI will pull the data and tell you exactly what you can claim back.</p>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+              <div style="background:#2563eb;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;line-height:24px;text-align:center;">2</div>
+              <div>
+                <p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#0f172a;">Log Your Miles</p>
+                <p style="margin:0;font-size:13px;color:#64748b;line-height:1.5;">Every mile is money. Start your log before your next shift to ensure you're tracking every deductible penny.</p>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;">
+              <div style="background:#2563eb;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;line-height:24px;text-align:center;">3</div>
+              <div>
+                <p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#0f172a;">Desktop Mode</p>
+                <p style="margin:0;font-size:13px;color:#64748b;line-height:1.5;">Prefer a big screen? Log in at <a href="https://mycabtaxusa.com" style="color:#2563eb;">mycabtaxusa.com</a> on any computer to manage your full bookkeeping suite.</p>
+              </div>
+            </div>
           </div>
 
-          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:0 0 20px;">
-            <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#166534;">Key UK Deductions for ${label} Drivers</p>
-            <p style="margin:0;font-size:13px;line-height:1.7;color:#15803d;">
-              ${tips.welcomeHighlight} — all trackable inside your dashboard and exported in HMRC-ready format.
-            </p>
-          </div>
-
-          <div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;margin:0 0 24px;">
-            <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#92400e;">📅 Important HMRC Deadlines</p>
-            <ul style="margin:0;padding-left:16px;font-size:13px;line-height:1.9;color:#78350f;">
-              <li>MTD Quarterly submissions — every 3 months from April 2026</li>
-              <li>Online Self Assessment — <strong>31 January 2027</strong></li>
-              <li>Tax payment due — <strong>31 January 2027</strong></li>
-            </ul>
-          </div>
-
-          <div style="text-align:center;margin:0 0 20px;">
-            <a href="https://mycabtaxusa.com" style="display:inline-block;background:#2563eb;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">
-              Open My Dashboard
+          <div style="text-align:center;margin:0 0 24px;">
+            <a href="https://mycabtaxusa.com" style="display:inline-block;background:#2563eb;color:#fff;padding:14px 36px;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px;">
+              Open My Dashboard →
             </a>
           </div>
 
-          <p style="font-size:13px;color:#64748b;margin:0;">
-            Questions? Reply to this email or visit our 
-            <a href="https://mycabtaxusa.com/support" style="color:#2563eb;">Help Centre</a>. 
-            We're here to make your Self Assessment the easiest part of your year.
+          <p style="font-size:14px;line-height:1.6;color:#475569;margin:0 0 4px;">
+            We're here to make sure you keep more of what you earn.
           </p>
+          <p style="font-size:14px;color:#475569;margin:0 0 4px;">Drive safe,</p>
+          <p style="font-size:14px;font-weight:600;color:#0f172a;margin:0;">The MyCabTax Team</p>
           ${UK_FOOTER}
         </div>
       </div>
@@ -147,29 +146,59 @@ function buildUKWelcomeEmail(name: string, segment: Segment): { subject: string;
 }
 
 function buildWelcomeEmail(name: string, segment: Segment): { subject: string; html: string } {
-  const tips = getSegmentTips(segment);
-  const label = getSegmentLabel(segment);
-
   return {
-    subject: `Welcome to My Cab Tax USA, ${name}!`,
+    subject: `Welcome to MyCabTax 🚖 | Let's get you tax-ready`,
     html: `
       <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a;">
         <div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:32px 24px;border-radius:8px 8px 0 0;">
-          <h1 style="color:#fff;margin:0;font-size:22px;">Welcome aboard, ${name}!</h1>
-          <p style="color:#94a3b8;margin:8px 0 0;font-size:14px;">${label} Driver</p>
+          <p style="color:#94a3b8;margin:0 0 8px;font-size:13px;letter-spacing:0.05em;">MYCABTAX 🚖</p>
+          <h1 style="color:#fff;margin:0;font-size:24px;font-weight:700;">Let's get you tax-ready</h1>
         </div>
-        <div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-          <p style="font-size:15px;line-height:1.6;">You just took the smartest step for your taxes. My Cab Tax USA is built specifically for drivers like you — tracking ${tips.welcomeHighlight}.</p>
-          <h3 style="margin:20px 0 8px;font-size:15px;">Here's how to get the most out of your account:</h3>
-          <ol style="padding-left:20px;font-size:14px;line-height:1.8;">
-            <li><strong>Log your first expense</strong> — even a small one starts building your record.</li>
-            <li><strong>Track your miles</strong> — at 72.5&cent;/mile in 2026, mileage is your biggest deduction.</li>
-            <li><strong>Snap a receipt</strong> — our AI reads it and fills in the details for you.</li>
-          </ol>
-          <div style="text-align:center;margin:24px 0;">
-            <a href="https://mycabtaxusa.com" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Start Tracking Now</a>
+        <div style="padding:28px 24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+          <p style="font-size:15px;line-height:1.7;margin:0 0 6px;">Hi ${name},</p>
+          <p style="font-size:15px;line-height:1.7;margin:0 0 24px;">
+            Welcome to MyCabTax. You've just taken the biggest step toward protecting your earnings for the 2026 tax year.
+          </p>
+
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px 24px;margin:0 0 24px;">
+            <p style="margin:0 0 16px;font-size:15px;font-weight:700;color:#0f172a;">Your 30-Second Quick Start:</p>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+              <div style="background:#2563eb;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;line-height:24px;text-align:center;">1</div>
+              <div>
+                <p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#0f172a;">Scan a Receipt</p>
+                <p style="margin:0;font-size:13px;color:#64748b;line-height:1.5;">Tap the &lsquo;Scan Receipt&rsquo; button. Our Gemini AI will pull the data and tell you exactly what you can claim back.</p>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+              <div style="background:#2563eb;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;line-height:24px;text-align:center;">2</div>
+              <div>
+                <p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#0f172a;">Log Your Miles</p>
+                <p style="margin:0;font-size:13px;color:#64748b;line-height:1.5;">Every mile is money. Start your log before your next shift to ensure you're tracking every deductible cent.</p>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:12px;">
+              <div style="background:#2563eb;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;line-height:24px;text-align:center;">3</div>
+              <div>
+                <p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#0f172a;">Desktop Mode</p>
+                <p style="margin:0;font-size:13px;color:#64748b;line-height:1.5;">Prefer a big screen? Log in at <a href="https://mycabtaxusa.com" style="color:#2563eb;">mycabtaxusa.com</a> on any computer to manage your full bookkeeping suite.</p>
+              </div>
+            </div>
           </div>
-          <p style="font-size:13px;color:#64748b;">Questions? Reply to this email or visit our <a href="https://mycabtaxusa.com/support" style="color:#2563eb;">Support Center</a>.</p>
+
+          <div style="text-align:center;margin:0 0 24px;">
+            <a href="https://mycabtaxusa.com" style="display:inline-block;background:#2563eb;color:#fff;padding:14px 36px;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px;">
+              Open My Dashboard →
+            </a>
+          </div>
+
+          <p style="font-size:14px;line-height:1.6;color:#475569;margin:0 0 4px;">
+            We're here to make sure you keep more of what you earn.
+          </p>
+          <p style="font-size:14px;color:#475569;margin:0 0 4px;">Drive safe,</p>
+          <p style="font-size:14px;font-weight:600;color:#0f172a;margin:0;">The MyCabTax Team</p>
           ${USA_FOOTER}
         </div>
       </div>

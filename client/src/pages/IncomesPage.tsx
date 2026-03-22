@@ -76,20 +76,29 @@ export default function IncomesPage() {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Date</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Miles</TableHead>
-                  <TableHead className="text-right">Fees</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
+                <TableRow className="hover:bg-transparent bg-muted/40">
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Date</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Source</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Description</TableHead>
+                  <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Miles</TableHead>
+                  <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Fees</TableHead>
+                  <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Gross</TableHead>
+                  <TableHead className="text-right font-semibold text-xs uppercase tracking-wide hidden lg:table-cell">Net Earned</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredIncomes.map((income) => (
-                  <TableRow key={income.id} className="group hover:bg-muted/30" data-testid={`row-income-${income.id}`}>
-                    <TableCell className="font-medium">
+                {filteredIncomes.map((income, idx) => {
+                  const gross = Number(income.amount);
+                  const fees = Number(income.platformFees || 0);
+                  const net = gross - fees;
+                  return (
+                  <TableRow
+                    key={income.id}
+                    className={`group hover:bg-primary/5 transition-colors ${idx % 2 === 1 ? "bg-muted/20" : ""}`}
+                    data-testid={`row-income-${income.id}`}
+                  >
+                    <TableCell className="font-medium text-sm whitespace-nowrap">
                       {format(new Date(income.date), "MMM d, yyyy")}
                     </TableCell>
                     <TableCell>
@@ -104,17 +113,20 @@ export default function IncomesPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-[200px] truncate text-muted-foreground">
+                    <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm">
                       {income.description || "-"}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground">
+                    <TableCell className="text-right font-mono text-sm text-muted-foreground">
                       {Number(income.miles || 0) > 0 ? Number(income.miles).toFixed(1) : "-"}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-red-500">
-                      {Number(income.platformFees || 0) > 0 ? `-${formatCurrency(Number(income.platformFees))}` : "-"}
+                    <TableCell className="text-right font-mono text-sm text-red-500">
+                      {fees > 0 ? `-${formatCurrency(fees)}` : "-"}
                     </TableCell>
-                    <TableCell className="text-right font-bold font-mono text-green-600 dark:text-green-400">
-                      +{formatCurrency(Number(income.amount))}
+                    <TableCell className="text-right font-bold font-mono text-sm text-green-600 dark:text-green-400">
+                      +{formatCurrency(gross)}
+                    </TableCell>
+                    <TableCell className="text-right font-bold font-mono text-sm text-foreground hidden lg:table-cell">
+                      {formatCurrency(net)}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -150,8 +162,23 @@ export default function IncomesPage() {
                       )}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
+              <tfoot>
+                <tr className="border-t-2 border-border bg-muted/40">
+                  <td colSpan={5} className="px-4 py-2 text-sm font-semibold text-muted-foreground">
+                    Totals — {filteredIncomes.length} records
+                  </td>
+                  <td className="px-4 py-2 text-right font-bold font-mono text-sm text-green-600 dark:text-green-400">
+                    +{formatCurrency(filteredIncomes.reduce((s, i) => s + Number(i.amount), 0))}
+                  </td>
+                  <td className="px-4 py-2 text-right font-bold font-mono text-sm hidden lg:table-cell">
+                    {formatCurrency(filteredIncomes.reduce((s, i) => s + Number(i.amount) - Number(i.platformFees || 0), 0))}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
             </Table>
           </div>
         ) : (
