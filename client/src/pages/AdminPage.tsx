@@ -5,7 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, FileText, DollarSign, AlertTriangle, Car, Receipt, Shield, Activity, Mail, Globe, CheckCircle, XCircle, Clock, Copy, RefreshCw, Bot, Send, Sparkles, Loader2, Trash2, CalendarClock, Inbox, ArrowRight, UserPlus, ToggleLeft, ToggleRight, MessageCircle, Crown, Search } from "lucide-react";
+import { Users, FileText, DollarSign, AlertTriangle, Car, Receipt, Shield, Activity, Mail, Globe, CheckCircle, XCircle, Clock, Copy, RefreshCw, Bot, Send, Sparkles, Loader2, Trash2, CalendarClock, Inbox, ArrowRight, UserPlus, ToggleLeft, ToggleRight, MessageCircle, Crown, Search, Rocket, MapPin } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -1110,6 +1113,230 @@ function VIPManagementSection() {
   );
 }
 
+const COUNTRY_META: { code: string; name: string; flag: string; group: string }[] = [
+  { code: "US", name: "United States", flag: "🇺🇸", group: "North America" },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧", group: "United Kingdom" },
+  { code: "CA", name: "Canada", flag: "🇨🇦", group: "North America" },
+  { code: "MX", name: "Mexico", flag: "🇲🇽", group: "North America" },
+  { code: "NO", name: "Norway", flag: "🇳🇴", group: "Scandinavia" },
+  { code: "SE", name: "Sweden", flag: "🇸🇪", group: "Scandinavia" },
+  { code: "DK", name: "Denmark", flag: "🇩🇰", group: "Scandinavia" },
+  { code: "EU", name: "European Union", flag: "🇪🇺", group: "European Union" },
+  { code: "MY", name: "Malaysia", flag: "🇲🇾", group: "East Asia" },
+  { code: "CN", name: "China", flag: "🇨🇳", group: "East Asia" },
+  { code: "ID", name: "Indonesia", flag: "🇮🇩", group: "East Asia" },
+  { code: "BR", name: "Brazil", flag: "🇧🇷", group: "South America & Africa" },
+  { code: "ZA", name: "South Africa", flag: "🇿🇦", group: "South America & Africa" },
+  { code: "NG", name: "Nigeria", flag: "🇳🇬", group: "South America & Africa" },
+];
+
+function CountryRolloutSection() {
+  const { toast } = useToast();
+
+  const { data: rollout, isLoading: rolloutLoading } = useQuery<Record<string, boolean>>({
+    queryKey: ["/api/admin/country-rollout"],
+  });
+
+  const { data: usersByCountry } = useQuery<Record<string, number>>({
+    queryKey: ["/api/admin/users-by-country"],
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ code, live }: { code: string; live: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/admin/country-rollout/${code}`, { live });
+      return res.json();
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/country-rollout"] });
+      toast({
+        title: vars.live ? "Country enabled" : "Country hidden",
+        description: `${COUNTRY_META.find((c) => c.code === vars.code)?.name} is now ${vars.live ? "live for all drivers" : "hidden (Coming Soon)"}`,
+      });
+    },
+    onError: () => toast({ title: "Error", description: "Could not update country status", variant: "destructive" }),
+  });
+
+  const presetMutation = useMutation({
+    mutationFn: async (preset: string) => {
+      const res = await apiRequest("POST", "/api/admin/country-rollout/preset", { preset });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/country-rollout"] });
+      toast({ title: "Preset applied", description: `${data.preset} applied — ${data.enabled.length} countries now live` });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to apply preset", variant: "destructive" }),
+  });
+
+  const liveCount = rollout ? Object.values(rollout).filter(Boolean).length : 0;
+
+  return (
+    <Card data-testid="card-country-rollout">
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Globe className="h-4 w-4 text-primary" />
+              Global Rollout Control
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {liveCount}/{COUNTRY_META.length} countries live · Toggle per-country or use a preset
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => presetMutation.mutate("phase1")}
+              disabled={presetMutation.isPending}
+              className="text-xs gap-1.5 touch-manipulation"
+              data-testid="button-preset-phase1"
+            >
+              <Rocket className="h-3.5 w-3.5" />
+              Launch Phase 1
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => presetMutation.mutate("phase2")}
+              disabled={presetMutation.isPending}
+              className="text-xs gap-1.5 touch-manipulation"
+              data-testid="button-preset-phase2"
+            >
+              <Rocket className="h-3.5 w-3.5" />
+              Launch Phase 2
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => presetMutation.mutate("global")}
+              disabled={presetMutation.isPending}
+              className="text-xs gap-1.5 touch-manipulation bg-green-600 hover:bg-green-700 text-white"
+              data-testid="button-preset-global"
+            >
+              <Globe className="h-3.5 w-3.5" />
+              Go Global
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {rolloutLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {COUNTRY_META.map((country, i) => {
+              const isLive = rollout?.[country.code] ?? (country.code === "US" || country.code === "GB");
+              const driverCount = usersByCountry?.[country.code] ?? 0;
+              const isPending = toggleMutation.isPending;
+
+              const prevGroup = i > 0 ? COUNTRY_META[i - 1].group : null;
+              const showGroupHeader = country.group !== prevGroup;
+
+              return (
+                <div key={country.code}>
+                  {showGroupHeader && (
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest pt-3 pb-1 px-1">
+                      {country.group}
+                    </p>
+                  )}
+                  <div
+                    className={`flex items-center justify-between gap-3 p-2.5 rounded-lg transition-colors ${
+                      isLive ? "bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30" : "bg-muted/20 border border-border/30"
+                    }`}
+                    data-testid={`row-country-${country.code}`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl leading-none">{country.flag}</span>
+                      <div>
+                        <p className="text-sm font-medium leading-tight">{country.name}</p>
+                        <p className="text-xs text-muted-foreground leading-tight flex items-center gap-1">
+                          <MapPin className="h-2.5 w-2.5" />
+                          {driverCount} driver{driverCount !== 1 ? "s" : ""} signed up
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5 shrink-0">
+                      <Badge
+                        variant={isLive ? "default" : "secondary"}
+                        className={`text-[10px] px-2 py-0 no-default-active-elevate ${isLive ? "bg-green-600 text-white" : ""}`}
+                        data-testid={`badge-status-${country.code}`}
+                      >
+                        {isLive ? "Live" : "Coming Soon"}
+                      </Badge>
+                      <Switch
+                        checked={isLive}
+                        onCheckedChange={(checked) => toggleMutation.mutate({ code: country.code, live: checked })}
+                        disabled={isPending}
+                        aria-label={`Toggle ${country.name}`}
+                        data-testid={`switch-country-${country.code}`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <Separator className="my-4" />
+
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5" />
+            Drivers by Country
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" data-testid="table-users-by-country">
+              <thead>
+                <tr className="border-b border-border/50">
+                  <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">Country</th>
+                  <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">Drivers</th>
+                  <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COUNTRY_META.filter((c) => (usersByCountry?.[c.code] ?? 0) > 0 || rollout?.[c.code]).map((country) => (
+                  <tr key={country.code} className="border-b border-border/20 hover:bg-muted/10" data-testid={`row-stats-${country.code}`}>
+                    <td className="py-2 px-2">
+                      <span className="mr-1.5">{country.flag}</span>
+                      {country.name}
+                    </td>
+                    <td className="text-right py-2 px-2 font-mono font-semibold">
+                      {usersByCountry?.[country.code] ?? 0}
+                    </td>
+                    <td className="text-right py-2 px-2">
+                      <Badge variant={rollout?.[country.code] ? "default" : "secondary"} className={`text-[10px] no-default-active-elevate ${rollout?.[country.code] ? "bg-green-600 text-white" : ""}`}>
+                        {rollout?.[country.code] ? "Live" : "Hidden"}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+                {usersByCountry?.["UNKNOWN"] && (usersByCountry["UNKNOWN"] > 0) ? (
+                  <tr className="border-b border-border/20">
+                    <td className="py-2 px-2 text-muted-foreground">🌍 Unknown</td>
+                    <td className="text-right py-2 px-2 font-mono">{usersByCountry["UNKNOWN"]}</td>
+                    <td className="text-right py-2 px-2">—</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 text-xs text-blue-800 dark:text-blue-200 space-y-1">
+          <p className="font-semibold">Rollout Presets:</p>
+          <p>• <strong>Phase 1:</strong> US + UK only</p>
+          <p>• <strong>Phase 2:</strong> + Canada, Mexico, Norway, Sweden, Denmark</p>
+          <p>• <strong>Go Global:</strong> All 14 countries live simultaneously</p>
+          <p className="text-blue-600 dark:text-blue-400 mt-1">Settings are saved to the database and persist across server restarts.</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminPage() {
   const { data: metrics, isLoading, error } = useQuery<AdminMetrics>({
     queryKey: ["/api/admin/metrics"],
@@ -1210,6 +1437,8 @@ export default function AdminPage() {
             </CardContent>
           </Card>
         </div>
+
+        <CountryRolloutSection />
 
         <AICommandCenter />
 

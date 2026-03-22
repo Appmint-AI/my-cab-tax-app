@@ -1854,7 +1854,7 @@ export async function registerRoutes(
     res.json(checkin);
   });
 
-  const ADMIN_EMAIL = "admin@mycabtax.com";
+  const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "founder@mycabtax.com";
 
   async function requireAdmin(req: Request, res: Response): Promise<boolean> {
     const userId = (req as any).user?.id;
@@ -3371,6 +3371,93 @@ TOP STATES BY USER COUNT: ${topStates || "No state data available"}
       const { referralSeasons } = await import("@shared/schema");
       const seasons = await db.select().from(referralSeasons).orderBy(referralSeasons.startDate);
       res.json(seasons);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ── Country Rollout Control ──────────────────────────────────────────────────
+  const ALL_ROLLOUT_COUNTRIES = ["US","GB","CA","MX","NO","SE","DK","EU","MY","CN","ID","BR","ZA","NG"];
+
+  app.get("/api/admin/country-rollout", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const { getAdminSetting } = await import("./referral-worker");
+      const result: Record<string, boolean> = {};
+      for (const code of ALL_ROLLOUT_COUNTRIES) {
+        const val = await getAdminSetting(`country_live_${code}`);
+        // Default: US and GB are live; others are hidden unless set
+        result[code] = val !== null ? val === "true" : (code === "US" || code === "GB");
+      }
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/admin/country-rollout/:code", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const code = req.params.code.toUpperCase();
+      if (!ALL_ROLLOUT_COUNTRIES.includes(code)) return res.status(400).json({ message: "Invalid country code" });
+      const { live } = req.body;
+      if (typeof live !== "boolean") return res.status(400).json({ message: "live must be boolean" });
+      const { setAdminSetting } = await import("./referral-worker");
+      await setAdminSetting(`country_live_${code}`, live ? "true" : "false");
+      await storage.createAuditLog({ userId: (req.user as any).claims.sub, action: `country_rollout_${live ? "enabled" : "disabled"}_${code}` });
+      res.json({ code, live });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/country-rollout/preset", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const { preset } = req.body;
+      const { setAdminSetting } = await import("./referral-worker");
+      let codes: string[] = [];
+      if (preset === "phase1") codes = ["US", "GB"];
+      else if (preset === "phase2") codes = ["US", "GB", "CA", "MX", "NO", "SE", "DK"];
+      else if (preset === "global") codes = [...ALL_ROLLOUT_COUNTRIES];
+      else return res.status(400).json({ message: "Unknown preset" });
+      for (const code of ALL_ROLLOUT_COUNTRIES) {
+        await setAdminSetting(`country_live_${code}`, codes.includes(code) ? "true" : "false");
+      }
+      await storage.createAuditLog({ userId: (req.user as any).claims.sub, action: `country_rollout_preset_${preset}` });
+      res.json({ preset, enabled: codes });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/users-by-country", isAuthenticated, async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    try {
+      const rows = await db.select({
+        detectedCountry: users.detectedCountry,
+      }).from(users);
+      const counts: Record<string, number> = { UNKNOWN: 0 };
+      for (const row of rows) {
+        const c = row.detectedCountry || "UNKNOWN";
+        counts[c] = (counts[c] || 0) + 1;
+      }
+      res.json(counts);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Also expose country rollout status as a public endpoint for the frontend
+  app.get("/api/country-rollout", async (req: Request, res: Response) => {
+    try {
+      const { getAdminSetting } = await import("./referral-worker");
+      const result: Record<string, boolean> = {};
+      for (const code of ALL_ROLLOUT_COUNTRIES) {
+        const val = await getAdminSetting(`country_live_${code}`);
+        result[code] = val !== null ? val === "true" : (code === "US" || code === "GB");
+      }
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
