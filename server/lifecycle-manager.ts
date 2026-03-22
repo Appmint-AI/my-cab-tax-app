@@ -72,6 +72,80 @@ const USA_FOOTER = `
   </p>
 `;
 
+const UK_FOOTER = `
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;" />
+  <p style="color:#999;font-size:11px;line-height:1.4;">
+    My Cab Tax &bull; Bookkeeping tool only — not tax advice. Consult a qualified accountant before filing.<br/>
+    HMRC deadlines: Paper return 31 Oct &bull; Online Self Assessment 31 Jan &bull; MTD quarterly submissions apply.<br/>
+    Legal Notices: legal@mycabtax.com &bull; Jurisdiction: England &amp; Wales<br/>
+    <a href="https://mycabtaxusa.com/terms" style="color:#999;">Terms</a> &bull;
+    <a href="https://mycabtaxusa.com/privacy" style="color:#999;">Privacy</a> &bull;
+    <a href="https://mycabtaxusa.com/legal" style="color:#999;">Full Legal Centre</a>
+  </p>
+`;
+
+function buildUKWelcomeEmail(name: string, segment: Segment): { subject: string; html: string } {
+  const label = getSegmentLabel(segment);
+  const tips = getSegmentTips(segment);
+
+  return {
+    subject: `Welcome to My Cab Tax, ${name} — your HMRC head office is ready`,
+    html: `
+      <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a;">
+        <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:32px 24px;border-radius:8px 8px 0 0;">
+          <h1 style="color:#fff;margin:0;font-size:22px;">Welcome aboard, ${name}! 🇬🇧</h1>
+          <p style="color:#93c5fd;margin:8px 0 0;font-size:14px;">${label} Driver &bull; UK Self Assessment</p>
+        </div>
+        <div style="padding:28px 24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+          <p style="font-size:15px;line-height:1.7;margin:0 0 16px;">
+            You've just set up your digital tax head office. My Cab Tax is built for UK drivers navigating 
+            <strong>HMRC Self Assessment</strong>, Making Tax Digital (MTD), and keeping every penny of your allowable expenses.
+          </p>
+
+          <div style="background:#eff6ff;border-left:4px solid #2563eb;padding:14px 16px;border-radius:0 6px 6px 0;margin:0 0 20px;">
+            <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#1e40af;">Your 2026/27 Quick-Start Checklist</p>
+            <ol style="margin:0;padding-left:18px;font-size:13px;line-height:2;color:#1e3a8a;">
+              <li><strong>Log your first expense</strong> — fuel, insurance, phone bills all qualify.</li>
+              <li><strong>Track every mile</strong> — use the HMRC approved rate of 45p/mile (first 10,000 miles).</li>
+              <li><strong>Scan your receipts</strong> — our AI reads them and categorises automatically.</li>
+              <li><strong>Set up quarterly submissions</strong> — stay ahead of the MTD April 2026 mandate.</li>
+            </ol>
+          </div>
+
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:0 0 20px;">
+            <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#166534;">Key UK Deductions for ${label} Drivers</p>
+            <p style="margin:0;font-size:13px;line-height:1.7;color:#15803d;">
+              ${tips.welcomeHighlight} — all trackable inside your dashboard and exported in HMRC-ready format.
+            </p>
+          </div>
+
+          <div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;margin:0 0 24px;">
+            <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#92400e;">📅 Important HMRC Deadlines</p>
+            <ul style="margin:0;padding-left:16px;font-size:13px;line-height:1.9;color:#78350f;">
+              <li>MTD Quarterly submissions — every 3 months from April 2026</li>
+              <li>Online Self Assessment — <strong>31 January 2027</strong></li>
+              <li>Tax payment due — <strong>31 January 2027</strong></li>
+            </ul>
+          </div>
+
+          <div style="text-align:center;margin:0 0 20px;">
+            <a href="https://mycabtaxusa.com" style="display:inline-block;background:#2563eb;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">
+              Open My Dashboard
+            </a>
+          </div>
+
+          <p style="font-size:13px;color:#64748b;margin:0;">
+            Questions? Reply to this email or visit our 
+            <a href="https://mycabtaxusa.com/support" style="color:#2563eb;">Help Centre</a>. 
+            We're here to make your Self Assessment the easiest part of your year.
+          </p>
+          ${UK_FOOTER}
+        </div>
+      </div>
+    `,
+  };
+}
+
 function buildWelcomeEmail(name: string, segment: Segment): { subject: string; html: string } {
   const tips = getSegmentTips(segment);
   const label = getSegmentLabel(segment);
@@ -397,8 +471,13 @@ export async function triggerWelcomeEmail(userId: string): Promise<void> {
 
   const segment = (user.userSegment as Segment) || null;
   const name = user.firstName || "Driver";
-  const emailData = buildWelcomeEmail(name, segment);
-  await sendLifecycleEmail(user.email, emailData, userId, "welcome", segment);
+
+  const isUK = user.detectedCountry === "GB";
+  const emailData = isUK
+    ? buildUKWelcomeEmail(name, segment)
+    : buildWelcomeEmail(name, segment);
+
+  await sendLifecycleEmail(user.email, emailData, userId, "welcome", segment, { region: isUK ? "GB" : "US" });
 }
 
 export async function triggerPaymentReceiptEmail(userId: string, amount: string): Promise<void> {

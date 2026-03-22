@@ -1464,30 +1464,37 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {isUS && <SmallEarnerGate grossIncome={summary.grossIncome} />}
+      {/* ── Desktop two-column layout (≥1024 px) ─────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
 
-      {taxModules.showEstimatedTax && <QuarterlyEstimatedTaxCalculator summary={summary} user={user} />}
+        {/* Left — main analytics column */}
+        <div className="space-y-6 min-w-0">
+          {isUS && <SmallEarnerGate grossIncome={summary.grossIncome} />}
+          {taxModules.showEstimatedTax && <QuarterlyEstimatedTaxCalculator summary={summary} user={user} />}
 
-      <SmartTaxPredictor />
+          <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
+            <DashboardCharts summary={summary} />
+          </div>
 
-      <GoalTracker summary={summary} user={user} />
+          <ProfitabilityHeatmap />
 
-      {isUS && <StateSelector user={user} />}
+          <SmartSummaryMoneySaved summary={summary} />
 
-      <MaintenanceAlerts />
+          <SegmentProTips />
+        </div>
 
-      <WealthForecast summary={summary} />
+        {/* Right — AI insights & tools column */}
+        <div className="space-y-4">
+          <SmartTaxPredictor />
+          <GoalTracker summary={summary} user={user} />
+          {isUS && <StateSelector user={user} />}
+          <MaintenanceAlerts />
+          <WealthForecast summary={summary} />
+        </div>
 
-      <div className="mt-8 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
-        <DashboardCharts summary={summary} />
       </div>
 
-      <ProfitabilityHeatmap />
-
-      <SmartSummaryMoneySaved summary={summary} />
-
-      <SegmentProTips />
-
+      {/* ── Full-width bottom sections ────────────────────────────────────── */}
       <ExportSection summary={summary} mileageLogs={mileageData || []} />
       <SubmissionReadinessChecklist />
       <FinalizeSubmissionSection summary={summary} />

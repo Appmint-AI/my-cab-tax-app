@@ -7,6 +7,7 @@ import { getSegmentConfig } from "@/lib/segment-config";
 import { SUPPORTED_LANGUAGES } from "@/lib/i18n";
 import { RegionDetector } from "@/components/RegionDetector";
 import { VoiceBookkeeper } from "@/components/VoiceBookkeeper";
+import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 import { 
   LayoutDashboard, 
   Wallet, 
@@ -217,6 +218,7 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </main>
       <VoiceBookkeeper />
+      <PwaInstallPrompt />
     </div>
   );
 }
