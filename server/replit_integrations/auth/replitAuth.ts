@@ -75,10 +75,15 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
+function sanitizeEmail(raw: any): string | null {
+  const email = String(raw || "").trim().toLowerCase();
+  return email && email.includes("@") ? email : null;
+}
+
 async function upsertUser(claims: any, detectedCountry?: string | null) {
   const userData: any = {
     id: claims["sub"],
-    email: claims["email"],
+    email: sanitizeEmail(claims["email"]),
     firstName: claims["given_name"] || claims["first_name"] || claims["nickname"] || null,
     lastName: claims["family_name"] || claims["last_name"] || null,
     profileImageUrl: claims["picture"] || claims["profile_image_url"] || null,
@@ -173,7 +178,7 @@ export async function setupAuth(app: Express) {
             if (!existingUser) {
               existingUser = await authStorage.upsertUser({
                 id: userId,
-                email: user.claims?.email,
+                email: sanitizeEmail(user.claims?.email),
                 firstName: user.claims?.given_name || user.claims?.nickname || null,
                 lastName: user.claims?.family_name || null,
                 profileImageUrl: user.claims?.picture || null,
