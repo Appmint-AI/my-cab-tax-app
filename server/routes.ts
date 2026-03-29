@@ -1390,6 +1390,33 @@ export async function registerRoutes(
     res.json({ success: true, segment: parsed.data.segment });
   });
 
+  app.post("/api/user/update-type", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req.user as any)?.claims?.sub;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+
+    const driverType = String(req.body.driverType || "").trim();
+    console.log("Saving driver type:", driverType);
+
+    if (!driverType) {
+      return res.status(400).json({ message: "driverType is required" });
+    }
+
+    const VALID_TYPES = ["taxi", "delivery", "hybrid"] as const;
+    type ValidType = typeof VALID_TYPES[number];
+    const normalised = driverType.toLowerCase() as ValidType;
+    if (!VALID_TYPES.includes(normalised)) {
+      return res.status(400).json({ message: `Invalid driverType. Must be one of: ${VALID_TYPES.join(", ")}` });
+    }
+
+    try {
+      await storage.updateUserSegment(userId, normalised);
+      res.json({ success: true, driverType: normalised });
+    } catch (error) {
+      console.error("Save error:", error);
+      res.status(500).json({ message: "Failed to save selection" });
+    }
+  });
+
   app.patch("/api/jurisdiction", isAuthenticated, async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ message: "Not authenticated" });
