@@ -2101,6 +2101,9 @@ export async function registerRoutes(
       const { count } = await import("drizzle-orm");
       const { lifecycleEmails } = await import("@shared/schema");
 
+      if (!process.env.AI_INTEGRATIONS_GEMINI_API_KEY) {
+        return res.status(503).json({ message: "AI service not configured" });
+      }
       const ai = new GoogleGenAI({
         apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
         httpOptions: {

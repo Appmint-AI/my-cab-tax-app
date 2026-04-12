@@ -11,6 +11,10 @@ export function registerImageRoutes(app: Express): void {
         return res.status(400).json({ error: "Prompt is required" });
       }
 
+      if (!ai) {
+        return res.status(503).json({ error: "AI service not configured. Set AI_INTEGRATIONS_GEMINI_API_KEY." });
+      }
+
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-image",
         contents: [{ role: "user", parts: [{ text: prompt }] }],

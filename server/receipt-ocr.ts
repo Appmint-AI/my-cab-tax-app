@@ -9,6 +9,7 @@ export interface DLOcrResult {
 }
 
 export async function scanDriversLicenseWithAI(imageBuffer: Buffer, mimeType: string): Promise<DLOcrResult> {
+  if (!ai) throw new Error("AI service not configured. Set AI_INTEGRATIONS_GEMINI_API_KEY.");
   const base64 = imageBuffer.toString("base64");
 
   const response = await ai.models.generateContent({
@@ -88,6 +89,7 @@ export interface ReceiptOcrResult {
 }
 
 export async function scanReceiptWithAI(imageBuffer: Buffer, mimeType: string): Promise<ReceiptOcrResult> {
+  if (!ai) throw new Error("AI service not configured. Set AI_INTEGRATIONS_GEMINI_API_KEY.");
   const base64 = imageBuffer.toString("base64");
 
   const response = await ai.models.generateContent({
