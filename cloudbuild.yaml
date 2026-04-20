@@ -1,6 +1,14 @@
+# Cloud Build trigger: use "Cloud Build configuration file" with path `cloudbuild.yaml`
+# (not "Autodetected Dockerfile" alone), so this pipeline also pushes the image and deploys Cloud Run.
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/mycabtax-usa:$COMMIT_SHA', '.']
+    args:
+      - 'build'
+      - '-f'
+      - 'Dockerfile'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/mycabtax-usa:$COMMIT_SHA'
+      - '.'
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/mycabtax-usa:$COMMIT_SHA']
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
